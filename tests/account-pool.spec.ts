@@ -763,3 +763,33 @@ describe('effectiveMembersOf (D6: the ONE definition of effective members)', () 
     expect(effectiveMembersOf(['a', 'a'], new Set(['a']))).toEqual(['a', 'a'])
   })
 })
+
+
+describe('last account reserve', () => {
+  const pool = (outcome?: WorkBuddyPoolMember['probe']) => [
+    member('a', { credits: 10, ...(outcome ? { probe: outcome } : {}) }),
+    member('b', { credits: 0 }),
+    member('reserve', { credits: 10000, expiringSoon: 10000 }),
+  ]
+  it('holds the last account despite its credits and expiry', () => {
+    const rows = rankPool(pool(), NOW, ['a', 'b', 'reserve'], true)
+    expect(rows.find(row => row.account.id === 'reserve')?.excludedBy).toBe('reserved')
+    expect(rows.find(row => !row.excludedBy)?.account.id).toBe('a')
+  })
+  it('allows the last only when every preceding account is limited or empty', () => {
+    const rows = rankPool(pool({ outcome: 'rate-limited', atMs: NOW }), NOW, ['a', 'b', 'reserve'], true)
+    expect(rows.find(row => !row.excludedBy)?.account.id).toBe('reserve')
+  })
+  it('does not treat busy, missing credentials or unknown balance as exhaustion', () => {
+    for (const outcome of ['model-busy', 'credential-rejected', 'failed'] as const) {
+      expect(rankPool(pool({ outcome, atMs: NOW }), NOW, ['a', 'b', 'reserve'], true)
+        .find(row => row.account.id === 'reserve')?.excludedBy).toBe('reserved')
+    }
+    const rows = pool(); delete rows[0]!.credits
+    expect(rankPool(rows, NOW, ['a', 'b', 'reserve'], true).find(row => row.account.id === 'reserve')?.excludedBy).toBe('reserved')
+  })
+  it('locks the last again once a preceding rate limit expires', () => {
+    expect(rankPool(pool({ outcome: 'rate-limited', atMs: NOW - 3600000, retryAtMs: NOW - 1 }), NOW, ['a', 'b', 'reserve'], true)
+      .find(row => row.account.id === 'reserve')?.excludedBy).toBe('reserved')
+  })
+})

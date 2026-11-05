@@ -327,6 +327,7 @@ export const en = {
   'row.poolExcludedOutOfCredit': 'Out of credits',
   'row.poolExcludedRejected': 'Rejected',
   'row.poolExcludedAccountRestricted': 'Account restricted upstream',
+  'row.poolReserved': 'Reserved',
   'row.poolExcludedUnusable': 'Unusable',
   'row.poolRetryAt': 'Back after {at}',
   // Relative form of a stated recovery time. Always shown NEXT TO the absolute
@@ -1004,6 +1005,7 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   'row.poolExcludedOutOfCredit': '积分耗尽',
   'row.poolExcludedRejected': '被拒绝',
   'row.poolExcludedAccountRestricted': '账号被上游限制使用',
+  'row.poolReserved': '备用待启用',
   'row.poolExcludedUnusable': '不可用',
   'row.poolRetryAt': '{at} 之后可再用',
   // 上游给出的恢复时间的「相对说法」。总是与绝对时刻**并列**显示，而不是取代它：

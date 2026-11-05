@@ -1346,7 +1346,8 @@ describe('a recorded 429 moves the serving account to an available one', () => {
     const before = await poolRows('cn')
     const serving = before.find(row => row.current)
     expect(serving, 'no account is serving').toBeDefined()
-    expect(before.every(row => row.excludedBy === undefined)).toBe(true)
+    expect(before.filter(row => row.excludedBy === undefined)).toHaveLength(1)
+    expect(before.some(row => row.excludedBy === 'reserved')).toBe(true)
 
     // The account that was serving answers 429 with the upstream's own reset time.
     const limitedId = serving?.accountId as string

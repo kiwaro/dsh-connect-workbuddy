@@ -136,6 +136,7 @@ export function availabilityLine(
   account: AccountStateInput,
   nowMs: number = Date.now(),
 ): string | undefined {
+  if (account.excludedBy === 'reserved') return t('row.poolReserved')
   const probe = account.probe
   if (probe !== undefined) {
     // A SUCCESS is never waiting, whatever time came with it.
@@ -201,6 +202,7 @@ export function availabilityMark(
   account: AccountStateInput,
   nowMs: number = Date.now(),
 ): string | undefined {
+  if (account.excludedBy === 'reserved') return t('row.poolReserved')
   const probe = account.probe
   if (probe !== undefined) {
     // Same rule as {@link availabilityLine}: a success has no wait to state, so
@@ -243,6 +245,7 @@ function exclusionLabel(t: Translate, excludedBy: WorkBuddyWebPoolExclusion): st
     case 'not-found': return t('row.probeNotFound')
     case 'unavailable': return t('row.probeUnavailable')
     case 'failed': return t('row.probeFailed')
+    case 'reserved': return t('row.poolReserved')
     case 'unusable': return t('row.poolExcludedUnusable')
     default: return t('row.poolExcludedUnusable')
   }

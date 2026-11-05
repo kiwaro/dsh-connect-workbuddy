@@ -79,7 +79,7 @@ interface StatusRouteDependencies {
   readonly checkinStateCache: Partial<Record<WorkBuddyRegion, Record<string, { checkedIn: boolean; atMs: number; }>>>
   readonly CHECKIN_CACHE_MS: number
   readonly benefitStateCache: Partial<Record<WorkBuddyRegion, Record<string, { views: readonly WorkBuddyBenefitView[]; atMs: number; }>>>
-  readonly applyPoolSelection: (region: WorkBuddyRegion) => Promise<void>
+  readonly applyPoolSelection: (region: WorkBuddyRegion) => Promise<boolean>
   readonly servingAccountIsExcluded: (region: WorkBuddyRegion) => Promise<boolean>
   readonly autoCheckinEnabled: (region: WorkBuddyRegion) => boolean
   readonly autoCheckinState: Partial<Record<WorkBuddyRegion, AutoCheckinState>>

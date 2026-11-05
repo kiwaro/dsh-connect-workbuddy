@@ -1406,7 +1406,7 @@ async function workBuddyWebPool(
   const members = fast ? await pool.localMembers?.(region) : await pool.members(region)
   if (members === undefined) return undefined
   const nowMs = Date.now()
-  const ranked = rankPool(members, nowMs, preferences.orderAccountIds)
+  const ranked = rankPool(members, nowMs, preferences.orderAccountIds, true)
   const catalog = pool.catalog?.(region) ?? []
   const target = resolveTargetModel(catalog, preferences.targetModelId)
   const currentAccountId = await pool.currentAccountId?.(region)

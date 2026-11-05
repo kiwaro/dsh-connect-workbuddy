@@ -762,6 +762,12 @@ Copyright in each project above belongs to its respective author. This project f
 
 The open-source projects referenced here, together with their licenses and compliance notes, are recorded in full in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). When introducing new WorkBuddy-related external dependencies or reusing code from other projects, update that file and honor the upstream licenses.
 
+## Last-account reserve
+
+With at least two checked pool accounts, the last account in the saved order is reserved. It becomes eligible only when every preceding account has zero credits, has exhausted its credits, or is still account-rate-limited. Unknown balances, model congestion, and rejected credentials do not unlock it. A recovered preceding account locks the reserve again. Without a separate saved order, the saved member order is used.
+
+Selection before a request, failover, and the displayed pool state use this rule. Failed attempts are recorded before selecting a replacement. If selection cannot be evaluated, the request stops; a locked reserve cannot be reached by falling back to the saved account.
+
 ## Local integration updates
 
 The credit panel provides a Switch button for each account and marks the active account as In use. Successful manual switching shows the target account in the panel; automatic failover identifies the original account, reason, and serving account before the answer. Recovery time is shown only when available.

@@ -196,7 +196,7 @@ export interface WorkBuddyShimOptions {
    *
    * Absent means the store's own selection always serves.
    */
-  prepareAccount?: () => Promise<void>
+  prepareAccount?: () => Promise<void | boolean>
   /**
    * Called for every attempt that failed upstream, before the next one is tried.
    *
@@ -206,8 +206,8 @@ export interface WorkBuddyShimOptions {
    * the next request picks it again and pays the same failed round trip before
    * failing over.
    *
-   * Fired without awaiting: a slow write must never delay the retry the user is
-   * waiting on, and the measurement only matters for LATER requests.
+   * Awaited before choosing the next account, so reserve eligibility uses the
+   * failure learned by this request.
    */
   onAccountFailure?: (accountId: string, failure: {
     status: number
@@ -222,7 +222,7 @@ export interface WorkBuddyShimOptions {
      * single-model result as account-level availability.
      */
     modelId?: string
-  }) => void
+  }) => void | Promise<void>
   /**
    * Called with the FINAL serialized body of every chat request, just before it
    * goes upstream (issue #59).
@@ -720,13 +720,16 @@ export function createWorkBuddyShim(options: WorkBuddyShimOptions): WorkBuddyShi
       writeOpenAIError(res, 415, 'unsupported_media_type', 'Content-Type must be application/json')
       return
     }
-    // Let the plugin point the store at whoever the pool's ranking picks for
-    // this request BEFORE resolving. Failure is not fatal: the request then goes
-    // to whatever the store already had, which is the user's own account — the
-    // same behaviour as a plugin with no pool at all.
-    await prepareAccount?.().catch(error => {
+    // 请求前先确认候选。规则不允许或查询失败时停止，避免使用保存账号绕过备用限制。
+    const accountReady = await prepareAccount?.().catch(error => {
       logger?.warn('dsh-connect-workbuddy: pool account selection failed', error)
+      return false
     })
+
+    if (accountReady === false) {
+      writeOpenAIError(res, 429, 'quota_exceeded', '前序账号尚未全部限流或积分耗尽，备用账号暂不使用；当前没有可用账号', undefined, NO_RETRY_HEADERS)
+      return
+    }
 
     let credential
     try {
@@ -899,16 +902,17 @@ export function createWorkBuddyShim(options: WorkBuddyShimOptions): WorkBuddyShi
      * next request must avoid, so reporting only the attempts that had a
      * successor would miss the case that matters most.
      *
-     * Reported after the loop rather than inside it, so the account that broke
-     * out of the loop is not also reported by the post-loop call. Not awaited: the
-     * user is waiting on the retry, and the write only affects later requests.
+     * 换号前等待记录完成，使本次请求可根据新失败状态判断备用资格。
+     * recordedResults 防止循环内外重复记录同一个失败结果。
      */
     const failures: Array<{ accountId: string, failure: WorkBuddyChatResult }> = []
+    const recordedResults = new Set<WorkBuddyChatResult>()
     const recordAttempt = (credential: WorkBuddyCredential, failure: WorkBuddyChatResult): void => {
-      if (failure.ok) return
+      if (failure.ok || recordedResults.has(failure)) return
+      recordedResults.add(failure)
       failures.push({ accountId: workbuddyAccountId(credential), failure })
     }
-    const reportFailures = (): void => {
+    const reportFailures = async (): Promise<void> => {
       // Drain FIRST, unconditionally. A second call (the markup-only retry path
       // reports its own attempts) must never re-report a measurement that was
       // already stored, and every early return below has to consume what it
@@ -932,7 +936,7 @@ export function createWorkBuddyShim(options: WorkBuddyShimOptions): WorkBuddyShi
       for (const entry of batch) {
         if (entry.failure.ok) continue
         try {
-          onAccountFailure(entry.accountId, {
+          await onAccountFailure(entry.accountId, {
             status: entry.failure.status,
             kind: entry.failure.kind,
             message: entry.failure.message,
@@ -950,6 +954,7 @@ export function createWorkBuddyShim(options: WorkBuddyShimOptions): WorkBuddyShi
       if (controller.signal.aborted) break
       recordAttempt(credential, result)
       triedAccountIds.push(workbuddyAccountId(credential))
+      await reportFailures()
       const next = await failoverAccount(triedAccountIds).catch(() => undefined)
       if (next === undefined) break
       // The policy is expected to skip what was already tried, and the shim does
@@ -991,7 +996,7 @@ export function createWorkBuddyShim(options: WorkBuddyShimOptions): WorkBuddyShi
     if (failures.length === 0 || failures[failures.length - 1]?.accountId !== workbuddyAccountId(credential)) {
       recordAttempt(credential, result)
     }
-    reportFailures()
+    await reportFailures()
 
     if (!result.ok) {
       // Say how many accounts were tried when more than one was: without it, a
@@ -1360,7 +1365,7 @@ export function createWorkBuddyShim(options: WorkBuddyShimOptions): WorkBuddyShi
           retried.creditAccount = workbuddyAccountId(retryCredential)
           await retried.consume(attempt.response.body)
           retried.finish()
-          reportFailures()
+          await reportFailures()
           return
         }
         recordAttempt(retryCredential, attempt)
@@ -1378,7 +1383,7 @@ export function createWorkBuddyShim(options: WorkBuddyShimOptions): WorkBuddyShi
     }
 
     writer.finish()
-    reportFailures()
+    await reportFailures()
   }
 
   return {

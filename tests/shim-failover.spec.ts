@@ -534,7 +534,7 @@ describe('the pool decides who serves the FIRST attempt', () => {
     expect(order).toEqual(['prepare', 'resolve', 'chat:other'])
   })
 
-  it('still serves the request when the pool lookup fails', async () => {
+  it('stops when the pool cannot confirm reserve eligibility', async () => {
     // Routing is an optimisation, not a gate. A pool that cannot be read (a
     // corrupt probe file, a store hiccup) must degrade to the account the store
     // already had rather than failing the user's request.
@@ -554,8 +554,8 @@ describe('the pool decides who serves the FIRST attempt', () => {
     })
     await shim.ready
     const response = await chat(shim)
-    expect(response.status).toBe(200)
-    expect(sent).toEqual(['selected'])
+    expect(response.status).toBe(429)
+    expect(sent).toEqual([])
     expect(warn).toHaveBeenCalled()
   })
 })

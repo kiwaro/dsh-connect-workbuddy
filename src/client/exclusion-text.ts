@@ -33,6 +33,7 @@ export function exclusionText(
     case 'not-found': return t('row.probeNotFound')
     case 'unavailable': return t('row.probeUnavailable')
     case 'failed': return t('row.probeFailed')
+    case 'reserved': return t('row.poolReserved')
     case 'unusable': return t('row.poolExcludedUnusable')
     default: return undefined
   }

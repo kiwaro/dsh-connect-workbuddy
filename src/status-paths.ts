@@ -1706,6 +1706,7 @@ export interface WorkBuddyWebTpsAnswer {
 
 /** Why one account is currently out of the pool. */
 export type WorkBuddyWebPoolExclusion =
+  | 'reserved'
   | 'unusable'
   | 'rate-limited'
   /**

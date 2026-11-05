@@ -191,6 +191,7 @@ export interface WorkBuddyPoolMember {
  * (wait / re-auth / top up), and the card has to say which one applies.
  */
 export type WorkBuddyPoolExclusion =
+  | 'reserved'
   | 'unusable'
   | 'rate-limited'
   | 'model-busy'
@@ -452,6 +453,7 @@ export function rankPool(
   members: readonly WorkBuddyPoolMember[],
   nowMs: number,
   orderAccountIds?: readonly string[],
+  reserveLast = false,
 ): WorkBuddyPoolRanked[] {
   // The user's manual order, as a position lookup so missing ids (and accounts
   // never listed) map consistently to "sorted last". Position 0 is "first".
@@ -461,8 +463,14 @@ export function rankPool(
   for (const [index, id] of (orderAccountIds ?? []).entries()) {
     if (!order.has(id)) order.set(id, index)
   }
+  const ordered = [...members].sort((a, b) => (order.get(a.account.id) ?? Infinity) - (order.get(b.account.id) ?? Infinity))
+  const reserveId = reserveLast && ordered.length > 1 ? ordered.at(-1)?.account.id : undefined
+  const reserveAllowed = ordered.slice(0, -1).every(member =>
+    member.credits?.total === 0 || ['rate-limited', 'out-of-credit'].includes(exclusionOf(member.probe, nowMs) ?? ''))
   const rows = members.map(member => {
-    const excludedBy = exclusionOf(member.probe, nowMs)
+    const excludedBy = reserveLast && member.credits?.total === 0 ? 'out-of-credit'
+      : member.account.id === reserveId && !reserveAllowed ? 'reserved'
+      : exclusionOf(member.probe, nowMs)
     return {
       account: member.account,
       score: scoreOf(member),

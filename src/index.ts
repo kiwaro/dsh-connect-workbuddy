@@ -531,7 +531,7 @@ export function apply(ctx: Context, config: Config): void {
       // Record what a live request learned, so the NEXT one starts from an
       // account that works instead of re-discovering this failure.
       onAccountFailure: (accountId, failure) => {
-        void recordAccountFailure(region, accountId, failure)
+        return recordAccountFailure(region, accountId, failure)
       },
     })
     stacks[region] = { store, catalog, shim, rosterSeen }
@@ -1637,7 +1637,7 @@ export function apply(ctx: Context, config: Config): void {
     // The saved manual order, so failover honors the user's preference order
     // (issue #70's expiry guard still outranks it, inside `rankPool`).
     const order = poolPreferencesOf(current(), region).orderAccountIds
-    for (const row of rankPool(await localPoolMembers(region), Date.now(), order)) {
+    for (const row of rankPool(await localPoolMembers(region), Date.now(), order, true)) {
       // `excludedBy` carries the reason a measurement rules an account out.
       // Skipping on it is what makes "try until none is usable" mean usable
       // rather than merely "not yet tried": re-hitting an account the upstream
@@ -1874,19 +1874,18 @@ export function apply(ctx: Context, config: Config): void {
    * request still goes out (to the user's account when the pool is off, which is
    * the safe default).
    */
-  const applyPoolSelection = async (region: WorkBuddyRegion): Promise<void> => {
+  const applyPoolSelection = async (region: WorkBuddyRegion): Promise<boolean> => {
     const store = stacks[region].store
     if (!poolPreferencesOf(current(), region).enabled) {
       store.setRotatedAccount(undefined)
-      return
+      return true
     }
-    const winner = rankPool(await localPoolMembers(region), Date.now(), poolPreferencesOf(current(), region).orderAccountIds)
-      .find(row => row.excludedBy === undefined)
-    // Nobody usable is NOT "no account": clearing the override hands the REQUEST
-    // to the saved selection, and the failure is then reported honestly instead of
-    // being masked by a pool with nothing better to offer. (The card does not
-    // present that fallback as healthy — see `servingAccountIsExcluded`.)
+    const ranked = rankPool(await localPoolMembers(region), Date.now(), poolPreferencesOf(current(), region).orderAccountIds, true)
+    const winner = ranked.find(row => row.excludedBy === undefined)
+    // 备用未解锁且没有前序候选时返回 false，阻止请求回退到保存账号。
+    // 其他没有候选的情况保留原有选择回退行为。
     store.setRotatedAccount(winner?.account.id)
+    return winner !== undefined || !ranked.some(row => row.excludedBy === 'reserved')
   }
 
   /**
@@ -1905,7 +1904,7 @@ export function apply(ctx: Context, config: Config): void {
     const credential = await stacks[region].store.current().catch(() => undefined)
     if (credential === undefined) return false
     const servingId = workbuddyAccountId(credential)
-    const row = rankPool(await localPoolMembers(region), Date.now(), poolPreferencesOf(current(), region).orderAccountIds)
+    const row = rankPool(await localPoolMembers(region), Date.now(), poolPreferencesOf(current(), region).orderAccountIds, true)
       .find(candidate => candidate.account.id === servingId)
     // Not a member at all (unchecked, or the pool is empty) means the pool has no
     // opinion, so it must not assert one.
@@ -2013,7 +2012,7 @@ export function apply(ctx: Context, config: Config): void {
       // consumers of this type rely on absence meaning "never chose".
       ...probeInputTokens === undefined ? {} : { probeInputTokens },
       memberAccountIds: pool?.memberAccountIds ?? [],
-      orderAccountIds: pool?.orderAccountIds ?? [],
+      orderAccountIds: pool?.orderAccountIds?.length ? pool.orderAccountIds : pool?.memberAccountIds ?? [],
       // `=== true`, not `?? false`: an older profile has no key at all, and an
       // absent answer must read as OFF — this switch authorises a real WRITE.
       autoCheckin: pool?.autoCheckin === true,
