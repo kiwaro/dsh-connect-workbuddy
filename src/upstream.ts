@@ -585,7 +585,7 @@ const VIDEO_POLL_INTERVAL_MS = 5_000
  *
  * 比 {@link VIDEO_TIMEOUT_MS} 短 60s：工具层给的是一个更短的 signal
  * （`VIDEO_TOOL_TIMEOUT_MS`），两者叠在一起时**这个检查要先生效**，才能带着
- * task id 抛出 `POLL_TIMEOUT`。曾经的 600s 与宿主工具上限相等，先在宿主那边
+ * task id 抛出 `POLL_TIMEOUT`。曾经的 600s 与 DSH 工具上限相等，先在 DSH 那边
  * 掐断，于是用户只看到 `tool call timed out after 600000ms`（issue #187）。
  */
 const VIDEO_POLL_TIMEOUT_MS = 540_000

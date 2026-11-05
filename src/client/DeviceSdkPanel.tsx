@@ -100,7 +100,7 @@ export function DeviceSdkPanel(props: DeviceSdkPanelProps): ReactElement | null 
     try {
       const next = refresh ? await refreshDeviceSdk(path) : await fetchDeviceSdk(path)
       setReport(next)
-      // 总开关随快照一起回来，读到就同步；读不到（老宿主）保持 `undefined` = 不可用。
+      // 总开关随快照一起回来，读到就同步；读不到（老 DSH）保持 `undefined` = 不可用。
       if (next?.sdkEnabled !== undefined) setSdkMasterEnabled(next.sdkEnabled)
       // 重取会换一枚 token，之前显示的那份已经不是它了。
       if (refresh) { setValue(undefined); setCopied(false) }

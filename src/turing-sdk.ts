@@ -20,7 +20,7 @@
  *
  * ## 为什么要子进程
  *
- * SDK 是原生插件（N-API），加载它会绑定宿主进程：一次 ABI/缺 DLL/被替换的失败
+ * SDK 是原生插件（N-API），加载它会绑定所在进程：一次 ABI/缺 DLL/被替换的失败
  * 就是插件进程的失败，而不是"设备头不可用"；它的 Promise 没有 cancel，一次超时
  * 会把句柄留在进程里。子进程把这两件事都降级成"这一条命令失败"，父进程杀掉它
  * 就是干净的收场。代价是每次冷启动多一次进程创建（本机实测 ~6 ms）。
@@ -208,7 +208,7 @@ function workerPath(): string {
  * 并经桌面端自己的 SDK 副本取到 1174 字符真 token。另经 app.asar 解包核对：
  * `native/turing-sdk` 在 asar 头里标 `unpacked`，实体只在 `app.asar.unpacked`
  * 一侧，两条路径就是全部分布。注意 DSH Desktop / DSH NEXT 本身是另一种应用、
- * **不含**这份 SDK——发现的搜索对象是 WorkBuddy 桌面端，不是运行宿主。
+ * **不含**这份 SDK——发现的搜索对象是 WorkBuddy 桌面端，不是运行 DSH。
  */
 function installedSdkDirFromExecutable(platform: string, executable: string): string | undefined {
   if (platform === 'win32') {
@@ -232,15 +232,15 @@ export function hasTuringSdkBinding(
   platform: string = process.platform,
 ): boolean {
   // 分隔符按**数据**的平台选，再兜底试**另一种**拼法：Windows API 本来就接受
-  // `/`，而注入 platform 的测试喂的可能是宿主形状的目录（docs/WINDOWS.md 的铁律，
-  // `at-rest.ts` 有前科：宿主 join 拼出混分隔符路径，永不命中）。
+  // `/`，测试传入的目录可能采用运行平台的路径格式（docs/WINDOWS.md 的铁律，
+  // `at-rest.ts` 有前科：运行平台的 join 拼出混分隔符路径，永不命中）。
   //
-  // 兜底的是「另一种分隔符」，不是「宿主的 join」——这是两者在 Windows 宿主上的
-  // 全部区别：`process.platform === 'win32'` 时宿主 join 就是 `win32.join`，于是
+  // 兜底的是「另一种分隔符」，不是「运行平台的 join」——这是两者在 Windows 运行平台上的
+  // 全部区别：`process.platform === 'win32'` 时运行平台的 join 就是 `win32.join`，于是
   // 那句 `hostPath !== dataPath` 恒为假，兜底分支被整个短路掉。结果是这个函数的
   // 行为随**跑它的机器**变化：同样的 `(dir, exists, 'win32')` 在 macOS 上会试
   // 两种拼法、在 Windows 上只试一种。改成显式取另一种拼法后，答案只由参数决定，
-  // 与宿主无关（RELEASING.md §2.5）。
+  // 与执行测试的操作系统无关（RELEASING.md §2.5）。
   const parts = ['build', 'Release', 'turing_sdk.node'] as const
   const dataJoin = platform === 'win32' ? win32.join : posix.join
   const alternateJoin = platform === 'win32' ? posix.join : win32.join
@@ -256,7 +256,7 @@ export function hasTuringSdkBinding(
  * 候选来自 `at-rest.ts` 的同一套安装形状（env 覆盖 → 默认布局；win32 再加
  * 卸载注册表这一路，覆盖装在非默认盘的情况）。所有 win32 路径都用
  * `path.win32`、darwin 用 `path.posix` 拼：这些是**数据**规定的分隔符，
- * 用宿主的 `join` 会在 macOS CI 上产出永不存在的混分隔符路径（docs/WINDOWS.md
+ * 用运行平台的 `join` 会在 macOS CI 上产出永不存在的混分隔符路径（docs/WINDOWS.md
  * 的铁律，`at-rest.ts` 里已有前科）。
  *
  * 每个注入参数都是测试缝（RELEASING.md §2.5：断言不能钉住跑测试的机器）：
@@ -496,7 +496,7 @@ export interface WorkBuddyDeviceSdkPort {
    * **测量**。混在一起会让"读一次快照"变成一次可能失败的配置读，而这一页最该
    * 做到的事就是"打不开也能告诉你是谁坏了"。
    *
-   * `write` 返回 `false` 表示这个宿主没有 settings 服务（老宿主），卡片据此把
+   * `write` 返回 `false` 表示这个 DSH 没有 settings 服务（老 DSH），卡片据此把
    * 开关置灰，而不是显示一个点了没反应的勾选框。
    */
   readEnabled(): Promise<boolean | undefined>
@@ -512,7 +512,7 @@ export function createDeviceSdkPort(options: {
   sdk: TuringSdk
   mode: () => Promise<WorkBuddyDeviceMode>
   /**
-   * 总开关的读写。`undefined` = 这个宿主没有 settings 服务，卡片把开关置灰。
+   * 总开关的读写。`undefined` = 这个 DSH 没有 settings 服务，卡片把开关置灰。
    *
    * 用回调而不是布尔值：开关会热更新（`asVolatile`），句柄是挂载时建的。
    */
@@ -611,7 +611,7 @@ export function createTuringSdk(options: {
    * 每次**现读**开关，不在构造时求值一次。
    *
    * 开关是 `asVolatile` 的配置项，热更新后会变；而句柄活到卸载。钉死一次会让
-   * "关掉开关"必须重启宿主才生效——那与这个开关存在的理由（随时能停）矛盾。
+   * "关掉开关"必须重启 DSH 才生效——那与这个开关存在的理由（随时能停）矛盾。
    *
    * 未传 `enabled` 时回落到环境变量（{@link TURING_SDK_ENABLED_ENV}）：那是给
    * `doctor` 这种读不到插件配置的独立进程用的。插件永远显式传，所以两边不会打架。
@@ -719,7 +719,7 @@ export function createTuringSdk(options: {
     }
     let info: TuringSdkInfo
     // 门与发现链用**同一个**数据平台拼路径（`platform`）：dir 要么来自发现链
-    // （win32 形状），要么是调用方给的宿主原生路径。混用宿主 join 会让注入
+    // （win32 形状），要么是调用方给的运行平台原生路径。混用运行平台的 join 会让注入
     // platform:'win32' 的测试永远拼不出它自己的假目录——正是这条曾以
     // `darwin-arm64 !== win32-x64` 红过的那个坑（RELEASING.md §2.5）。
     if (dir === '' || !hasTuringSdkBinding(dir, exists, platform)) {
@@ -878,14 +878,14 @@ export function createTuringSdk(options: {
     }
     if (!keepAliveActive) return
     keepAliveTimer = setTimeout(() => { void tick() }, nextDelayMs())
-    // 后台预热不该把宿主进程钉在运行状态（Node 语义；测试里的假定时器没有它）。
+    // 后台预热不该把 DSH 进程钉在运行状态（Node 语义；测试里的假定时器没有它）。
     keepAliveTimer.unref?.()
   }
 
   return {
     info: probe,
     startAutoRefresh(): void {
-      // 关掉时连定时器都不建：一个永远 early-return 的链仍然会让宿主进程多一条
+      // 关掉时连定时器都不建：一个永远 early-return 的链仍然会让 DSH 进程多一条
       // 待唤醒的句柄，而"关掉"最该省掉的正是这种残余。
       if (!isEnabled()) return
       if (keepAliveActive) return

@@ -852,7 +852,7 @@ export const WORKBUDDY_CARD_CSS = `
    shown when credentials leave the machine. Kept independent of the bar
    classes so the dialog does not depend on the bar's layout to be readable. */
 /* 辅助说明文字的**唯一**入口。字号与行高必须写死在这里，不能靠继承：
-   这个类同时被用在 <p> 与 <span> 上，而 <p> 在宿主里带默认段落样式，于是
+   这个类同时被用在 <p> 与 <span> 上，而 <p> 在 DSH 里带默认段落样式，于是
    同一句说明在两处会长成两种大小（实测截图里 SDK 那两段比周围 12px 的辅助
    文字大了一圈，正是这个原因）。全仓其它 hint 类都写了 12px/18px，这里补齐。 */
 .dsm-workbuddy-hint{color:var(--dsw-alias-label-tertiary,#999);font-size:12px;line-height:18px}
@@ -971,7 +971,7 @@ export const WORKBUDDY_CARD_CSS = `
   color:var(--dsw-alias-bg-base,#181818);
   font-weight:600;
 }
-/* 兜底：万一宿主没注入 bg-base，回落值也得跟着主题走，否则亮色主题下会变成
+/* 兜底：万一 DSH 没注入 bg-base，回落值也得跟着主题走，否则亮色主题下会变成
    "深底 + 深字"。变量在的时候这一段不生效。 */
 @media (prefers-color-scheme: light){
   .dsm-workbuddy-device-seg-on{background:var(--dsw-alias-label-primary,#202020);color:var(--dsw-alias-bg-base,#fff)}

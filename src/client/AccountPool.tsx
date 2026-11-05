@@ -233,7 +233,7 @@ export interface AccountPoolProps {
    * 「真实值」档在这台机器上能不能真的工作（Host 判定）。
    *
    * 缺席 = 老 Host 没这一项，此时**不禁用**任何东西：读不到就替用户做决定，会让
-   * 一个本来可用的功能在旧宿主上凭空消失。
+   * 一个本来可用的功能在旧 DSH 上凭空消失。
    */
   realTier?: RealTierAvailability
   /**

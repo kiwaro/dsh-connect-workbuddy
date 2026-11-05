@@ -5,7 +5,7 @@
  * 参考：corrinehu/dsh-workbuddy-connect（MIT，Copyright (c) 2026 Corrine Hu）
  *   — 三个子命令（`doctor` / `status` / `logout`）、`--json` 输出、
  *     `safeMessage` 脱敏、schemaVersion 字段、以及
- *     「宿主心跳 + 桌面端凭据文件 + 登录态」三项联合诊断的结构，
+ *     「DSH 心跳 + 桌面端凭据文件 + 登录态」三项联合诊断的结构，
  *     均由该项目设计。
  * 改动：凭据诊断由单文件扩展为「目录扫描 + 按账号分组」，
  *     doctor 会列出发现的每个账号及其文件来源，便于确认多账号是否可用；

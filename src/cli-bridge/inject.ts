@@ -164,7 +164,7 @@ export function composeContinuation(reply: string, meta: ContinuationMeta = {}):
 
   const lines: Array<string | null> = [
     PROVENANCE_LINE,
-    '本机 CodeBuddy CLI 已完成任务。',
+    'CodeBuddy CLI 已完成任务。',
     dir === '' ? null : `工作目录：${dir}`,
     scope === '' ? null : `任务要求：${scope}`,
     '',

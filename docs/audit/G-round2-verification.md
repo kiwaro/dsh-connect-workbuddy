@@ -1,4 +1,6 @@
-# G — Round-2 verification (adversarial, teammate `round2-verify`)
+# Account-pool verification: round 2
+
+Historical scope: this report records the frozen round-2 revision. Hashes, paths and test counts refer to that snapshot; subsequent fixes are recorded in [E-fix-log.md](E-fix-log.md).
 
 **Subject revision** — the Lead's frozen round-2 revision. Every hash below was compared
 immediately before and after the runs; all eight matched, so nothing here was measured against a
@@ -277,4 +279,4 @@ bash /tmp/r2ver/mutate.sh                                             # 21 mutan
 All four suites isolate `DSH_HOME`, `HOME`, `USERPROFILE`, `LOCALAPPDATA`, `APPDATA` and
 `XDG_CONFIG_HOME` into per-run temp directories (`vitest.config.ts:39` does the same for the repo
 suite), so no real `~/.dsh` state is touched. Every mutation copy lives under `/tmp`; the frozen
-revision is byte-identical to §0 after the runs.
+revision is byte-identical to the opening hash table after the runs.

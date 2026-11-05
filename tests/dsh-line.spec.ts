@@ -20,7 +20,7 @@ import { describe, expect, it } from 'vitest'
  * `reportSkippedBundles` 打到 stderr。它不是崩溃，是**静默消失**——provider 不注册、
  * 卡片不出现、模型列表清空，页面上没有任何提示。
  *
- * 本次复核已经在本机实测到这条路径**正在生效**：0.2.0-rc.1 宿主上，`dsh-rewind-plugin`
+ * 本次复核已经在本机实测到这条路径**正在生效**：0.2.0-rc.1 DSH 上，`dsh-rewind-plugin`
  * (`^0.1.7-rc.2`)、`dsh-free-search` (`^0.1.7-rc.1`)、`dsh-better-reasoning-effort`、
  * `@changfenhuang/dsh-genui` 四个组合包都因此**没有出现在实时组合里**
  * （`listConfigs` 共 203 条，其中无一条来自它们；同 profile 内 peer 全通过的包全部在场）。
@@ -244,19 +244,19 @@ describe('declared DSH host line', () => {
     //     更新说明，而不是静默漂移；
     //   - 若有人「修」比较器把它判成 true，这条同样变红。
     //
-    // 为什么 rc 宿主上插件照常加载（0.2.1-rc.3 实测）——**原因是宿主的判定口径**，
+    // 为什么 rc DSH 上插件照常加载（0.2.1-rc.3 实测）——**原因是 DSH 的判定口径**，
     // 不是链接方式。`evaluatePluginCompatibility()`（`dsh-app-boot/lib/index.js`）
     // 用 `semver.satisfies(rt, range, { includePrerelease: true })` 求值（其内部
     // `:276` 的 `satisfies` 包装即带该第三参数）。因此 `0.2.1-rc.3` 对现声明判
-    // **true**，兼容闸门从未拦过 rc 宿主。
+    // **true**，兼容闸门从未拦过 rc DSH。
     //
     // ⚠️ 此处原先写的是「闸门只校验 `@deepseek-ai/dsh*` 命名空间；profile 用
-    // `link:` 且默认不自动装 peer，所以 rc 宿主照常加载」。那个解释是**错的**：
+    // `link:` 且默认不自动装 peer，所以 rc DSH 照常加载」。那个解释是**错的**：
     // 闸门确实校验，只是用 `includePrerelease` 放过。本用例钉的「裸 semver 判
     // false」始终成立，错的只是对**为什么没被拦**的归因，现已按实测订正。
     //
     // 范围本身仍不改：`includePrerelease` 也会放行 `0.3.0-rc.1`，而 `<0.3.0-0`
-    // 把它挡住（见下一条用例）。等宿主发 `0.2.1` GA，现声明同样放行。
+    // 把它挡住（见下一条用例）。等 DSH 发 `0.2.1` GA，现声明同样放行。
     const declared = declaredRange()
     expect(satisfiesRange('0.2.1-rc.1', declared)).toBe(false)
     expect(satisfiesRange('0.2.0-rc.1', declared)).toBe(false)
@@ -337,15 +337,15 @@ describe('host-range policy is written down where releases read it', () => {
 
   it('keeps the host-range check in the release flow', () => {
     const releasing = read('RELEASING.md')
-    expect(releasing).toContain('宿主范围核对')
+    expect(releasing).toContain('DSH 版本兼容性核对')
     expect(releasing).toContain(UPPER_BOUND)
     // 必须说明 -0 的理由，否则下一个人会「顺手」把它删成 <0.3.0。
     expect(releasing).toContain('-0')
   })
 
   it('keeps the supported-range table in both READMEs', () => {
-    expect(read('README.md')).toContain('受支持的宿主范围')
-    expect(read('README.en.md')).toContain('Supported host range')
+    expect(read('README.md')).toContain('支持的 DSH 版本')
+    expect(read('README.en.md')).toContain('Supported DSH versions')
     // 两语的表都必须点名被拒绝的那条线，而不是只写好话。
     for (const doc of ['README.md', 'README.en.md']) {
       expect(read(doc), doc).toContain('0.3.0-0')

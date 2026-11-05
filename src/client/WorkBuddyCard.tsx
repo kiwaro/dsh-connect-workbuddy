@@ -9,14 +9,14 @@
  *   折叠卡片外壳与 `settings.plugin.item` 槽位形态来自
  *   dingminhua/dsh-subagent-default-model（MIT）。
  * 改动：
- *   0. 折叠箭头改用纯 CSS caret（理由见 styles.ts）：两版宿主的图标命名族
+ *   2. 折叠箭头改用纯 CSS caret（理由见 styles.ts）：两版 DSH 的图标命名族
  *      不同，静态导入必挂一边。此前沿用的 `IconChevronDownOutline14` 已
  *      随该改动移除，故不再计入上方参考项。
- *   1. 积分区改为「合计 + 按套餐名聚合的进度条」，因为实测单个账号下
+ *   3. 积分区改为「合计 + 按套餐名聚合的进度条」，因为实测单个账号下
  *      同名套餐可达 19 个，逐条渲染会淹没卡片（原项目按上游条目直出）；
- *   2. 模型行补上 WorkBuddy 上游给出的积分倍率、多模态与推理档位；
- *   3. 移除与 WorkBuddy 上游无关的 1M 变体勾选；
- *   4. 双 provider 化后卡片顶部为「国内版 / 国际版」tab 栏 —— 每个 tab
+ *   4. 模型行补上 WorkBuddy 上游给出的积分倍率、多模态与推理档位；
+ *   5. 移除与 WorkBuddy 上游无关的 1M 变体勾选；
+ *   6. 双 provider 化后卡片顶部为「国内版 / 国际版」tab 栏 —— 每个 tab
  *      是一个独立供应商（workbuddy / workbuddy-global），账号、积分、
  *      模型目录与草稿完全按区域隔离，切 tab 不丢另一侧未保存的草稿。
  *

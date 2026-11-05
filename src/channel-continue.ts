@@ -12,9 +12,9 @@
  * 它被 `classifyUpstreamError` 判成 `channel_reject`（`src/upstream.ts`），而这个类
  * **刻意不换号**（`isFailoverWorthy`，`src/shim.ts`）：网关匹配的是请求里消息的开头，
  * 换账号只会每个账号白烧一次真实请求。所以插件在同一请求内跑完三级救援阶梯
- * （`forceNeutralHead` → 一次零宽扰动 → 密集零宽扰动）之后，就把 400 原样交给宿主。
+ * （`forceNeutralHead` → 一次零宽扰动 → 密集零宽扰动）之后，就把 400 原样交给 DSH。
  *
- * 宿主也不会替我们重发：`channel_reject` 走的是 400，`code` 又是它不认识的字符串，
+ * DSH 也不会替我们重发：`channel_reject` 走的是 400，`code` 又是它不认识的字符串，
  * 不在 `DEFAULT_RETRYABLE_CODES` 里，于是这一轮直接结束，用户看到的正是上面那句。
  *
  * ## 为什么它过去看起来可能成功（只对随轮次变化的窄情况）
@@ -22,7 +22,7 @@
  * `docs/PINNED-11128-RETRY.md` §2 记录了两条互相矛盾的事实：插件自己在
  * `perturbChannelFingerprints` 旁的注释说「给定提示词被拒是确定性的」，而现场报告
  * （#87–#98、#113）反复出现「把这条消息再发一次就过了」。二者都能成立，原因是**每
- * 一次新回合都是一份新的请求**：宿主会把当前 surface 重新组装、注入块的位置与内容
+ * 一次新回合都是一份新的请求**：DSH 会把当前 surface 重新组装、注入块的位置与内容
  * 可能变化、插件也可能因为学到偏好而从第一发就带扰动。所以「重发一次」不是把被拒
  * 的字节原样再塞一遍（那才是真正的浪费），而是**开一个新回合**。
  *
@@ -90,8 +90,8 @@ const MAX_CONSECUTIVE_CEILING = 10
 /**
  * 发出前的等待。
  *
- * `turn/end` 是在回合**已经收尾**之后追加的，但宿主紧接着还要把这一步的状态落定；
- * 立刻 `followup` 有机会撞上宿主自己的收尾动作。300ms 是 `dsh-purge` 的
+ * `turn/end` 是在回合**已经收尾**之后追加的，但 DSH 紧接着还要把这一步的状态落定；
+ * 立刻 `followup` 有机会撞上 DSH 自己的收尾动作。300ms 是 `dsh-purge` 的
  * `continue-retry` 在同一位置实测可用的量级，这里取同一个值，不另挑一个没有依据的数。
  */
 const SEND_DELAY_MS = 300
@@ -139,7 +139,7 @@ export function channelContinueSettingsOf(
  * 这段失败是不是「被网关渠道校验拦截」。
  *
  * 不能只看 `code`。插件在 shim 里写的是 `type: "channel_reject"` 与
- * `code: "channel_reject"`（`KIND_STATUS` / 未翻译的 kind），但宿主拿到的
+ * `code: "channel_reject"`（`KIND_STATUS` / 未翻译的 kind），但 DSH 拿到的
  * `LlmFailure.code` 由 pi-ai 从**消息文本**重新分类（`classifyPiAiError`，
  * `@deepseek-ai/dsh-llm-pi-ai`）：`/\b400\b/` 命中就归成 `INVALID_REQUEST`。
  * 也就是说 host 侧这一份 `code` 极可能不是 `channel_reject`，而那句插件自
@@ -158,13 +158,13 @@ export function isChannelRejectFailure(failure: unknown): boolean {
   if (typeof record.code === 'string' && record.code === 'channel_reject') return true
   const message = record.message
   if (typeof message !== 'string' || message === '') return false
-  // JSON 里的 kind 字面量：宿主把整段响应体拼进了 message。
+  // JSON 里的 kind 字面量：DSH 把整段响应体拼进了 message。
   if (message.includes('channel_reject')) return true
   // 插件在 `failoverReasonText` 里写的那句中文说明。
   return message.includes('渠道校验拦截')
 }
 
-/** 引擎从宿主那里需要的 agent 切片（结构化声明，不 import 宿主类型）。 */
+/** 引擎从 DSH 那里需要的 agent 切片（结构化声明，不 import DSH 类型）。 */
 export interface ContinueAgent {
   readonly status?: string
   readonly session?: { readonly header?: { readonly origin?: string } }
@@ -172,7 +172,7 @@ export interface ContinueAgent {
   readonly inbox?: unknown
 }
 
-/** 引擎依赖：全部注入，所以逻辑可以在没有宿主的情况下逐条验证。 */
+/** 引擎依赖：全部注入，所以逻辑可以在没有 DSH 的情况下逐条验证。 */
 export interface ChannelContinueHost {
   /** 读**当前**配置（活值，用户拨动开关后下一次失败立刻生效）。 */
   getConfig(): ChannelContinueSettings
@@ -226,7 +226,7 @@ function isSubagentSession(session: unknown, agent: ContinueAgent | undefined): 
 /**
  * agent 的收件箱里是否已经有人排队。
  *
- * 只做「看起来非空」的结构探测，覆盖宿主不同版本的三种表示（`hasPending()` /
+ * 只做「看起来非空」的结构探测，覆盖 DSH 不同版本的三种表示（`hasPending()` /
  * `size` / `length`）。有排队就放弃这一次续发：用户很可能刚敲了一条消息，此时插一条
  * 「继续」会让他的提问排到自动消息后面。
  */
@@ -239,7 +239,7 @@ function inboxBusy(agent: ContinueAgent): boolean {
     if (typeof probe.size === 'number' && probe.size > 0) return true
     if (typeof probe.length === 'number' && probe.length > 0) return true
   } catch {
-    // 探测失败按「不忙」处理：宁可多发一次，也不要让功能在某个宿主版本上永不触发。
+    // 探测失败按「不忙」处理：宁可多发一次，也不要让功能在某个 DSH 版本上永不触发。
   }
   return false
 }
@@ -251,7 +251,7 @@ function inboxBusy(agent: ContinueAgent): boolean {
  * （取消待发）、`user/message`（真人插话就把计数清零）。没有轮询、没有扫描、
  * 没有持久化：计数失效于进程即可，它描述的本来就是「刚刚这一串失败」。
  *
- * @param host - 注入的宿主依赖。
+ * @param host - 注入的 DSH 依赖。
  * @returns 引擎句柄。
  */
 export function createChannelContinue(host: ChannelContinueHost): ChannelContinue {
@@ -296,7 +296,7 @@ export function createChannelContinue(host: ChannelContinueHost): ChannelContinu
       return
     }
     if (isSubagentSession(session, agent)) return
-    // 已经在跑就别再塞一条：这一次失败之后宿主可能自己起了新回合（重试策略、
+    // 已经在跑就别再塞一条：这一次失败之后 DSH 可能自己起了新回合（重试策略、
     // 压缩、用户点了继续），再 followup 会变成两条并行的意图。
     if (agent.status === 'running') {
       host.log(`跳过自动续发 ${sessionId}：会话正在执行请求`)
@@ -336,7 +336,7 @@ export function createChannelContinue(host: ChannelContinueHost): ChannelContinu
       const state = stateOf(sessionId)
 
       if (type === 'turn/start') {
-        // 宿主自己开了新回合：那条已排定的「继续」已经没有意义。
+        // DSH 自己开了新回合：那条已排定的「继续」已经没有意义。
         cancelPending(state)
         return
       }
@@ -406,11 +406,11 @@ export function createChannelContinue(host: ChannelContinueHost): ChannelContinu
         try {
           fire(sessionId, state, session)
         } catch (error: unknown) {
-          // 定时器回调里任何异常都不得成为未捕获异常：这是宿主进程。
+          // 定时器回调里任何异常都不得成为未捕获异常：这是 DSH 进程。
           host.log(`自动续发回调异常 ${sessionId}：${error instanceof Error ? error.message : String(error)}`)
         }
       }, SEND_DELAY_MS)
-      // 定时器不该维持进程存活：宿主退出时它随时可以被丢掉。
+      // 定时器不该维持进程存活：DSH 退出时它随时可以被丢掉。
       ;(state.pending as unknown as { unref?: () => void }).unref?.()
     },
 
@@ -431,20 +431,20 @@ export function createChannelContinue(host: ChannelContinueHost): ChannelContinu
   }
 }
 
-/** 安装时需要的宿主切片。 */
+/** 安装时需要的 DSH 切片。 */
 export interface ChannelContinueMount extends ChannelContinueHost {
   /** 订阅 `session/event`，返回退订函数。 */
   onSessionEvent(listener: (session: unknown, event: unknown) => void): () => void
 }
 
 /**
- * 把引擎挂到宿主的事件总线上。
+ * 把引擎挂到 DSH 的事件总线上。
  *
- * 订阅走注入的 `onSessionEvent`，而不是在这里 `ctx.on`：宿主把 `session/event`
+ * 订阅走注入的 `onSessionEvent`，而不是在这里 `ctx.on`：DSH 把 `session/event`
  * 声明在 `@deepseek-ai/dsh-session` 的类型里，本插件没有也不该有那条 peer 依赖，
- * 由调用方用一行鸭子类型的 cast 提供，才能让这个模块在没装宿主包的测试里也能跑。
+ * 由调用方用一行鸭子类型的 cast 提供，才能让这个模块在没装 DSH 包的测试里也能跑。
  *
- * @param mount - 宿主切片。
+ * @param mount - DSH 切片。
  * @returns 卸载函数（取消订阅并清空计数）。
  */
 export function installChannelContinue(mount: ChannelContinueMount): () => void {
@@ -472,7 +472,7 @@ export function installChannelContinue(mount: ChannelContinueMount): () => void 
     try {
       off?.()
     } catch {
-      // 宿主可能已经先一步拆掉了总线；卸载不该反过来抛。
+      // DSH 可能已经先一步拆掉了总线；卸载不该反过来抛。
     }
     engine.dispose()
   }

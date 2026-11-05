@@ -13,7 +13,7 @@
  * "为什么 5.12.1 不行"变成可执行的断言。如果哪天这些断言变红，说明救援阶梯
  * 回退了。
  *
- * 子智能体的套话长这样（宿主框架注入，不是插件产生的）：
+ * 子智能体的套话长这样（DSH 框架注入，不是插件产生的）：
  *
  *   You are an AI agent powered by DeepSeek Harness.
  *   This is a message from a subagent…
@@ -30,7 +30,7 @@ import {
   rewriteChannelFingerprintPhrases,
 } from '../src/upstream.ts'
 
-/** 报告者贴出的那类套话，按宿主真实形状拼一条 assistant 历史消息。 */
+/** 报告者贴出的那类套话，按 DSH 真实形状拼一条 assistant 历史消息。 */
 const SUBAGENT_ASSISTANT_TEXT = [
   'You are an AI agent powered by DeepSeek Harness.',
   'This is a message from a subagent.',

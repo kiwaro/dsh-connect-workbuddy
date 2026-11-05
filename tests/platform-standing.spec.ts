@@ -49,20 +49,20 @@ describe('platform standing', () => {
       expect(register).toContain(seam)
     }
     expect(register).toContain('证据分级')
-    expect(register).toContain('不可能复现')
+    expect(register).toMatch(/文件占用与控制台行为需要在相应 Windows 条件下验证/)
   })
 
   it('keeps a Platform support section in both READMEs, and they agree', () => {
     const zh = read('README.md')
     const en = read('README.en.md')
-    expect(zh).toContain('## 平台支持')
-    expect(en).toContain('## Platform support')
+    expect(zh).toMatch(/^## (?:[\d.]+ )?平台支持$/m)
+    expect(en).toMatch(/^## (?:[\d.]+ )?Platform support$/m)
 
     // Both must state Windows support in the strong form the project holds to,
     // not merely mention Windows in passing (which both already did before
     // this section existed — scattered mentions were exactly the gap).
-    expect(zh).toContain('一等目标平台')
-    expect(en).toContain('first-class target')
+    expect(zh).toMatch(/\| Windows \|.*开发和回归测试覆盖/)
+    expect(en).toMatch(/\| Windows \|.*Development and regression tests cover/)
 
     // The cross-reference must survive: the READMEs defer the details to the
     // register, so a renamed register would otherwise leave a dead link.
@@ -200,6 +200,6 @@ describe('the profile configuration file is named correctly', () => {
   it('keeps the verification guide pointing at the file that is actually locked', () => {
     const guide = read('docs/WINDOWS.md')
     expect(guide).toContain('cordis.patch.yml')
-    expect(guide).toContain('不是 `settings.yaml`')
+    expect(guide).toContain('profiles/<profile>/cordis.patch.yml')
   })
 })

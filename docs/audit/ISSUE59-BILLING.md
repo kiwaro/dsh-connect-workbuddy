@@ -1,10 +1,12 @@
-# Adversarial check: raphael-y7's "reasoning is not billed" claim (issue #59, 2026-10-18T09:40:43Z)
+# Issue #59: reasoning billing evidence
 
-Role: independent verifier (`verifier`), follow-up to `docs/audit/ISSUE59-VERIFY.md`. The prior report left C7 (the billing premise) as **UNVERIFIABLE-LOCALLY**. The reporter now claims it is **settled** by two new arguments (A) a same-region incremental measurement and (B) a correction of our own density-discriminator. This report tries to break both.
+Scope: verification of the evidence supplied on 2026-10-18. Reporter captures and arithmetic reproduced in this repository are identified separately below.
+
+Role: independent verifier (`verifier`), follow-up to `docs/audit/ISSUE59-VERIFY.md`. The prior report left C7 (the billing premise) as **UNVERIFIABLE-LOCALLY**. The reporter now claims it is **settled** by two new arguments (A) a same-region incremental measurement and (B) a correction of our own density-discriminator. The report checks the arithmetic, assumptions and source of both arguments.
 
 Working data: the reporter's numbers arrive only through the lead's relay — no `global.jsonl` exists on this machine (verified below), so nothing reporter-side is re-derivable here beyond internal arithmetic.
 
-## Verdict table
+## 1. Verdict table
 
 | # | Claim | Verdict | Evidence / arithmetic |
 |---|-------|---------|----------------------|
@@ -18,7 +20,7 @@ Working data: the reporter's numbers arrive only through the lead's relay — no
 | Q4 | Independent bound: GL's 447,306 vs its own tool blocks using OUR 455.5 coefficient | **BOUND SAYS: tool blocks alone nearly exhaust GL's bill — reasoning cannot also be billed** | GL tool chars = 284,466 + 674,817 = **959,283** → at our measured 0.4555 = **436,953 tok** = **97.7% of GL's 447,306**, leaving **10,353 tok for the other 822,343 chars** (sys+text+reasoning) = density **0.0126** — impossible (below any class by 17×). Even unbilled it's tight: 10,353 for sys+text 194,349 = 0.053. Using a *mixed* tool price (tool-call 0.29 + tool-result 0.4555 = 389,874): **unbilled** leaves 57,432 for sys+text 194,349 = **0.2955** (plausible, sits between code 0.287 and tool 0.4555), while **billed** leaves the same 57,432 for **822,343** chars = **0.0698** (3× below prose floor). Same computation for CN: tool split 390,418; **unbilled** leaves 252,382 for sys+text 751,480 = **0.3358** (plausible); **billed** leaves it for 823,750 = **0.3064** (also plausible — CN alone cannot discriminate). **GL is the discriminator: under billing GL is arithmetically impossible at any measured density; under unbilled both regions land in-band.** |
 | V | "reasoning is not billed" is now **ESTABLISHED** | **STRENGTH: MEASURED-ON-HIS-MACHINE (single-increment) + internally-consistent across his own capture; NOT independently reproducible here** | (A) is a direct measurement on his machine (a same-region GL consecutive-request increment where only reasoning grew beyond the tool increment, and the billed reading lands below every published floor). (B)/B3/Q4 are *derived*, all from his capture — but they now cut the right way with no free parameter left to rescue billing. This upgrades C7 from "unverifiable, two-sign ambiguity" to **"reporter-measured, repo-arithmetically corroborated; independent confirmation still absent on our machine."** What we may write publicly: state the mechanism's billing step as *"measured by the reporter (issue #59, 2026-10-18): a same-region incremental capture prices the non-reasoning increment at 0.466 tok/char while reasoning contributed +1,290 chars for +0 tokens; the paired cross-region capture's arithmetic requires reasoning to be billed below every measured text class otherwise."* Do NOT write "proven by this repo" or cite (A)'s raw numbers as ours — they live on his machine. A second `global.jsonl`-style capture with `promptTokens` (4.6.6+ fields) from an independent account would upgrade this to independently reproduced; recommend requesting it but not blocking publication on it. |
 
-## Commands run
+## 2. Commands run
 
 ```bash
 grep -rn '455.5\|2.50\|2.04' CHANGELOG.md scripts/probe-region-token-accounting.mjs
@@ -30,7 +32,7 @@ grep -c promptTokens /Users/dmh2002/.dsh/body-reports/cn.jsonl   # 0; regions={'
 sed -n '144,175p' src/body-report.ts                             # promptTokens/cachedTokens provenance (usage.prompt_tokens)
 ```
 
-## Counter-evidence / what I had to reject or qualify
+## 3. Counter-evidence / what I had to reject or qualify
 
 1. **Rejected his "impossible" as stated (A3)**: 0.1907 is 10.9% below the prose floor, not a hard physical floor (whitespace/repetition can go lower); the ceiling breakeven (0.4664) and the sub-floor requirement for any component are the defensible forms.
 2. **His (B) char totals (1,815,142 / 1,742,872) don't match our block table** (1,784,635 / 1,712,365) — a constant +30,507/+30,772 in both hypotheses, presumably a bucket (tools array / images?) our capture doesn't carry. Self-consistent, doesn't change ratios materially, but we shouldn't quote his totals as ours.
@@ -38,12 +40,12 @@ sed -n '144,175p' src/body-report.ts                             # promptTokens/
 4. **CN alone cannot discriminate** (Q4): under billing CN's remainder density 0.306 is in-band; only GL (with its 35% reasoning share) makes billing arithmetically impossible at measured densities. The argument is only as strong as GL's tool coefficient transferring cross-region — which our own probe measured (455.5 vs 455.6, ~0.2% apart), so this holds.
 5. **Cache caveat**: `promptTokens` is raw `prompt_tokens` (`src/body-report.ts:362`), which by OpenAI convention *includes* cached tokens (`:148-152`, probe-convention check `scripts/probe-cache-convention.mjs:282-327`). Both sides' ratios therefore aren't cache-skewed — but the reporter's two consecutive requests (15 s apart) will differ in cache-hit composition; argument (A) doesn't report `cachedTokens`, so a small part of the +416 could be cache-accounting drift rather than fresh tokenization. Not fatal (it would have to explain 416 vs a predicted ~390 under unbilled anyway), but worth one line if he publishes (A).
 
-## Cannot be verified from this machine
+## 4. Cannot be verified from this machine
 
 - The raw records behind (A): `442,994 → 443,410`, `626,704 → 627,994`, +892, messageCount 664→666 — no `global.jsonl` exists locally (`find … -name global.jsonl` → none; `~/.dsh/body-reports/` has only `cn.jsonl`/`cn-summary.json`, 685+0 records, `promptTokens` on 0 lines, region set `{'cn'}`).
 - The paired capture's block table and his new char totals (+30,507/+30,772 offset) — reporter's machine.
 - Whether the gateway literally excludes `reasoning_content` from `prompt_tokens` at the field level (as opposed to our arithmetic merely requiring it) — requires a request where reasoning is toggled with everything else fixed; nobody has run that A/B. Our conclusion is that no *density* assignment within measured bounds survives billing, which is strong but is still inference from his captures, not a controlled field-level experiment.
 
-## Bottom line (one paragraph)
+## 5. Conclusion
 
 **"Reasoning is not billed" has graduated from UNVERIFIABLE to REPORTER-MEASURED + ARITHMETICALLY CORROBORATED — safe to publish with attribution, not as this repo's own proof.** Argument (A) is a genuine same-region incremental measurement that lands the non-reasoning increment at 0.4664 tok/char (+2.4% vs our published tool-result coefficient 455.5) while the billed reading demands 0.1907 — below every published class — and (B)'s critique of our earlier 0.697 line is correct: billed predicts ≈1.00 from char totals, and I verified no mix-difference defense rescues billing (it would need reasoning to tokenize 15× cheaper than surrounding text, ~9× below the prose floor). The two-equation solve over measured density bands gives unbilled a wide in-band family (text density pinned at 0.350) and billing only razor-thin windows with reasoning density 0.00004–0.152, all sub-floor; the independent GL-bound (Q4) shows the GL tool blocks alone consume 97.7% of GL's bill at our measured coefficient, making billing arithmetically impossible on GL under any measured density. Caveats to carry into any public wording: (A)'s raw numbers are on his machine and unverifiable here, his "impossible" is 10.9%-below-floor rather than a hard floor, his char totals differ from ours by a constant we can't explain, and a controlled reasoning-toggle A/B (or a second independent capture with `promptTokens`) would be needed to call it *proven* rather than *measured-and-corroborated*.

@@ -13,7 +13,7 @@
  * 上面那段异步执行流程。
  *
  * 为什么手写 ToolDefinition（不 import `@deepseek-ai/dsh-tools` 的 `defineTool`）：
- * 同 image-tool.ts 的注释——宿主 `Tools.register` 只校验 `output.render` 是函数、
+ * 同 image-tool.ts 的注释——DSH `Tools.register` 只校验 `output.render` 是函数、
  * `output.schema` 是受支持的 JSON Schema，`schemaOf()` 把 `parameters` 原样投影，
  * 手写换来零新 peer 依赖、不会触发 tests/host-peers.spec.ts 对可达图的断言。
  *
@@ -48,20 +48,20 @@ import {
   type WorkBuddyVideoSubmission,
 } from './video-gen.ts'
 
-/** 工具名。宿主禁止 `run_code`，这个名字与其它 connect 插件的命名习惯一致。 */
+/** 工具名。DSH 禁止 `run_code`，这个名字与其它 connect 插件的命名习惯一致。 */
 export const WORKBUDDY_VIDEO_TOOL_NAME = 'workbuddy_draw_video'
 
 /**
  * 工具单次执行的上限：提交 + 轮询 + 下载。
  *
- * ## 为什么必须比宿主的 600 秒**明显小**（issue #187 的第三种现象）
+ * ## 为什么必须比 DSH 的 600 秒**明显小**（issue #187 的第三种现象）
  *
- * 这个值原本正好是 `600_000`，与宿主自己给工具调用的上限**完全相等**。两者同时到
- * 期，而宿主的计时器先落地：调用被宿主直接掐断，用户看到的是裸的
+ * 这个值原本正好是 `600_000`，与 DSH 自己给工具调用的上限**完全相等**。两者同时到
+ * 期，而 DSH 的计时器先落地：调用被 DSH 直接掐断，用户看到的是裸的
  * `tool call timed out after 600000ms`——没有 `taskId`、没有 `POLL_TIMEOUT`、没有
  * 任何结构化错误，日志里也找不到是提交卡住还是轮询卡住。
  *
- * 内部超时短于宿主上限，插件就能**先**抛 `POLL_TIMEOUT`，把 task id 带出去。那个
+ * 内部超时短于 DSH 上限，插件就能**先**抛 `POLL_TIMEOUT`，把 task id 带出去。那个
  * id 是这个故障里唯一能拿去问上游的东西，丢掉它等于把可排障的失败变成不可排障的。
  *
  * 570s 而不是更短：正常任务实测几十秒到几分钟，砍太狠会把慢但成功的任务判死。
@@ -84,15 +84,15 @@ const VIDEO_INPUT_TIMEOUT_MS = 30_000
 /** 失败后的冷却：视频按次扣积分且一次要几十秒，连续重试会烧掉大量积分。 */
 const FAILURE_COOLDOWN_MS = 60_000
 
-/** 宿主 ContentBlock 的最小结构（只需要文本块）。 */
+/** DSH ContentBlock 的最小结构（只需要文本块）。 */
 export interface VideoToolContentBlock {
   readonly type: 'text'
   readonly text: string
 }
 
 /**
- * 宿主 `ToolDefinition` 的结构子集。不 import 宿主类型，避免把插件绑死在
- * 某个宿主版本的类型上。
+ * DSH `ToolDefinition` 的结构子集。不 import DSH 类型，避免把插件绑死在
+ * 某个 DSH 版本的类型上。
  */
 export interface VideoToolDefinition {
   readonly name: string
@@ -106,7 +106,7 @@ export interface VideoToolDefinition {
   execute(args: unknown, exec: VideoToolExec): Promise<Record<string, unknown>>
 }
 
-/** 宿主传给 execute 的执行上下文里本工具用得到的部分。 */
+/** DSH 传给 execute 的执行上下文里本工具用得到的部分。 */
 export interface VideoToolExec {
   readonly signal?: AbortSignal
 }
@@ -441,18 +441,18 @@ export function createVideoTool(deps: VideoToolDeps): VideoToolDefinition {
   return {
     name: WORKBUDDY_VIDEO_TOOL_NAME,
     description:
-      '用当前账号的 WorkBuddy 视频生成能力生成一段短视频。'
-      + '不填 image 是文生视频（用该区带 text-to-video 标签的模型）；'
-      + '填了 image 是图生视频（用带 image-to-video 标签的模型，只收一张输入图）。'
+      '使用已授权区域的 WorkBuddy 账号生成短视频，费用从该账号扣除。'
+      + '通过 prompt 描述画面，插件使用 text-to-video 模型生成视频。'
+      + '提供 image 时，插件使用 image-to-video 模型，以这张图片生成视频。每次支持一张输入图。'
       + '请使用正确的参数类型；类型错误时返回 INVALID_ARGS，'
       + '修改参数后可重试。'
       + '国内区与国际区都可用，模型取自该区产品配置'
       + '（国内区 kling-video-v3、minimax-video-h3；国际区 kling-video-v3，'
       + '两种 video tag 都有；以该区目录为准）。'
-      + '视频是异步任务：先提交、再轮询到完成、最后把视频下载到本地，单次可能要几十秒到几分钟。'
-      + '每次生成消耗 WorkBuddy 积分，单价随区域与模型不同，以返回结果里的 credit 为准；'
-      + '每次调用均会计费，请按用户授权生成。'
-      + '返回的是本地 .mp4 文件路径（file:// URL），由宿主/客户端打开或下载。',
+      + '插件先提交任务，等待服务端完成生成，再下载视频。整个过程可能需要几十秒至几分钟。'
+      + '费用随区域和模型变化，响应中的 credit 表示本次扣除的积分。'
+      + '请在用户授权后调用。'
+      + '返回本地 .mp4 视频的 file:// URL，可在 DSH 中打开或下载。',
     parameters: {
       type: 'object',
       properties: {
@@ -464,8 +464,8 @@ export function createVideoTool(deps: VideoToolDeps): VideoToolDefinition {
           type: ['string', 'array'],
           items: { type: 'string' },
           description:
-            '输入图，可选。填了就是图生视频（image-to-video）；不填就是文生视频。'
-            + '接受本地绝对路径、file:// URL、http(s) URL、data URL 或base64 编码。'
+            '提供一张输入图，插件使用 image-to-video 模型生成视频。省略此参数时，插件使用 text-to-video 模型。'
+            + '可提供图片的绝对路径、file:// URL、http(s) URL、data URL 或 base64 编码。'
             + '上限 8 MB，不做缩放或格式转换。'
             + '单元素字符串数组与字符串等价；图生视频只支持一张输入图，'
             + '提供多张图片时返回参数错误。'
@@ -697,14 +697,14 @@ export function createVideoTool(deps: VideoToolDeps): VideoToolDefinition {
   }
 }
 
-/** 宿主 tools 服务里本工具用到的那一个方法。 */
+/** DSH tools 服务里本工具用到的那一个方法。 */
 export interface ToolsServiceLike {
   register(definition: unknown): () => void
 }
 
 /**
- * 把工具注册进宿主。返回 disposer；调用方负责在插件卸载时调用它。
- * 注册本身是同步的；`tools` 服务由宿主提供，拿不到就直接返回 undefined 并记警告。
+ * 把工具注册进 DSH。返回 disposer；调用方负责在插件卸载时调用它。
+ * 注册本身是同步的；`tools` 服务由 DSH 提供，拿不到就直接返回 undefined 并记警告。
  */
 export function registerWorkBuddyVideoTool(
   tools: ToolsServiceLike,

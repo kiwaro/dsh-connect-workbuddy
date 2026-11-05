@@ -8,9 +8,9 @@
  *  2. **请求体分支**照抄官方 CLI 的 `buildBaseRequestBody`：hunyuan 分支只加
  *     `n`，其它分支加 `response_format: 'b64_json'`。这是与上游协议对齐的关键，
  *     写错不会报错、只会静默拿到不同形状的响应。
- *  3. **工具定义**能被宿主 `Tools.register` 接受（output.render 是函数、
+ *  3. **工具定义**能被 DSH `Tools.register` 接受（output.render 是函数、
  *     output.schema 是 object），且 execute 的返回值严格落在 output.schema 里
- *     —— 宿主会用 `validateJsonSchemaValue(output.schema, value)` 校验，
+ *     —— DSH 会用 `validateJsonSchemaValue(output.schema, value)` 校验，
  *     多一个字段就抛 ToolOutputError。
  */
 import { describe, expect, it, vi } from 'vitest'
@@ -445,7 +445,7 @@ describe('createImageTool', () => {
     expect(description).toContain('4096x4096')
   })
 
-  it('形状满足宿主 Tools.register 的硬性要求', () => {
+  it('形状满足 DSH Tools.register 的硬性要求', () => {
     const tool = createImageTool(deps())
     expect(tool.name).toBe(WORKBUDDY_IMAGE_TOOL_NAME)
     expect(tool.description).toContain('积分')
@@ -457,7 +457,7 @@ describe('createImageTool', () => {
     expect(tool.timeoutMs).toBeGreaterThan(0)
   })
 
-  it('execute 返回的键严格落在 output.schema 里（宿主会校验）', async () => {
+  it('execute 返回的键严格落在 output.schema 里（DSH 会校验）', async () => {
     const tool = createImageTool(deps())
     const value = await tool.execute({ prompt: '一只猫' }, {})
     const schema = tool.output.schema as {
@@ -807,7 +807,7 @@ describe('createImageTool', () => {
 })
 
 describe('registerWorkBuddyImageTool', () => {
-  it('把工具交给宿主，并返回 disposer', () => {
+  it('把工具交给 DSH，并返回 disposer', () => {
     const register = vi.fn((_definition: unknown) => () => {})
     const dispose = registerWorkBuddyImageTool({ register }, {
       resolveCredential: async () => credential(),
@@ -821,7 +821,7 @@ describe('registerWorkBuddyImageTool', () => {
     expect(typeof dispose).toBe('function')
   })
 
-  it('宿主拒绝注册时记一条警告，不抛异常', () => {
+  it('DSH 拒绝注册时记一条警告，不抛异常', () => {
     const warn = vi.fn()
     const dispose = registerWorkBuddyImageTool({
       register: () => {

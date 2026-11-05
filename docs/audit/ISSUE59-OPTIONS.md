@@ -1,4 +1,6 @@
-# Issue #59 — Options for the region-switch counting jump
+# Issue #59: replay and provider options
+
+Scope: historical investigation of pi-ai 1.1.0 replay behaviour and possible provider changes. Proposed options and implemented behaviour are distinguished in each section.
 
 **Author:** options (decision analyst) · **Task:** task-2 · **Date:** 2026-10-18
 **Scope rule:** analysis only. No `src/` edits — this file is advice for the maintainer (lead owns code changes).
@@ -131,7 +133,7 @@ Keep `src/context-rescue.ts` (4.8.0 chunked fold on confirmed overflow) as the l
 | **O4** | No | Yes (docs + existing rescue) | Tiny | None | Gateways shown billing reasoning == text (refuted by body-report) |
 | **O5** | Yes (upstream) | No | Small (file issue) | Long cycle, plugin cannot pick host version | A published 1.x that ships provider-equivalence (not observed) |
 
-**Bottom line for the maintainer:** primary = **O1** (ship as the real fix, gate on a cross-region wire test); ship **O4** documentation immediately as the zero-risk floor and the reporter-facing answer; file **O5** upstream; skip **O2** and **O3**.
+**Conclusion for the maintainer:** primary = **O1** (ship as the real fix, gate on a cross-region wire test); ship **O4** documentation immediately as the zero-risk floor and the reporter-facing answer; file **O5** upstream; skip **O2** and **O3**.
 
 ---
 
@@ -172,7 +174,7 @@ stamped "workbuddy" (O1)
 
 That is a feature-sized change with a region-outage failure mode, needing its own tests (both regions still route to their own baseUrl/credentials; picker unchanged; cross-region replay keeps thinking). It is not a patch to smuggle into a documentation release.
 
-**The premise, now updated (2026-10-18 evening).** `docs/audit/ISSUE59-VERIFY.md` C7 originally recorded "the gateway bills downgraded text but not `reasoning_content`" as unmeasurable from this machine, and `docs/reasoning-investigation.md` still marked it 尚未测定. The reporter has since measured it with a same-region same-model increment (see `docs/reasoning-investigation.md` §11.7 and `docs/audit/ISSUE59-BILLING.md`), and this repo's own coefficient arithmetic corroborates it: the international side's tool blocks alone account for 97.7% of its `promptTokens`, which leaves no budget at all for 628K reasoning characters. So the step is no longer a guess — but it is still **his measurement plus our arithmetic**, not a controlled A/B run on this machine. O1′ remains a designed-but-unstarted change: the blocker is now the registration semantics (`models.js`'s one-id-one-provider assumption), not the billing question.
+**The premise, now updated (2026-10-18 evening).** `docs/audit/ISSUE59-VERIFY.md` C7 originally recorded "the gateway bills downgraded text but not `reasoning_content`" as unmeasurable from this machine, and `docs/reasoning-investigation.md` still marked it 尚未测定. The reporter has since measured it with a same-region same-model increment (see `docs/reasoning-investigation.md` 第 5、6 节 and `docs/audit/ISSUE59-BILLING.md`), and this repo's own coefficient arithmetic corroborates it: the international side's tool blocks alone account for 97.7% of its `promptTokens`, which leaves no budget at all for 628K reasoning characters. So the step is no longer a guess — but it is still **his measurement plus our arithmetic**, not a controlled A/B run on this machine. O1′ remains a designed-but-unstarted change: the blocker is now the registration semantics (`models.js`'s one-id-one-provider assumption), not the billing question.
 
 **Revised recommendation:** ship **O4** (documentation + the existing 4.8.0 `context-rescue`) now; record O1′ as a designed-but-unstarted change with the blocker above; file **O5** upstream. O2 and O3 remain closed for the reasons this report gives.
 

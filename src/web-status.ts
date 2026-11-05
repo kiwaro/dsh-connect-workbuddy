@@ -398,7 +398,7 @@ export interface WorkBuddyStatusRouteOptions {
   /**
    * 真实设备参数（本机安装的桌面端 SDK）的状态与取值口。
    *
-   * Optional like the rest: 一个没有接 SDK 的宿主（别的平台、或构建时裁掉了
+   * Optional like the rest: 一个没有接 SDK 的 DSH（别的平台、或构建时裁掉了
    * `native/`）答 503，卡片就把「SDK」这一页藏起来——比渲染一页永远"不可用"的
    * 红字诚实。
    */
@@ -2542,7 +2542,7 @@ export function registerWorkBuddyStatusRoute(ctx: Context, deps: WorkBuddyStatus
            */
           if (action === 'enable' || action === 'disable') {
             const written = await port.writeEnabled(action === 'enable')
-            // 老宿主没有 settings 服务：501 而不是 500——这不是故障，是宿主缺一项
+            // 老 DSH 没有 settings 服务：501 而不是 500——这不是故障，是 DSH 缺一项
             // 能力，卡片据此把开关标成不可用。
             if (!written) return json(res, 501, { reason: 'settings-unavailable', error: 'this host has no settings write path' })
             return json(res, 200, { sdkEnabled: action === 'enable' })

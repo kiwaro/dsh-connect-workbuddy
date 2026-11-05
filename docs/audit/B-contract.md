@@ -1,19 +1,15 @@
 # 审计 B：客户端 ↔ Host 数据契约一致性
 
-**审计对象**：账号池（account pool）功能中，客户端渲染所依赖的每一个字段，Host 是否真的下发。
+本文记录 2026-09-30 对账号池数据契约的审查，比较类型定义、Host 下发字段与客户端读取方式。
 
-**只读约束**：未修改 `src/` 下任何文件，也未修改 `tests/`。本次审计只新增本报告（`git status` 已确认 `src/` 的改动全部来自同伴，与本会话无关）。
-
-**方法**：三方静态对照（类型 → Host 填充 → 客户端消费）+ **挂载真实插件实测**。用 `node --experimental-strip-types` 挂载真实 `apply()` + 真实路由，配合伪造的 `webServer`/`settings` 与桩化的 upstream `fetch`，直接 dump 线上 JSON。临时脚本写在 `/tmp/wb-audit/`，**已删除**，仓库内无遗留。
-
-**审计基线（sha256 前 12 位；全部行号以此为准）**：
+验证通过 node --experimental-strip-types 挂载插件的 apply 与路由，以替代 webServer、settings 和上游 fetch 捕获响应。临时脚本保存于 /tmp/wb-audit，审查后删除。表中哈希前 12 位标识所查版本，正文行号对应该版本。
 
 | 文件 | 基线 | 角色 |
 | --- | --- | --- |
 | `src/status-paths.ts` | `bfa7467eb433` | 契约类型定义 |
 | `src/web-status.ts` | `034c4a327dd0` | Host 填充 `workBuddyWebPool()` + pool 路由 |
 | `src/index.ts` | `9f470926f0cb` | Host pool deps（数据源） |
-| `src/client/AccountPool.tsx` | `b5a8117521d1` | 客户端消费 |
+| `src/client/AccountPool.tsx` | `b5a8117521d1` | 客户端读取 |
 | `src/account-pool.ts` | `e61029559513` | `rankPool` / `resolveTargetModel` / `pickAccount` |
 | `src/account-pool-run.ts` | `ca93f2e2cfe3` | 批量行构造 |
 | `src/account-pool-store.ts` | `7ada6cc37b23` | 测量结果落盘 |
@@ -28,20 +24,20 @@
 | ✅ 已接线 | **31** | Pool 9 + Account 12 + Model 3 + 批量行 7 |
 | ⚠️ 类型有但 Host 不填 | **0** | 本功能**不存在「类型撒谎」**：每个声明字段 Host 都会按语义产生。这是本次修复的核心成果 |
 | ◻️ 客户端不消费 | **12** | 有语义价值 **3** 项（`member` + 两个 `accountId`）；有意精简 **9** 项（行内可选字段） |
-| 无人 import 的信封字段 | **3** | `CheckinAnswer.action/rows`、`TestAnswer.rows` —— 两个信封类型无任何消费者，见 B-11 |
+| 无人 import 的信封字段 | **3** | `CheckinAnswer.action/rows`、`TestAnswer.rows` —— 两个信封类型无任何引用位置，见 B-11 |
 | **已声明字段合计** | **46** | 43（表中行）+ 3（信封未列表字段） |
 
 > 计数口径：容器对象（`probe`、`result`）与其内部字段**各自单独计数**；`result.outcome` 计入「批量行 7 项」，`result` 的其余 6 个可选字段（`modelId/elapsedMs/status/message/retryAtMs/retrySource`）计入「不消费 12 项」。
 
 ---
 
-## 一、三态总表（逐字段，验收要求的完整覆盖）
+## 1. 三态总表（各字段，验收要求的完整覆盖）
 
 图例：**✅ 已接线** ＝ 类型有 + Host 真的赋值 + 客户端真的读；**⚠️ Host 不填** ＝ 类型声明了但 Host 永不产生该值；**◻️ 不消费** ＝ Host 真的下发但客户端从不读（下发了也用不上）。
 
 ### `WorkBuddyWebPool`（`status-paths.ts:565-594`）
 
-| 字段 | 类型行 | Host 填充 | 客户端消费 | 结论 |
+| 字段 | 类型行 | Host 填充 | 客户端读取 | 结论 |
 | --- | --- | --- | --- | --- |
 | `enabled` | `565`+`566` | `web-status.ts:612` ← `index.ts:1016` | `AccountPool.tsx:202` | ✅ 已接线 |
 | `rotateByCredits` | `567` | `web-status.ts:613` ← `index.ts:1017` | `AccountPool.tsx:203, 222` | ✅ 已接线 |
@@ -55,7 +51,7 @@
 
 ### `WorkBuddyWebPoolAccount`（`status-paths.ts:518-554`）
 
-| 字段 | 类型行 | Host 填充 | 客户端消费 | 结论 |
+| 字段 | 类型行 | Host 填充 | 客户端读取 | 结论 |
 | --- | --- | --- | --- | --- |
 | `accountId` | `519` | `web-status.ts:588` | `AccountPool.tsx:261, 318, 482, 519, 549` | ✅ 已接线 |
 | `accountName` | `520` | `web-status.ts:589` | `AccountPool.tsx:261, 264, 350, 532, 566` | ✅ 已接线（`''` 有占位，见 B-10） |
@@ -73,7 +69,7 @@
 
 ### `WorkBuddyWebPoolModel`（`status-paths.ts:614-619`）
 
-| 字段 | 类型行 | Host 填充 | 客户端消费 | 结论 |
+| 字段 | 类型行 | Host 填充 | 客户端读取 | 结论 |
 | --- | --- | --- | --- | --- |
 | `id` | `615` | `web-status.ts:626` | `AccountPool.tsx:723, 724` | ✅ 已接线 |
 | `name` | `616` | `web-status.ts:627` | `AccountPool.tsx:726, 727` | ✅ 已接线 |
@@ -81,13 +77,13 @@
 
 ### 批量响应行（`status-paths.ts:597-633`）
 
-| 字段 | 类型行 | Host 填充 | 客户端消费 | 结论 |
+| 字段 | 类型行 | Host 填充 | 客户端读取 | 结论 |
 | --- | --- | --- | --- | --- |
 | `CheckinRow.accountId` | `598` | `account-pool-run.ts:112` | **无** | ◻️ 不消费 |
 | `CheckinRow.accountName` | `599` | `account-pool-run.ts:112` | `AccountPool.tsx:350, 355, 359` | ✅ 已接线 |
 | `CheckinRow.status` | `600` | `account-pool-run.ts:117,120,128,130,134,139` | `AccountPool.tsx:348, 353, 357` | ✅ 已接线 |
 | `CheckinRow.credit?` | `601` | `account-pool-run.ts:135` | `AccountPool.tsx:351` | ✅ 已接线（实测 `150`） |
-| `CheckinRow.streakDays?` | `602` | `account-pool-run.ts:136` | **无** | ◻️ 不消费（见 B-9） |
+| `CheckinRow.streakDays?` | `602` | `account-pool-run.ts:136` | **无** | ◻️ 不读取（见 B-9） |
 | `CheckinRow.message?` | `603` | `account-pool-run.ts:117,120,128,139` | `AccountPool.tsx:360` | ✅ 已接线 |
 | `TestRow.accountId` | `608` | `account-pool-run.ts:172` | **无** | ◻️ 不消费 |
 | `TestRow.accountName` | `609` | `account-pool-run.ts:172` | `AccountPool.tsx:368` | ✅ 已接线 |
@@ -106,12 +102,12 @@
 
 ---
 
-## 二、确认发现
+## 2. 确认发现
 
-### B-1（高｜契约·stale 成员表）`memberAccountIds` 可指向已消失的登录，客户端据此渲染出一个**勾不中任何行**的「已选 1 / 共 1」并放行按钮，Host 则静默跑空批
+### B-1（高｜契约·stale 成员表）`memberAccountIds` 可指向已消失的登录，客户端据此渲染出一个**勾不中任何行**的「已选 1 / 共 1」并启用按钮，Host 则静默跑空批
 
 - **位置**：Host 只按「当前登录列表」过滤成员（`src/index.ts:1033-1040`），但下发的 `memberAccountIds` 是**未过滤的原始偏好**（`src/web-status.ts:617` ← `src/index.ts:1020`）；客户端两处各读一个来源 —— 计数与按钮看偏好（`AccountPool.tsx:413, 455, 328`），勾选态看行（`AccountPool.tsx:482`）。
-- **问题**：`poolMemberAccounts()` 明确写了「按 LIVE 账号列表过滤，被移除的登录不能在池里残留」（`index.ts:1037-1039`），但**这份过滤结果没有回流到 `memberAccountIds`**。于是同一个文档里 `memberAccountIds`（未过滤）与 `accounts[].member`（过滤后）互相矛盾。
+- **问题**：`poolMemberAccounts()` 明确写了「按 LIVE 账号列表过滤，被移除的登录不能在池里残留」（`index.ts:1037-1039`），但**这份过滤结果没有返回到 `memberAccountIds`**。于是同一个文档里 `memberAccountIds`（未过滤）与 `accounts[].member`（过滤后）互相矛盾。
 - **实测证据**（挂载真实插件，保存 `memberAccountIds: ['ghost-account-id-that-no-longer-exists']`，磁盘上只有一个真实登录）：
   ```
   === memberAccountIds (saved): ["ghost-account-id-that-no-longer-exists"]
@@ -154,13 +150,15 @@
   === disabled 409:        409 {"error":"account pool is disabled for this region"}
   === test-no-free-model 409: 409 {"action":"test","rows":[],"error":"no zero-multiplier model in this region; refresh the catalog or set a target model"}
   ```
-- **问题**：两种 409 只有**英文原文**可辨，客户端不做结构化区分 —— 文案是 `safeMessage`/原样字符串（`web-status.ts` 的 `error` 字段），**不经过 `t()` 本地化**，中文界面下会直接蹦出英文长句。更关键的是第二条：`AccountPool.tsx:413, 421` 已用 `active.memberAccountIds.length === 0` 把按钮禁用，所以「无成员」的 409 **在 UI 里不可能被触发** —— 唯一能真实触发它的是**草稿未保存**（勾了但没点保存，`:491` 只显示「勾选已改动 —— 保存后生效」）。此时用户点按钮 → 英文报错「no accounts are checked into this region's pool」，而界面明明勾着账号。
+- **问题**：两种 409 只有**英文原文**可辨，客户端不做结构化区分 —— 文案是 `safeMessage`/原样字符串（`web-status.ts` 的 `error` 字段），**不经过 `t()` 本地化**，中文界面下会直接蹦出英文长句。更关键的是第二条：`AccountPool.tsx:413, 421` 已用 `active.memberAccountIds.length === 0` 把按钮禁用，所以「无成员」的 409 **在 UI 里不可能被触发** —— 唯一能真实触发它的是**草稿未保存**（勾了但没点保存，`:491` 只显示「勾选已改动 —— 保存后生效」）。
+
+  此时用户点按钮 → 英文报错「no accounts are checked into this region's pool」，而界面明明勾着账号。
 - **严重级**：中。不致命（Host 守住了不花钱的底线），但把用户导向「我明明勾了」的死胡同，且是唯一一条中文界面下的英文报错。
 
 ### B-4（中｜契约·测试后不刷新）`probe` / `rotatedToAccountId` 是运行时事实，但批量成功后**不重读** usage，界面直到下一次 60 秒轮询前都在撒谎
 
 - **位置**：`onSaved` 只在**保存偏好**时调用（`AccountPool.tsx:294`），`runAction` 的成功路径（`:345-373`）**没有** `onSaved?.()`；父组件把 `onSaved` 接到 `refreshUsage`（`WorkBuddyCard.tsx:1241`），轮询间隔 60 秒（`WorkBuddyCard.tsx:87, 404`）。
-- **问题**：`test` 批量的结果由 Host 落盘并重排（`index.ts:912-913`：先 `writePoolProbes` 再 `applyRotation`），**这些事实全部只经 usage 路由下发**。客户端跑完批量只往日志里写行（`:366-372`），不重读文档，于是：
+- **问题**：`test` 批量的结果由 Host 落盘并重排（`index.ts:912-913`：先 `writePoolProbes` 再 `applyRotation`），**这些事实全部只经 usage 路由下发**。客户端执行完成批量只往日志里写行（`:366-372`），不重读文档，于是：
   - `probe`（刚测出的 outcome/atMs）要等最多 60 秒才出现在表格里；
   - `rotatedToAccountId` 同理 —— 而「轮换记录」正是本次修复的目标之一（`:255-266` 专门监听它并写日志）。**修复后的记录逻辑本身是对的，但触发时机被推迟了一个轮询周期**，用户点完测试看不到「已切换计费账号」，会以为轮换又没写记录。
 - **实测证据**（两个账号，`rotateByCredits: true`，桩化探测返回 `ok`）：
@@ -170,13 +168,13 @@
   === AFTER test batch === {"rotatedToAccountId":"ff4d2b66be3ba1de6211bdf7", ...}
   ```
   → `rotatedToAccountId` **确实已接线**（Host 真的下发，字段三态为 ✅），但客户端要等下一次轮询才会去读它。
-- **严重级**：中。**注意这不是「字段没接线」**，而是**读取时机**问题；B-4 与「轮换不写记录」的旧缺陷外观相同，容易被误判为回归。
+- **严重级**：中。问题发生在读取时机；B-4 与「轮换不写记录」的旧缺陷外观相同，容易被误判为回归。
 - **修复方向**：`runAction` 成功分支补一次 `onSaved?.()`。
 
 ### B-5（中｜契约·缺失 vs false 的**反向**混淆）`checkedInToday` 客户端三态正确，但 Host 在**每次轮询都对全池做一次签到状态请求**，把「读不到」放大成 N 次上游请求
 
 - **位置**：`index.ts:873-883` —— `checkedInToday` 对**每个账号**调一次 `client.fetchCheckinStatus`，任一失败即 `undefined`（`:879-880`）并被 Host 丢弃（`web-status.ts:607` 只在有值时带字段）。
-- **三态结论（客户端侧正确，无需改）**：`AccountPool.tsx:597-602` 明确区分 `undefined → '—'`（`poolCheckinUnknown`）、`true → 已签到`、`false → 未签到`；`locales.ts:129` 的 `'—'` 是有意为之，不是漏写。**这一条本次修复已到位**（「签到列永远显示未签到」已修）。
+- **三态结论（客户端侧正确，无需改）**：`AccountPool.tsx:597-602` 明确区分 `undefined → '—'`（`poolCheckinUnknown`）、`true → 已签到`、`false → 未签到`；`locales.ts:129` 的 `'—'` 是有意为之，不是漏写。**该项修复已通过核对**（「签到列永远显示未签到」已修）。
 - **仍然存在的问题**：该 deps 被 usage 路由**每次调用**执行（`web-status.ts:567-569`），而卡片每 60 秒轮询一次 usage（`WorkBuddyCard.tsx:87, 404`），因此**每个账号每分钟一次** `checkin-activity-status`。实测上游请求序列证实了这一点：
   ```
   POST .../checkin-activity-status
@@ -195,7 +193,7 @@
 
 ### B-7（低｜契约·可选性名不副实）`catalog` 声明为可选，但 Host **永不**省略它 —— 空目录时下发 `[]`，客户端把「未读取」与「确实为空」视为同一件事
 
-- **位置**：类型 `status-paths.ts:593`（`catalog?: readonly WorkBuddyWebPoolModel[]`）；Host `web-status.ts:625` 无任何条件判断，**恒有值**；客户端 `AccountPool.tsx:722` 用 `(pool.catalog ?? [])` 兜底。
+- **位置**：类型 `status-paths.ts:593`（`catalog?: readonly WorkBuddyWebPoolModel[]`）；Host `web-status.ts:625` 无任何条件判断，**恒有值**；客户端 `AccountPool.tsx:722` 用 `(pool.catalog ?? [])` 回退。
 - **实测证据**：`pool` 的键集合恒含 `catalog`（两次挂载均如此）：
   ```
   === pool block keys: accounts, autoTestIntervalMinutes, catalog, enabled, memberAccountIds, rotateByCredits, targetModelId, targetModelSource
@@ -227,7 +225,7 @@
 - **问题**：占位本身正确（`''` 不会被当假值漏渲染），但 `AccountPool.tsx:598` 给「未读签到」用的 `title` 是 `t('row.poolNeverTested')`（"Not tested yet" / "尚未测试"，`locales.ts:125`），而它渲染的**内容**是 `poolCheckinUnknown`（`—`）。用「尚未测试」解释一个「—」是**串了另一列的语义**。
 - **严重级**：低（纯文案；hover 提示说错了原因）。
 
-### B-11（低｜类型有但无消费者）`WorkBuddyWebPoolCheckinAnswer` / `WorkBuddyWebPoolTestAnswer` 两个响应信封类型**无人 import**，其字段（含 `action`、`TestAnswer.modelId`）对客户端是纯声明
+### B-11（低｜类型有但无引用位置）`WorkBuddyWebPoolCheckinAnswer` / `WorkBuddyWebPoolTestAnswer` 两个响应信封类型**无人 import**，其字段（含 `action`、`TestAnswer.modelId`）对客户端是纯声明
 
 - **位置**：`status-paths.ts:622-625`（`CheckinAnswer`）、`status-paths.ts:628-633`（`TestAnswer`）。
 - **实测证据**：全仓库检索确认这两个类型**只在 `status-paths.ts` 内出现，没有任何 import**：
@@ -248,13 +246,15 @@
 
 ---
 
-## 三、已正确接线（证明覆盖完整）
+## 3. 已正确接线（证明覆盖完整）
 
 以下 31 个字段经三方逐条核对，**类型 → Host 赋值 → 客户端读取**全部成立，且可选字段的「缺失 vs false/0」语义在两侧都正确：
 
 **Pool 级 9 项**：`enabled`、`rotateByCredits`、`autoTestIntervalMinutes`、`targetModelId`、`targetModelSource`、`memberAccountIds`、`rotatedToAccountId`、`accounts`、`catalog`。
 **Account 级 12 项**：`accountId`、`accountName`、`credits`、`expiringSoon`、`nearestExpiryMs`、`probe`、`probe.outcome`、`probe.atMs`、`probe.retryAtMs`、`excludedBy`、`current`、`checkedInToday`。
 **Model 级 3 项**：`id`、`name`、`creditMultiplier`。
+
+
 **批量行 7 项**：`CheckinRow.accountName/status/credit/message`、`TestRow.accountName/result/result.outcome`。
 
 其中**可选字段语义经实测确认无误**的 5 项（本次任务的重点）：
@@ -265,9 +265,9 @@
 | `excludedBy` | `:604` 只在被排除时带 | `:155, 168, 221` 缺失即「可用」，参与候选过滤 | ✅ 三态正确 |
 | `probe.retryAtMs` | `:601` 只在上游给了时间时带 | `:537` 有则显示时刻；`:543` 无则对 rate-limited/out-of-credit 明说「上游未给出何时恢复」 | ✅ 三态正确 |
 | `rotatedToAccountId` | `:618` 仅在轮换指向某账号时带 | `:258` 缺失即不记日志（不伪造切换） | ✅ 三态正确（时机见 B-4） |
-| `credits` / `expiringSoon` / `nearestExpiryMs` | `:590-596` credits 读失败即整组省略 | `:581` 缺失渲染 `—`；`:584` 用 `> 0` 而非真假值；`:587` 缺失不渲染 | ✅ 三态正确 |
+| `credits` / `expiringSoon` / `nearestExpiryMs` | `:590-596` credits 读失败即整组省略 | `:581` 缺失渲染 `—`；`:584` 用 `> 0` 而非有效性值；`:587` 缺失不渲染 | ✅ 三态正确 |
 
-**路由契约一致性**（`WORKBUDDY_POOL_PATH`，`status-paths.ts:45`）逐项核对通过：
+**路由契约一致性**（`WORKBUDDY_POOL_PATH`，`status-paths.ts:45`）核对所有项目通过：
 
 | 项 | Host | 客户端 | 判定 |
 | --- | --- | --- | --- |
@@ -277,13 +277,13 @@
 | 动作参数 | `poolActionOf` 只认 `checkin`/`test`（`status-paths.ts:54-59`） | 同上函数生成 | ✅ 同一函数，不会漂移 |
 | 成功码 | `200` + `{ action, rows }`（`:804, 826`） | `if (!response.ok) throw`（`:344`），随后读 `body.rows`（`:347, 366`） | ✅ 一致 |
 | 错误字段名 | 全部用 `error`（`:782, 785, 792, 799, 819, 828`） | `body?.error ?? 'HTTP ${status}'`（`:344`） | ✅ 一致 |
-| `rows` 形状 | `checkin`：`{accountId,accountName,status,credit?,streakDays?,message?}`；`test`：`{accountId,accountName,result}` | 逐字段读取，与类型一致（`:347-371`） | ✅ 一致 |
+| `rows` 形状 | `checkin`：`{accountId,accountName,status,credit?,streakDays?,message?}`；`test`：`{accountId,accountName,result}` | 各字段读取，与类型一致（`:347-371`） | ✅ 一致 |
 | `modelId` | `test` 成功时带（`:826`） | 不读（日志改用 `pool.targetModelId`，`:332`） | ◻️ 不消费，非不一致 |
 | 409 二义 | 两条不同的 409（`:792` 未启用 / `:799` 无成员） | 只显示 `error` 原文，不区分 | ⚠️ 见 B-3 |
 
 ---
 
-## 四、审计边界与未覆盖项
+## 4. 审计边界与未覆盖项
 
 - **未做的验证**：真实上游（网络）行为、DSH 版本差异（0.1.5 vs 0.1.7 的 volatile 引用）、`WorkBuddyCard.tsx` 的其余渲染分支。本审计只覆盖「账号池字段的客户端↔Host 契约」。
 - **同伴写入风险**：`web-status.ts` / `index.ts` / `WorkBuddyCard.tsx` / `status-paths.ts` 均在同一仓库被其他审计或修复会话改动。本报告的行号以第三节的基线哈希为准；若这些文件在报告之后被修改，**引用行号可能漂移，字段结论需按新哈希复核**。`AccountPool.tsx` 的基线 `b5a8117521d1` 与审计 A 一致。

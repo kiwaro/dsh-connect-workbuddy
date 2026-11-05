@@ -2085,7 +2085,7 @@ export function createWorkBuddyShim(options: WorkBuddyShimOptions): WorkBuddyShi
         const message =
           `${lead}（${meta.join('，')}）${note}。模型当前繁忙。` +
           '请等待约 1 分钟，或切换到负载较低的模型。' +
-          '宿主会按重试设置自动重试此类请求。'
+          'DSH 会按重试设置自动重试此类请求。'
         writeOpenAIError(res, KIND_STATUS[result.kind], result.kind, message, hostErrorCode(result.kind))
         return
       }

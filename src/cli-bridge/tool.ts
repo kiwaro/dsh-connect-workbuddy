@@ -818,8 +818,8 @@ export function mountAskTool(tools: BridgeToolsService | undefined, deps: AskDep
     return tools.register({
       name: 'codebuddy_ask',
       description:
-        '调用本机 CodeBuddy CLI 执行独立任务，按权限设置读取文件、修改文件或执行命令，完成后返回结果。' +
-        '适用于独立代码审查、问题调查和复核。请提供完整背景、目标和要求，CodeBuddy 仅接收本次任务描述。' +
+        '调用已安装的 CodeBuddy CLI 执行独立任务。CLI 根据权限设置读取文件、修改文件或执行命令，并在完成后返回结果。' +
+        '可用于代码审查和问题调查。请在 message 中提供完整背景、目标和要求，因为 CodeBuddy 通过该参数接收本次任务。' +
         `每次调用均消耗 CodeBuddy 账号额度，输入可能包含数万 token，缓存命中按对应费率计费。` +
         `本会话每小时最多 ${String(deps.options.maxTurnsPerSessionHour === 0 ? '不限' : deps.options.maxTurnsPerSessionHour)} 次、` +
         `全局每小时最多 ${String(deps.options.maxTurnsPerHour === 0 ? '不限' : deps.options.maxTurnsPerHour)} 次，达到上限时返回限额提示。` +
@@ -835,7 +835,7 @@ export function mountAskTool(tools: BridgeToolsService | undefined, deps: AskDep
           working_dir: {
             type: 'string',
             description:
-              '本次读写文件的工作目录。请提供现有目录的绝对路径，且位于当前工作区或 allowedDirs 内；省略时使用当前会话工作区。',
+              '设置本次文件读写的工作目录，省略时使用会话工作区。指定目录时，请提供已有目录的绝对路径，且该目录位于会话工作区或 allowedDirs 允许的范围内。',
           },
           model: {
             type: 'string',

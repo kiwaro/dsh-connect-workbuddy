@@ -1,7 +1,7 @@
 /**
  * WorkBuddy 生图的纯逻辑层：媒体模型筛选、请求体构造、响应解析、失败描述。
  *
- * 这一层刻意不做任何网络 I/O、不引用宿主的任何包。`src/upstream.ts` 会被
+ * 这一层刻意不做任何网络 I/O、不引用 DSH 的任何包。`src/upstream.ts` 会被
  * `src/bin.ts` 静态可达（见 tests/host-peers.spec.ts 对 lib/bin.js 可达图的断言：
  * 除 `node:` 外不得出现任何裸说明符），所以任何被它引用的模块都必须保持零外部依赖。
  *

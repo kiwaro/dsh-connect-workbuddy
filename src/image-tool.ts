@@ -3,7 +3,7 @@
  * `text-to-image` 模型）暴露成一个 DSH agent 工具。
  *
  * 为什么手写 ToolDefinition 而不 import `@deepseek-ai/dsh-tools` 的 `defineTool`：
- * 宿主 `Tools.register` 只校验两件事——`output.render` 是函数、`output.schema` 是
+ * DSH `Tools.register` 只校验两件事——`output.render` 是函数、`output.schema` 是
  * 受支持的 JSON Schema；`schemaOf()` 把 `parameters` **原样**投影给模型。也就是说
  * raw JSON Schema 完全够用，而 `defineTool` 额外提供的只有「按 spec 编译 schema +
  * 代校验参数」这一层包装。手写换来的是：零新 peer 依赖、不需要动态 import 兜底、
@@ -37,7 +37,7 @@ import {
   type WorkBuddyMediaModel,
 } from './image-gen.ts'
 
-/** 工具名。宿主禁止 `run_code`，这个名字与其它 connect 插件的命名习惯一致。 */
+/** 工具名。DSH 禁止 `run_code`，这个名字与其它 connect 插件的命名习惯一致。 */
 export const WORKBUDDY_IMAGE_TOOL_NAME = 'workbuddy_draw_image'
 
 /** 工具单次执行的上限。实测一张图 17–39 秒，留足余量。 */
@@ -49,17 +49,17 @@ const IMAGE_INPUT_TIMEOUT_MS = 30_000
 /** 失败后的冷却：生图按张扣积分，连续重试会在几秒内烧掉几十积分。 */
 const FAILURE_COOLDOWN_MS = 30_000
 
-/** 宿主 ContentBlock 的最小结构（只需要文本块）。 */
+/** DSH ContentBlock 的最小结构（只需要文本块）。 */
 export interface ImageToolContentBlock {
   readonly type: 'text'
   readonly text: string
 }
 
 /**
- * 宿主 `ToolDefinition` 的结构子集。
+ * DSH `ToolDefinition` 的结构子集。
  *
- * 刻意不 import 宿主的类型：`@deepseek-ai/dsh-tools` 在运行期由宿主提供，
- * 这里只描述「宿主会读哪些字段」，避免把插件绑死在某个宿主版本的类型上。
+ * 刻意不 import DSH 的类型：`@deepseek-ai/dsh-tools` 在运行期由 DSH 提供，
+ * 这里只描述「DSH 会读哪些字段」，避免把插件绑死在某个 DSH 版本的类型上。
  */
 export interface ImageToolDefinition {
   readonly name: string
@@ -73,7 +73,7 @@ export interface ImageToolDefinition {
   execute(args: unknown, exec: ImageToolExec): Promise<Record<string, unknown>>
 }
 
-/** 宿主传给 execute 的执行上下文里本工具用得到的部分。 */
+/** DSH 传给 execute 的执行上下文里本工具用得到的部分。 */
 export interface ImageToolExec {
   readonly signal?: AbortSignal
 }
@@ -343,17 +343,17 @@ export function createImageTool(deps: ImageToolDeps): ImageToolDefinition {
   return {
     name: WORKBUDDY_IMAGE_TOOL_NAME,
     description:
-      '使用当前区域的 WorkBuddy 账号生成图片。'
-      + '不填 image 是文生图（用该区带 text-to-image 标签的模型）；'
-      + '填了 image 是改图（用带 image-to-image 标签的模型）。'
-      + '改图支持多图参考：image 传字符串数组（如 [模板图, 服装图]），按顺序全部生效。'
-      + '可选参数要么不填、要么类型正确（size/model 是字符串，image 是字符串或字符串数组）；'
+      '使用已授权区域的 WorkBuddy 账号生成图片，每次生成消耗该账号的积分。'
+      + '通过 prompt 描述画面，插件选择带 text-to-image 标签的模型生成图片。'
+      + '需要修改图片时，提供 image，插件改用带 image-to-image 标签的模型。'
+      + '多图参考时，将图片按参考顺序组成字符串数组传入 image，例如 [模板图, 服装图]。'
+      + 'size 和 model 使用字符串，image 使用字符串或字符串数组；可选参数可省略。'
       + '参数类型错误时返回 INVALID_ARGS，请修改参数后重试。'
       + '国内区与国际区都可用，模型取自该区产品配置'
       + '（国内区文生图 hunyuan-image-alpha、改图 hunyuan-image-alpha-edit；'
       + '国际区 hy-image-3.5 同时带这两个标签，以该区目录为准）。'
-      + '每张图消耗 WorkBuddy 积分，单价随区域与模型不同，以返回结果里的 credit 为准；'
-      + '每次调用均会计费，请按用户授权生成。结果返回 COS 签名 URL，'
+      + '费用随区域和模型变化，响应中的 credit 表示本次扣除的积分。'
+      + '请在用户授权后调用。生成结果通过 COS 签名 URL 返回，'
       + '约 24 小时后失效；需要展示给用户时，用 markdown 图片语法引用该 URL。',
     parameters: {
       type: 'object',
@@ -379,16 +379,16 @@ export function createImageTool(deps: ImageToolDeps): ImageToolDefinition {
           type: ['string', 'array'],
           items: { type: 'string' },
           description:
-            '输入图，可选。填了就是改图（image-to-image）；不填就是文生图。'
-            + '接受本地绝对路径、file:// URL、http(s) URL、data URL 或base64 编码；'
-            + '也接受字符串数组（多张参考图，如 [模板图, 服装图]，按顺序当参考）。'
+            '需要修改图片时，通过此参数提供输入图，插件使用 image-to-image 模型。省略此参数时，插件使用 text-to-image 模型生成图片。'
+            + '可提供图片的绝对路径、file:// URL、http(s) URL、data URL 或 base64 编码；'
+            + '多张参考图请按顺序组成字符串数组，例如 [模板图, 服装图]。'
             + '上限 8 MB/张，不做缩放或格式转换。',
         },
         model: {
           type: 'string',
           description:
-            '模型 id，可选。不填就用该区目录里第一个带当前模式标签的模型'
-            + '（文生图看 text-to-image，改图看 image-to-image）。'
+            '选择图片模型，需属于所用区域和生成模式。省略此参数时，插件使用对应标签组中的第一个模型'
+            + '：文生图对应 text-to-image，改图对应 image-to-image。'
             + '指定模型需属于当前模式对应的模型列表。',
         },
       },
@@ -527,15 +527,15 @@ export function createImageTool(deps: ImageToolDeps): ImageToolDefinition {
   }
 }
 
-/** 宿主 tools 服务里本工具用到的那一个方法。 */
+/** DSH tools 服务里本工具用到的那一个方法。 */
 export interface ToolsServiceLike {
   register(definition: unknown): () => void
 }
 
 /**
- * 把工具注册进宿主。返回 disposer；调用方负责在插件卸载时调用它。
+ * 把工具注册进 DSH。返回 disposer；调用方负责在插件卸载时调用它。
  *
- * 注册本身是同步的；`tools` 服务由宿主提供，拿不到就直接返回 undefined
+ * 注册本身是同步的；`tools` 服务由 DSH 提供，拿不到就直接返回 undefined
  * 并记一条警告——生图工具缺失不该让整个插件起不来。
  */
 export function registerWorkBuddyImageTool(
