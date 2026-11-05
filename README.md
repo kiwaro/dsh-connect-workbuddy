@@ -12,24 +12,23 @@
 
 | 分支或安装来源 | 内容 |
 | --- | --- |
-| `main` | 上游代码；中文首页另行维护 |
-| [workbuddy-local-integration](https://github.com/kiwaro/dsh-connect-workbuddy/tree/workbuddy-local-integration) | 基于 5.18.0 的集成修改：每次响应的积分记录、账号轮换后的积分归属，以及中文提示调整 |
+| `main` | 基于 5.18.1，包含每次响应的积分记录、账号轮换后的积分归属和中文说明调整 |
 | npm 包 `dsh-connect-workbuddy` | 上游作者发布的版本 |
 
-插件会记录每次响应消耗的积分，日志格式和读取方法见[积分日志说明](https://github.com/kiwaro/dsh-connect-workbuddy/blob/workbuddy-local-integration/docs/CREDIT-JOURNAL.md)。
+插件会记录每次响应消耗的积分，日志格式和读取方法见[积分日志说明](https://github.com/kiwaro/dsh-connect-workbuddy/blob/main/docs/CREDIT-JOURNAL.md)。
 
 插件通过 WorkBuddy 客户端接口调用模型，费用由所用账号承担。第三方接入可能导致账号限制或封禁；接口调整可能中断服务。使用范围限定为个人学习、研究和个人合理用量，并应遵守 WorkBuddy 服务条款。
 
 ## 2. 安装
 
-### 2.1 安装集成分支
+### 2.1 从源码安装
 
 需要 Git、pnpm 和符合 `^22.19.0 || >=24.0.0` 范围的 Node.js。DSH 依赖范围见 [package.json](package.json) 的 `peerDependencies`。
 
 以下示例将仓库放在 Windows 的 `D:/projects` 目录。使用其他目录时，请同步修改命令中的路径。
 
 ```sh
-git clone --branch workbuddy-local-integration https://github.com/kiwaro/dsh-connect-workbuddy.git D:/projects/dsh-connect-workbuddy
+git clone --branch main https://github.com/kiwaro/dsh-connect-workbuddy.git D:/projects/dsh-connect-workbuddy
 cd D:/projects/dsh-connect-workbuddy
 pnpm install --frozen-lockfile --ignore-scripts
 pnpm run build
@@ -258,7 +257,7 @@ pnpm run verify:entries
 
 - [架构与模型能力](docs/DESIGN.md)
 - [活动标记](docs/PROMO_BADGE.md)
-- [积分日志](https://github.com/kiwaro/dsh-connect-workbuddy/blob/workbuddy-local-integration/docs/CREDIT-JOURNAL.md)
+- [积分日志](https://github.com/kiwaro/dsh-connect-workbuddy/blob/main/docs/CREDIT-JOURNAL.md)
 - [Windows 平台](docs/WINDOWS.md)
 - [更新与版本等待期](docs/PINNED-UPGRADE-LAG.md)
 - [第三方代码与许可证](THIRD_PARTY_NOTICES.md)

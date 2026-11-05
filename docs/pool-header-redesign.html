@@ -7,7 +7,7 @@
 <style>
 /* ============================================================================
    沿用插件真实设计令牌（--dsw-alias-*）与类名前缀 dsm-workbuddy-*，所以这份预览
-   与卡片里的实际观感一致。这不是最终实现，是改动前的形态校对稿。
+   用于比较账号池头部布局。本页保留历史设计稿，实际功能以插件为准。
    ========================================================================== */
 :root{
   --dsw-alias-border-l2:#36373b; --dsw-alias-border-l1:#2c2d31;
@@ -110,12 +110,12 @@ body{
         </div>
         <div class="before-current">
           <span class="dsm-workbuddy-pool-current-badge">当前使用：13046625578</span>
-          <span class="dsm-workbuddy-pool-current-hint">这是你下一个请求会使用的账号。启用账号池后，请求在上游失败时可能改用池里另一个账号重试——那只是为这一次请求借用额度，不会改变这里的选定。</span>
+          <span class="dsm-workbuddy-pool-current-hint">此处显示下一次请求的首选账号。重试可能使用池内其他成员，手动账号选择单独保存。</span>
         </div>
       </div>
       <div class="before-rescan"><button class="dsm-btn dsm-btn-outline marker">重新检测账号</button></div>
       <p class="marker-label">↑ 靠右</p>
-      <div class="before-actions"><button class="dsm-btn dsm-btn-primary marker">一键签到所有账号</button><button class="dsm-btn dsm-btn-outline marker">一键测试所有账号</button></div>
+      <div class="before-actions"><button class="dsm-btn dsm-btn-primary marker">签到勾选的账号</button><button class="dsm-btn dsm-btn-outline marker">测试勾选的账号</button></div>
       <p class="marker-label">↑ 靠左，与上一行不同轴</p>
       <p class="dsm-workbuddy-pool-note before-note"><span class="marker" style="display:inline-block">你指定的模型：deepseek-v4.1-flash</span></p>
       <p class="marker-label">↑ 目标模型在这里说了第二遍（副标题已说过）</p>
@@ -126,7 +126,7 @@ body{
 
   <!-- ============================ 改后 ============================ -->
   <section class="panel">
-    <div class="panel-head"><h2>改后</h2><span class="tag">头部只留标题与徽章 · 按钮一行两簇 · 来源并入设置行</span></div>
+    <div class="panel-head"><h2>改后</h2><span class="tag">头部只留标题与徽章 · 按钮两组按钮 · 来源并入设置行</span></div>
     <div class="panel-body">
 
       <div class="dsm-workbuddy-pool" style="margin-top:12px">
@@ -138,25 +138,25 @@ body{
 
         <!-- 设置区 -->
         <div class="dsm-workbuddy-pool-set">
-          <span class="dsm-workbuddy-pool-set-copy"><b>启用账号池</b><span>开启后由本区域的账号池自动决定每一次请求用谁，失败时自动换下一个可用账号。关闭后插件不替你选、也不替你换。</span></span>
+          <span class="dsm-workbuddy-pool-set-copy"><b>启用账号池</b><span>开启后，插件按本区域账号池规则选择请求账号，并在符合重试条件时换号。关闭后，使用手动选择的账号。</span></span>
           <span class="dsm-workbuddy-pool-set-ctl"><span class="mock-switch on"><i></i></span></span>
         </div>
         <div class="dsm-workbuddy-pool-set">
-          <span class="dsm-workbuddy-pool-set-copy"><b>目标测试模型</b><span>当前：<b style="color:var(--dsw-alias-label-secondary)">deepseek-v4.1-flash（你指定）</b>。「自动」会从本区域目录里挑一个倍率为 0 的免费模型；手动指定优先于自动。</span></span>
+          <span class="dsm-workbuddy-pool-set-copy"><b>目标测试模型</b><span>指定模型：<b style="color:var(--dsw-alias-label-secondary)">deepseek-v4.1-flash</b>。自动模式选择本区域上下文窗口最大的免费模型。</span></span>
           <span class="dsm-workbuddy-pool-set-ctl"><select class="dsm-workbuddy-pool-select"><option>deepseek-v4.1-flash</option><option>自动</option></select></span>
         </div>
 
-        <p class="dsm-workbuddy-pool-note" style="margin-top:2px">↑ 以上是<b>账号池开启</b>的形态。关闭时会<b>多出一行</b>「使用哪个账号」，那是手动模式唯一的选择入口（下列）：</p>
+        <p class="dsm-workbuddy-pool-note" style="margin-top:2px"><b>手动模式示例：</b>账号池关闭后，显示「使用哪个账号」设置。</p>
         <div class="dsm-workbuddy-pool-set" style="border-top:1px dashed var(--dsw-alias-border-l2);opacity:.95">
-          <span class="dsm-workbuddy-pool-set-copy"><b>使用哪个账号</b><span>账号池关闭时，由你在这里选定服务本区域的账号。</span></span>
+          <span class="dsm-workbuddy-pool-set-copy"><b>使用哪个账号</b><span>选择本区域发送请求所用的账号。</span></span>
           <span class="dsm-workbuddy-pool-set-ctl"><select class="dsm-workbuddy-pool-select"><option>13046625578</option><option>18016009945</option></select></span>
         </div>
 
-        <!-- 工具栏：一行两簇，左=对账号做的事，右=发现新账号 -->
+        <!-- 工具栏：两组按钮，左=对账号做的事，右=发现新账号 -->
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;border-top:1px solid var(--dsw-alias-border-l2);padding-top:12px">
           <div style="display:flex;gap:8px">
-            <button class="dsm-btn dsm-btn-primary">一键签到所有账号</button>
-            <button class="dsm-btn dsm-btn-outline">一键测试所有账号</button>
+            <button class="dsm-btn dsm-btn-primary">签到勾选的账号</button>
+            <button class="dsm-btn dsm-btn-outline">测试勾选的账号</button>
           </div>
           <div style="display:flex;gap:8px">
             <button class="dsm-btn dsm-btn-outline">重新检测账号</button>
@@ -203,12 +203,12 @@ body{
   </section>
 
   <section class="panel">
-    <div class="panel-head"><h2>这一版具体动了什么</h2><span class="tag">对应上面四行标记</span></div>
+    <div class="panel-head"><h2>布局调整说明</h2><span class="tag">对应上面四行标记</span></div>
     <div class="panel-body" style="font-size:13px;line-height:1.75;color:var(--dsw-alias-label-secondary)">
-      <p style="margin:0 0 8px"><b class="good">① 对齐</b>　所有页面级按钮收成<b>一行两簇</b>：左边是「对账号做的事」（签到、测试），右边是「发现新账号」（重新检测）。此前它们在两行里各靠一边，没有一条对齐线。</p>
-      <p style="margin:0 0 8px"><b class="good">② 去重</b>　目标模型的来源只说一次，写在「目标测试模型」这一行的当前值里（<code>（你指定）</code> / <code>（免费）</code> / <code>（自动）</code>）。此前它在副标题与底部各说一遍，现在两处都不再有独立成行的重复。</p>
-      <p style="margin:0 0 8px"><b class="good">③ 减噪</b>　徽章旁那 4 行说明与副标题<b>整行删除</b>：账号数看成员表、目标模型看设置行，两处都已可见。副标题里「（你指定）」这个<b>来源</b>信息搬进「目标测试模型」行的当前值，所以没有丢。</p>
-      <p style="margin:0"><b class="good">④ 保持</b>　保存行不动（上一轮刚统一：左「鼓励一下 ★」、右按钮组），徽章仍留在右上角第一眼位置。</p>
+      <p style="margin:0 0 8px"><b class="good">1. 按钮对齐</b>　签到、测试放在左侧；重新检测放在右侧，两组按钮共用一行。</p>
+      <p style="margin:0 0 8px"><b class="good">2. 模型来源</b>　在目标测试模型设置中显示指定、免费或自动状态。</p>
+      <p style="margin:0 0 8px"><b class="good">3. 头部信息</b>　成员表显示账号，设置行显示目标模型，头部保留标题和当前账号徽标。</p>
+      <p style="margin:0"><b class="good">4. 保存区域</b>　保留底部操作布局，保存按钮仍用于提交偏好设置。</p>
     </div>
   </section>
 

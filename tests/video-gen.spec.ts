@@ -171,7 +171,7 @@ describe('buildVideoBody', () => {
     expect(body).not.toHaveProperty('image_url')
   })
 
-  it('resolution / enable_audio / aspect_ratio 都被原样透传（信任已校验的值）', () => {
+  it('resolution / enable_audio / aspect_ratio 都被原样转发（信任已校验的值）', () => {
     const text = buildVideoBody({
       model: 'kling-video-v3',
       prompt: 'p',
@@ -222,7 +222,7 @@ describe('resolveVideoParams', () => {
     }
   })
 
-  it('没有 videoGeneration 配置时透传用户时长，不盲拒', () => {
+  it('没有 videoGeneration 配置时原样传递用户时长，不盲拒', () => {
     // 拿不到 min/maxSeconds：给任意 seconds 都接受，避免把所有自定义时长判死。
     expect(resolveVideoParams({ model: 'm', prompt: 'p', seconds: 15 }).seconds).toBe(15)
     expect(resolveVideoParams({ model: 'm', prompt: 'p' }).seconds).toBe(DEFAULT_VIDEO_SECONDS)
@@ -265,7 +265,7 @@ describe('resolveVideoParams', () => {
     expect(result.warnings).toEqual([])
   })
 
-  it('目录没给 resolutions 时透传用户分辨率，不静默回落（与 seconds 同一条判据）', () => {
+  it('目录没给 resolutions 时原样传递用户分辨率，不静默回落（与 seconds 同一条判据）', () => {
     // 回归：原实现把「不在 resolutions 集合里」和「根本没有 resolutions」当成一回事，
     // 于是一条 `resolution: "1080P"` 在拿不到 videoGeneration 的账号上被无声丢掉，
     // 只留一句「改用 上游默认」的告警。用户显式给的值不能因为目录读不到就消失。
@@ -282,8 +282,8 @@ describe('resolveVideoParams', () => {
     expect(emptyList.warnings).toEqual([])
   })
 
-  it('大小写不同但语义相同 → 采纳目录的拼写（上游认的是它自己那份）', () => {
-    // 官方 CLI 的兜底档位是 ["720P","1080P"]，而工具描述举的例子是 720p/1080p；
+  it('大小写不同但处理结果相同 → 采纳目录的拼写（上游认的是它自己那份）', () => {
+    // 官方 CLI 的默认档位是 ["720P","1080P"]，而工具描述举的例子是 720p/1080p；
     // 精确匹配会把一个其实可用的值判成不支持。
     const result = resolveVideoParams(
       { model: 'm', prompt: 'p', resolution: '1080p' },
@@ -463,7 +463,7 @@ describe('describeVideoFailure: 提交阶段 4xx', () => {
     expect(error.code).toBe('REJECTED')
     expect(error.message).toContain('没有创建任务')
     expect(error.message).toContain('没有扣积分')
-    expect(error.message).toContain('可以立刻重试')
+    expect(error.message).toContain('调整参数后重试')
   })
 
   it('把上游自报的区间写进错误里，替用户把「到底几秒」补全', () => {
@@ -519,7 +519,7 @@ describe('parseSupportedSecondsRange', () => {
   })
 })
 
-describe('videoGeneration 透传', () => {
+describe('videoGeneration 原样传递', () => {
   const raw = [
     {
       id: 'kling-video-v3',

@@ -5,7 +5,7 @@
  * 参考：corrinehu/dsh-workbuddy-connect（MIT，Copyright (c) 2026 Corrine Hu）
  *   — 三个子命令（`doctor` / `status` / `logout`）、`--json` 输出、
  *     `safeMessage` 脱敏、schemaVersion 字段、以及
- *     「宿主心跳 + 桌面端凭据文件 + 登录态」三项联合诊断的结构，
+ *     「DSH 心跳 + 桌面端凭据文件 + 登录态」三项联合诊断的结构，
  *     均由该项目设计。
  * 改动：凭据诊断由单文件扩展为「目录扫描 + 按账号分组」，
  *     doctor 会列出发现的每个账号及其文件来源，便于确认多账号是否可用；
@@ -512,7 +512,7 @@ async function doctor(jsonOutput: boolean): Promise<number> {
     deviceIdentity: {
       tier: device.tier,
       // 只在分岔时出现（tierSent === tier 是常态），与 device-state 的约定一致：
-      // 人类可读行在 152 行直接读 tierSent，这两个字段是给 --json 消费者的同一事实。
+      // 人类可读行在 152 行直接读 tierSent，这两个字段是给 --json 读取者的同一事实。
       ...device.tierSent === undefined ? {} : { tierSent: device.tierSent },
       ...device.fallbackToVirtual === undefined ? {} : { fallbackToVirtual: device.fallbackToVirtual },
       onWire: device.onWire,

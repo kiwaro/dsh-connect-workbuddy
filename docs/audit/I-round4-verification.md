@@ -1,19 +1,21 @@
-# I — Round-4 verification (adversarial, teammate `round4-verify`)
+# Account-pool verification: round 4
+
+Historical scope: this report checks the round-4 source guards and mutation results. The tables retain the measured results from that snapshot; later rendering tests are recorded in [E-fix-log.md](E-fix-log.md).
 
 > Verifier: `round4-verify` (shared task `task-7`), independent of the Lead who wrote the fixes.
-> Subject: the fourth-round fixes recorded in [E-fix-log.md](E-fix-log.md) §十二 — N1, N2, N3, N4,
+> Subject: the fourth-round fixes recorded in [E-fix-log.md](E-fix-log.md) §12 — N1, N2, N3, N4,
 > the M-2 card wiring, the D2 host-side `reason`, and the five guards hardened from "text exists"
 > to "structure/position/value".
-> **A green suite is the thing under test, not the thing to be trusted.** Every claim below is
+> The verification checks whether the suite detects restored defects. Every claim below is
 > settled by a mutant that restores the defect, never by reading the fix.
 >
 > **This file is the only write this session made to the repository.** `src/` and `tests/` were
 > never touched: all 11 frozen hashes verified identical before and after, and the shared tree's
-> own digest is unchanged (see §7).
+> own digest is unchanged (see §8).
 
 ---
 
-## 0. Headline
+## 1. Headline
 
 §12.7 claims **13/13 KILLED**. That table is **accurate about the 13 mutants it names** — I
 reproduced 12 of them exactly, and the one that did not reproduce (#1) is a different mutant with
@@ -26,8 +28,8 @@ suite at `Tests 655 passed (655)`, `Test Files 29 passed (29)` — and **all 18 
 `pnpm run check` gate** (`tsc -p tsconfig.json` and `tsc -p tsconfig.client.json` both exit 0), so
 they are invisible to CI, not merely to vitest.
 
-The eighteenth (**M41**, §3.2) was found after this report's first draft, while testing the guards'
-*seams* rather than their assertions. It is worth naming here because of its shape: it re-opens the
+The eighteenth (**M41**, §4.2) was found after this report's first draft, while testing the guards'
+*seams* rather than their assertions. Its relevant behaviour is: it re-opens the
 exact defect the D5 guard's headline kill (M12) exists to close, by adding a decoy lambda parameter
 that makes the guard **skip its own check for the name it is checking**. The guard's false-positive
 suppression is applied body-wide, so the suppression is itself the bypass — and the same file shows
@@ -47,7 +49,7 @@ defect fixed this round, N1 at §12.2, is also restored by mutants below: M15, M
 
 ---
 
-## 1. Method and discipline
+## 2. Method and discipline
 
 - Five full copies, all verified byte-identical to the shared tree before and after every campaign:
   `/tmp/r4-mut`, `/tmp/r4-mut2`, `/tmp/r4-mut3`, `/tmp/r4-mut4`, `/tmp/r4-flake`
@@ -65,7 +67,7 @@ defect fixed this round, N1 at §12.2, is also restored by mutants below: M15, M
 - `/tmp/r4-typecheck.sh <label>` runs both `tsc` projects in the copy after patching, to separate
   "survives the tests" from "survives `pnpm run check`".
 
-### 1.1 Three harness bugs I found and fixed (all three produced FALSE results first)
+### 2.1 Three harness bugs I found and fixed (all three produced FALSE results first)
 
 1. **Malformed patch → false survivor.** My generator's `SAVE_RET_A/B = 1140,1146` swallowed
    `src/index.ts:1145`, the closing `}` of `poolMemberAccounts`. Five mutants then produced
@@ -97,9 +99,9 @@ defect fixed this round, N1 at §12.2, is also restored by mutants below: M15, M
 - **M42 and M43** are not defect restorations either — they are *guard-robustness probes* of the D5
   derived-binding guard, run to test the seam between "the guard catches things" and "the guard is
   right". M42 is a control (green, inconclusive) and **M43 is a guard FALSE POSITIVE**: it is
-  legitimate code that the guard rejects. Both are reported in §3.2 and N17.
+  legitimate code that the guard rejects. Both are reported in §4.2 and N17.
 
-### 1.2 Corrections I made to this report after writing it
+### 2.2 Corrections I made to this report after writing it
 
 Recorded because a verifier's own claims deserve the same treatment as the ones it audits. Each was
 found by re-reading the cited source rather than trusting my first note:
@@ -108,15 +110,15 @@ found by re-reading the cited source rather than trusting my first note:
    `pool-failed` case, so the rename would fall back to raw English. It *does* have one
    (`src/client/pool-state.ts:173`). The mutant is still a real defect, but a worse-shaped one: the
    card renders a confident, localized, **wrong** sentence ("a batch failed") for a check-in route
-   that is merely missing. §N11 and §3 corrected.
-2. **Line numbers in the §3 patch table were transcribed from patch offsets, not from the patched
+   that is merely missing. §N11 and §4 corrected.
+2. **Line numbers in the §4 patch table were transcribed from patch offsets, not from the patched
    file.** M14 `539`→`542`, M16 `546`→`545`, M17 `1091`→`1090`, M20 `281,552`→`297,575`,
    M21 `568`→`561-563`, M22 `281,706`→`297,385`, M35 `477,494`→`478-479,496`. Each was re-derived by
    applying the patch in a scratch copy and grepping the result.
 3. **"Sixteen of 17 also pass `pnpm run check`" was wrong — all of them do.** The sixteenth was M38,
    the malformed form that is not in the 17 at all; its twin M38b is typecheck-clean. (At the time
    of this correction the count was 17; it is 18 after M41 — and M41 is typecheck-clean too.)
-4. **The §4 coverage table's guard line for M18/M19 was off by one to three lines** (`986`→`985`,
+4. **The §5 coverage table's guard line for M18/M19 was off by one to three lines** (`986`→`985`,
    `1025`→`1022`, and the M-2 wiring pair `1243-1246`→`1249-1250`).
 5. **The D6 guard has two distinct negative messages and I conflated them.** `:1096` is
    `'poolMemberAccounts re-inlined the filter'` and `:1107` is
@@ -124,16 +126,16 @@ found by re-reading the cited source rather than trusting my first note:
    to its own site.
 6. **The report originally stopped at the guards' *assertions* and never tested their *seams*.**
    That is where **M41** (the D5 skip rules are body-wide, so a decoy lambda parameter disables the
-   check for that name — §3.2) and **M43** (rule 2 matches a name inside a string literal, so the
+   check for that name — §4.2) and **M43** (rule 2 matches a name inside a string literal, so the
    guard fails legitimate code — N17) came from. A guard can be defeated by what it ignores just
    as easily as by what it fails to assert, and the two failure modes have opposite fixes: N5–N13
    need *more* checking, N16/N17 need *less*.
 
 ---
 
-## 2. Verdict table
+## 3. Verdict table
 
-### 2.1 The 13 mutants named in §12.7
+### 3.1 The 13 mutants named in §12.7
 
 | # | §12.7 claim | My verdict | Evidence |
 | --- | --- | --- | --- |
@@ -155,7 +157,7 @@ Tally: **7 CONFIRMED**, **6 PARTIALLY CONFIRMED** (the named mutant dies, but th
 by a nearby respelling), **1 REFUTED**. One of the 7 confirmations carries a *citation* defect rather
 than a verdict defect (#7 — see the table).
 
-### 2.2 The five hardened guards + the new N1/N3/N4 guards, judged as guards
+### 3.2 The five hardened guards + the new N1/N3/N4 guards, judged as guards
 
 | Guard | Site | Kind | Verdict | Defeating mutant |
 | --- | --- | --- | --- | --- |
@@ -178,7 +180,7 @@ the assertion executes the behaviour.
 
 ---
 
-## 3. The 18 surviving mutants
+## 4. The 18 surviving mutants
 
 All 18: `Test Files 29 passed (29)`, `Tests 655 passed (655)`, **and** `tsc -p tsconfig.json` exit 0
 **and** `tsc -p tsconfig.client.json` exit 0. They defeat the whole `pnpm run check` gate, not merely
@@ -199,7 +201,7 @@ the M-2 bypass (M38, `error TS2552: Cannot find name 'parseIntervalInput'`) — 
 | **M21** | `src/client/AccountPool.tsx:561-563` | `const meta = { saved: saved.memberAccountIds }` then `new Set(meta.saved)` in `editDraft` | D5/H-1 through an object-literal value | clean |
 | **M22** | `src/client/AccountPool.tsx:297,385` | `const regionNow = region` at render scope; `logStore.set(region, next)` → `logStore.set(regionNow, next)` | D5: `runAction` reads the `region` prop with no dependency | clean |
 | **M23** | `src/web-status.ts:637-640` | swap the two arguments of `effectiveMembersOf` | N2: the status document's `effectiveMemberAccountIds` returns **saved order**, not roster order | clean |
-| **M24** | `src/web-status.ts:857` | `reason: 'pool-unavailable'` → `reason: 'pool-failed'` | D2: the checkin 503 is mislabelled as a *batch* failure, so the user is told "批量操作在宿主侧失败：pool check-in unavailable" (a batch failed) when the truth is "this build has no check-in route" | clean |
+| **M24** | `src/web-status.ts:857` | `reason: 'pool-unavailable'` → `reason: 'pool-failed'` | D2: the checkin 503 is mislabelled as a *batch* failure, so the user is told "批量操作在 DSH 侧失败：pool check-in unavailable" (a batch failed) when the truth is "this build has no check-in route" | clean |
 | **M28** | `src/index.ts:1138-1144` | `const shape = 'return effectiveMembersOf('` + `void shape` + `const keep = new Set(saved)` + `return accounts.filter(account => keep.has(account.id))` | N3: `poolMemberAccounts` no longer delegates; the rule is decorative | clean |
 | **M35** | `src/client/AccountPool.tsx:478-479,496` | `const { memberAccountIds: aliasedIds, targetModelId: aliasedTarget } = saved` + `const aliasedBase = {...}`; `editDraft` passes `{ ...savedRef.current, ...aliasedBase }` | D5/H-1: `editDraft` again reads the render-scoped `saved`, through a **destructure alias** | clean |
 | **M36** | `src/web-status.ts:857` | delete `reason: 'pool-unavailable',` from the `checkin` 503 body | D2: the checkin path sends no reason at all | clean |
@@ -207,7 +209,7 @@ the M-2 bypass (M38, `error TS2552: Cannot find name 'parseIntervalInput'`) — 
 | **M39** | `src/client/AccountPool.tsx:709` | `onRefresh?.call(undefined)` added inside `finally` | M-4: `onRefresh` fires on a **failed** batch too, masking the error | clean |
 | **M41** | `src/client/AccountPool.tsx:494-496` | `return edit(draftBaseFor(previous, draftRegion, region, savedRef.current))` → `const shadow = (saved: PoolPreferences): readonly string[] => saved.memberAccountIds` + `void shadow` + `return edit(draftBaseFor(previous, draftRegion, region, saved))` | D5/H-1 — **M12's defect verbatim** (a `useCallback` reads the render-scoped `saved` with no dependency), masked by a decoy lambda parameter named `saved` | clean |
 
-### 3.1 The four survivors that matter most, in full
+### 4.1 The four survivors that matter most, in full
 
 **M01 — the round's only product change, reverted.** The guard is
 ```js
@@ -246,7 +248,7 @@ of the same read) all live.
 
 ---
 
-### 3.2 M41 — the eighteenth survivor, and the one that shows the guard defeating itself
+### 4.2 M41 — the eighteenth survivor, and the one that shows the guard defeating itself
 
 M41 exists only to answer the question the rest of the campaign did not ask: **not "what does the
 guard assert?" but "what makes the guard stop asserting?"** The D5 guard
@@ -285,7 +287,7 @@ problem — see **N17**.
 
 ---
 
-## 4. Coverage-gap table
+## 5. Coverage-gap table
 
 | Mutant | Restored defect | Guard that should have caught it | Why it missed | Suite |
 | --- | --- | --- | --- | --- |
@@ -310,7 +312,7 @@ problem — see **N17**.
 
 ---
 
-## 5. New findings
+## 6. New findings
 
 ### N5 — HIGH — the D5 derived-binding guard is defeated by aliasing
 **File:** `tests/pool-e2e.spec.ts:1158-1226` (guard) vs `src/client/AccountPool.tsx:281-323,476-494`.
@@ -404,7 +406,7 @@ the test's own comment forbids — while the count stays 1.
 the second 503 test is *named* "answers 503 when **only the requested action** is unavailable" but
 only ever disables `test`. Deleting the field (M36) or renaming it to `pool-failed` (M24) both
 leave the suite green. The rename is the more damaging of the two, because `pool-failed` **is** a
-known cause (`src/client/pool-state.ts:173` → `row.poolErrFailed` = *"批量操作在宿主侧失败：{message}"*),
+known cause (`src/client/pool-state.ts:173` → `row.poolErrFailed` = *"批量操作在 DSH 侧失败：{message}"*),
 so the card renders a confident, localized, and **wrong** sentence — it tells the user a batch
 failed when no batch was ever attempted — instead of falling back to the Host's own
 `pool check-in unavailable` (`src/client/pool-state.ts:197-204`, the three-tier rule). The
@@ -468,7 +470,7 @@ with a separate deterministic probe-count test.
 
 ### N16 — HIGH — the D5 guard's false-positive suppression is body-wide, so a decoy lambda disables the check for the name it is checking
 **File:** `tests/pool-e2e.spec.ts:1216` (the skip rule) and `:1199-1202` (the hardcoded list);
-defect site `src/client/AccountPool.tsx:494-496`. **Decisive mutant: M41** (§3.2), SURVIVED 3/3,
+defect site `src/client/AccountPool.tsx:494-496`. **Decisive mutant: M41** (§4.2), SURVIVED 3/3,
 `Tests 655 passed (655)`, `client-tsc=0 node-tsc=0`.
 **Mechanism.** The guard excuses a binding name for a whole callback when the callback merely
 *contains* `(` + name anywhere:
@@ -482,7 +484,7 @@ declare their own parameter, and flagging them would be a false positive. But it
 against the callback body, not against the read it is excusing. One decoy lambda parameter named
 `saved` therefore switches off the `saved` check for that entire callback, and the real
 free-variable read of the render-scoped `saved` — **M12's defect, which on its own is KILLED** —
-goes through. See §3.2 for the patch and the reasoning.
+goes through. See §4.2 for the patch and the reasoning.
 
 **Why it is a separate finding from N5 (aliasing).** N5's defeats (M20/M21/M22/M35) all hide behind
 a name that the guard has never heard of. M41 uses the name the guard is explicitly looking for.
@@ -512,7 +514,7 @@ positive is a guard whose next maintainer will neuter it.
 **Fix direction.** `strip()` the body (string literals included, not just comments) before running
 rules 1–3, or at minimum require the match to be a genuine identifier position.
 
-### 5.1 The seams, probed (acceptance criterion E)
+### 6.1 The seams, probed (acceptance criterion E)
 
 Beyond asserting that each guard's own mutant dies, I probed the **seams**: the boundaries where a
 guard stops looking, and where it looks too hard. Four seams were named; two produced findings.
@@ -533,7 +535,7 @@ the patterns longer.
 
 ---
 
-## 6. What I could NOT verify, and why
+## 7. What I could NOT verify, and why
 
 1. **Whether the fixed code actually behaves correctly in a browser.** No renderer exists
    (N14), so `AccountPool.tsx` and `WorkBuddyCard.tsx` were never executed. Every statement I make
@@ -555,7 +557,7 @@ the patterns longer.
    `tests/pool-e2e.spec.ts:1229` (latest-wins import). They are reported as untested, not as held.
 6. **Whether any of the 18 mutants would be caught by a *different* consumer** (the real DSH Host,
    the desktop app). Out of scope; the question asked was about this repository's suite.
-7. **The seams are probed, not exhausted.** §5.1 names four; I found defeats at two of them (M41,
+7. **The seams are probed, not exhausted.** §6.1 names four; I found defeats at two of them (M41,
    M43) and a control at a third (M42). The other five guards' seam structure — where their skip
    rules, word boundaries and slice anchors stop looking — was reviewed but **not** attacked with
    mutants the way the D5 guard was. M41 in particular suggests the general shape to look for
@@ -569,9 +571,9 @@ the patterns longer.
 
 ---
 
-## 7. Frozen hashes and sentinel
+## 8. Frozen hashes and sentinel
 
-### 7.1 The 11 frozen hashes — `shasum -a 256 -c /tmp/r4-frozen.txt`, before and after
+### 8.1 The 11 frozen hashes — `shasum -a 256 -c /tmp/r4-frozen.txt`, before and after
 
 ```
 src/account-pool.ts: OK
@@ -588,7 +590,7 @@ tests/account-pool.spec.ts: OK
 ```
 11/11 OK, identical before and after the campaign.
 
-### 7.2 Real-home sentinel — byte-identical before and after
+### 8.2 Real-home sentinel — byte-identical before and after
 
 ```
 -rw-------  1 dmh2002  staff  35 Sep 30 07:13 /Users/dmh2002/.dsh/.workbuddy-pool.cn.json
@@ -597,7 +599,7 @@ size 35 bytes, mtime 1790723631, mode -rw-------
 ```
 Unchanged throughout. No probe was ever written to the real home.
 
-### 7.3 Shared tree untouched
+### 8.3 Shared tree untouched
 
 ```
 ( find src tests -type f -print0 | sort -z | xargs -0 shasum -a 256 | shasum -a 256 )
@@ -615,7 +617,7 @@ unchanged by this session.
 
 ---
 
-## 8. Verdict
+## 9. Verdict
 
 §12.7's table is honest about its 13 mutants: 12 reproduce exactly, and #1 is a real, verified
 kill of the *old* wording. But the claim that the round replaced "文本存在" with "行为存在" is
@@ -648,7 +650,7 @@ response is to add it — the suite goes green, the guard looks satisfied, and N
 as open as before. A guard that can be wrong in the false-positive direction is one that eventually
 gets neutralised by the person it inconvenienced.
 
-The fix is not more regexes. It is one dependency: `jsdom` plus `react-dom`, so that
+The recommended approach uses `jsdom` plus `react-dom`, so that
 `AccountPool.tsx` can be rendered and the interval field's displayed value can be read after a
 keystroke. That single change converts N5–N10, N13, N16 and N17 from "guard defects" into
 behavioural tests — including M43, which a renderer would never report, because legitimate code

@@ -417,7 +417,7 @@ describe('resolveWorkingDir', () => {
     // to guess which of the two the message is about.
     expect(choice.reason).toContain(staleProjection)
     expect(choice.reason).toContain(staleHeader)
-    expect(choice.reason).toContain('都失效')
+    expect(choice.reason).toContain('请指定有效的工作目录')
   })
 
   it('does not fall back from an explicit argument that fails validation', () => {
@@ -518,7 +518,7 @@ describe('resolveWorkingDir', () => {
     // directory, so existence alone is not a guard.
     const choice = resolveWorkingDir({ working_dir: outsideDir }, options(), executionIn(sessionDir))
     expect(choice.ok).toBe(false)
-    expect(choice.reason).toContain('不在本回合允许的范围内')
+    expect(choice.reason).toContain('不在本次允许的范围内')
     // A refusal that does not say how to widen the scope is a dead end.
     expect(choice.reason).toContain('allowedDirs')
   })
@@ -818,7 +818,7 @@ describe('composeContinuation and injectOutcome', () => {
     expect(text).toContain('C:/repo')
     expect(text).toContain('（未提交改动）')
     expect(text).toContain('Read×3')
-    expect(text).toContain('可能已经改动了工作区里的文件')
+    expect(text).toContain('工作区文件可能已被修改')
     // It must NOT pretend the human asked the model to continue: the command was
     // human-to-CodeBuddy.
     expect(text).not.toContain('继续你原来的任务')
@@ -866,7 +866,7 @@ describe('composeContinuation and injectOutcome', () => {
   })
 
   it('renders the two delivery outcomes differently, because they are different facts', () => {
-    expect(formatInjection({ ok: true, delivered: 'new-turn', woke: true, messageId: 'm' })).toContain('已唤醒')
+    expect(formatInjection({ ok: true, delivered: 'new-turn', woke: true, messageId: 'm' })).toContain('已将 CodeBuddy 结果发送给会话模型')
     expect(formatInjection({ ok: true, delivered: 'next-step', woke: false, messageId: 'm' })).toContain('已排队')
     expect(formatInjection({ ok: false, code: 'agent-not-live', error: 'x' })).toContain('agent-not-live')
   })
@@ -889,8 +889,8 @@ describe('/codebuddy', () => {
   }
 
   it('turns an empty line into the review brief and leaves typed text alone', () => {
-    expect(composeCommandPrompt('')).toContain('未提交的改动')
-    expect(composeCommandPrompt('   ')).toContain('未提交的改动')
+    expect(composeCommandPrompt('')).toContain('未提交的修改')
+    expect(composeCommandPrompt('   ')).toContain('未提交的修改')
     // A human who typed something meant it: no brief may be prepended.
     expect(composeCommandPrompt(' 修一下这个空指针 ')).toBe('修一下这个空指针')
   })
@@ -920,7 +920,7 @@ describe('/codebuddy', () => {
 
     // `--edit` alone is "review, and you may fix what you find".
     const alone = parseCommandInput(`${EDIT_FLAG}   `)
-    expect(alone.prompt).toContain('未提交的改动')
+    expect(alone.prompt).toContain('未提交的修改')
     expect(alone.permissionMode).toBe('acceptEdits')
     expect(alone.label).toBe('（未提交改动，可写）')
 
@@ -939,7 +939,7 @@ describe('/codebuddy', () => {
     const hint = sink.registered[0]?.input?.hint ?? ''
     // Every "make it change something" example must carry the flag that permits it.
     expect(hint).toContain(EDIT_FLAG)
-    expect(hint).toContain('允许改文件')
+    expect(hint).toContain('允许修改文件')
     dispose()
   })
 
@@ -1038,7 +1038,7 @@ describe('/codebuddy', () => {
       rawInput: 'look',
     })
     expect(result.kind).toBe('error')
-    expect(result.text).toContain('投影')
+    expect(result.text).toContain('缺少工作区路径')
   })
 
   it('honours a projection that appears AFTER the runtime was built', async () => {
@@ -1104,7 +1104,7 @@ describe('/codebuddy', () => {
       rawInput: '',
     })
     expect(result.kind).toBe('error')
-    expect(result.text).toContain('回合在跑')
+    expect(result.text).toContain('已有 CodeBuddy 任务')
   })
 
   it('renders a failed turn as an error result without touching the model', async () => {
@@ -1147,12 +1147,12 @@ describe('formatCommandOutcome', () => {
   })
 
   it('adds the delivery line only when a delivery was attempted', () => {
-    expect(formatCommandOutcome(base, { raw: '' })).not.toContain('已唤醒')
+    expect(formatCommandOutcome(base, { raw: '' })).not.toContain('已将 CodeBuddy 结果发送给会话模型')
     const withDelivery = formatCommandOutcome(base, {
       raw: '',
       injection: { ok: true, delivered: 'new-turn', woke: true, messageId: 'm' },
     })
-    expect(withDelivery).toContain('已唤醒')
+    expect(withDelivery).toContain('已将 CodeBuddy 结果发送给会话模型')
   })
 
   it('flags a truncated reply so nobody reads the summary as the whole answer', () => {
@@ -1217,7 +1217,7 @@ describe('CLI entry lookup', () => {
       expect(found.entry).toBe('')
       expect(found.reason).toContain('cliBridge.binary')
       // The user has to be told the dangerous alternative is not taken.
-      expect(found.reason).toContain('PATH')
+      expect(found.reason).toContain('已确认来源')
     }
   })
 
@@ -1319,7 +1319,7 @@ describe('mountCliBridge', () => {
     })
     // Not a throw and not silence: the user turned it on and is entitled to know
     // it did nothing.
-    expect(log.mock.calls[0]?.[0]).toContain('两个入口都没挂上')
+    expect(log.mock.calls[0]?.[0]).toContain('工具与指令注册失败')
     expect(() => dispose()).not.toThrow()
   })
 })

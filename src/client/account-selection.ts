@@ -2,10 +2,10 @@
  * Verified writes of the per-region account slot.
  *
  * 参考：DSH 自带插件卡片（`@deepseek-ai/dsh-client-ui-settings-plugins`
- *   的 `CardForm.store()`）— 「写入后回读用户层并与写入值比对」这一校验形态，
+ *   的 `CardForm.store()`）— 「写入后重新读取用户层并与写入值比对」这一校验形态，
  *   是本模块 `writeAccountSlot()` 的出发点。
- * 改动：针对账号槽位重写而非照搬 —— 回读的是**解析后的 section**而非 user 层
- *   （Host 的 legacy 归属也读它，两者必须同源），并用精确比较区分 `''`（哨兵清除）
+ * 改动：针对账号界面扩展位置重写而非照搬 —— 重新读取的是**解析后的 section**而非 user 层
+ *   （DSH 的 legacy 归属也读它，两者必须同源），并用精确比较区分 `''`（哨兵清除）
  *   与 `undefined`（键缺失），因为后者会让区域重新回退到旧版 `accountId`。
  *
  * Kept out of `WorkBuddyCard.tsx` — and free of any browser-only import — so

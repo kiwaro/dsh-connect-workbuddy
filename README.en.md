@@ -12,11 +12,10 @@ This repository is a fork of [dingminhua/dsh-connect-workbuddy](https://github.c
 
 | Source | Contents |
 | --- | --- |
-| `main` | Upstream code and the fork's project description |
-| [workbuddy-local-integration](https://github.com/kiwaro/dsh-connect-workbuddy/tree/workbuddy-local-integration) | Changes based on 5.18.0: credits recorded for each response, account attribution during rotation, and revised Chinese messages |
+| `main` | Based on 5.18.1, including response credit records, account attribution during rotation and revised documentation |
 | npm package `dsh-connect-workbuddy` | Releases published by the upstream author |
 
-The response credit log is documented in [CREDIT-JOURNAL.md](https://github.com/kiwaro/dsh-connect-workbuddy/blob/workbuddy-local-integration/docs/CREDIT-JOURNAL.md).
+The response credit log is documented in [CREDIT-JOURNAL.md](https://github.com/kiwaro/dsh-connect-workbuddy/blob/main/docs/CREDIT-JOURNAL.md).
 
 The plugin calls WorkBuddy desktop endpoints using your account. WorkBuddy charges that account for requests.
 
@@ -31,7 +30,7 @@ Install Git, pnpm, and Node.js matching `^22.19.0 || >=24.0.0`. Host dependency 
 The following Windows example uses `D:/projects`. Adjust both the clone path and plugin path if you use another directory.
 
 ```sh
-git clone --branch workbuddy-local-integration https://github.com/kiwaro/dsh-connect-workbuddy.git D:/projects/dsh-connect-workbuddy
+git clone --branch main https://github.com/kiwaro/dsh-connect-workbuddy.git D:/projects/dsh-connect-workbuddy
 cd D:/projects/dsh-connect-workbuddy
 pnpm install --frozen-lockfile --ignore-scripts
 pnpm run build
@@ -259,7 +258,7 @@ Related documentation:
 
 - [Architecture and model capabilities](docs/DESIGN.md)
 - [Promotions](docs/PROMO_BADGE.md)
-- [Response credit log](https://github.com/kiwaro/dsh-connect-workbuddy/blob/workbuddy-local-integration/docs/CREDIT-JOURNAL.md)
+- [Response credit log](https://github.com/kiwaro/dsh-connect-workbuddy/blob/main/docs/CREDIT-JOURNAL.md)
 - [Windows](docs/WINDOWS.md)
 - [Updates and release-age restrictions](docs/PINNED-UPGRADE-LAG.md)
 - [Third-party notices](THIRD_PARTY_NOTICES.md)

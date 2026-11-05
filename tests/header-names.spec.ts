@@ -106,7 +106,7 @@ describe('describeRequestHeaderNames', () => {
 
   it('reports NO device header when the real tier has no token', () => {
     // 这一档在 SDK 不可用时是"一个设备头都不发"，而不是退回派生对。少了这条，
-    // 报告里的空数组会被读成"设备层没接线"，而实际原因是"取不到真值"。
+    // 报告里的空数组会被读成"设备层没调用关系"，而实际原因是"取不到实际值"。
     const real = describeRequestHeaderNames('chat', credential, { deviceSalt: SALT, deviceTier: 'real' })
     expect(real).not.toContain('X-Device-Token')
     expect(real).not.toContain('X-Machine-ID')

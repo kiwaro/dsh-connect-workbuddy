@@ -9,7 +9,7 @@
  *   通行实现的步骤划分；预览只含展示字段与 hasToken 布尔量，token 明文
  *   永不进入浏览器。
  *
- * 导出用 <a download> Blob：卡片运行在设置页 iframe 里，无宿主保存对话框
+ * 导出用 <a download> Blob：卡片运行在设置页 iframe 里，无 DSH 保存对话框
  *   可用；a[download] 同源下载是沙箱内最可靠的方式。
  *
  * @module dsh-connect-workbuddy/client/AccountTransfer

@@ -27,7 +27,7 @@ import type { Translate } from './searched-paths.ts'
 
 export interface DeviceSdkPanelProps {
   t: Translate
-  /** Host 的路由；空字符串 = 这个版本没有这条路由，整块不渲染。 */
+  /** DSH 的路由；空字符串 = 这个版本没有这条路由，整块不渲染。 */
   path: string
   /**
    * 设备设置的读/写路由（{@link putDeviceSdk} 用它保存目录与回退开关）。
@@ -100,7 +100,7 @@ export function DeviceSdkPanel(props: DeviceSdkPanelProps): ReactElement | null 
     try {
       const next = refresh ? await refreshDeviceSdk(path) : await fetchDeviceSdk(path)
       setReport(next)
-      // 总开关随快照一起回来，读到就同步；读不到（老宿主）保持 `undefined` = 不可用。
+      // 诊断接口同时返回总开关状态，读到就同步；读不到（老 DSH）保持 `undefined` = 不可用。
       if (next?.sdkEnabled !== undefined) setSdkMasterEnabled(next.sdkEnabled)
       // 重取会换一枚 token，之前显示的那份已经不是它了。
       if (refresh) { setValue(undefined); setCopied(false) }
@@ -147,7 +147,7 @@ export function DeviceSdkPanel(props: DeviceSdkPanelProps): ReactElement | null 
     if (report?.sdk.state !== 'ready' || report.token.state !== 'idle') return
     if (idlePolls.current >= 5) return
     idlePolls.current += 1
-    // 静默复查：只更新快照，不动 `busy` / `value` / `error`——后台的一次 GET 不该
+    // 静默复查：只更最新读取的数据，不动 `busy` / `value` / `error`——后台的一次 GET 不该
     // 让「重新获取」按钮闪成"取数中"，也不该把用户已经展开的完整值收起来。
     const timer = window.setTimeout(() => {
       void fetchDeviceSdk(path).then(next => {
@@ -232,7 +232,7 @@ export function DeviceSdkPanel(props: DeviceSdkPanelProps): ReactElement | null 
   /**
    * 切换 SDK 总开关。
    *
-   * 写完之后**重读一次快照**：关掉之后状态行必须立刻变成 `disabled`，而那一条是
+   * 保存开关后**重新读取诊断结果**：关掉之后状态行必须立刻变成 `disabled`，而那一条是
    * 从 `GET /device-sdk` 算出来的——只改本地 state 会让"已关"与下面那行"正常"
    * 并存，正是这一页最不该出现的自相矛盾。
    */

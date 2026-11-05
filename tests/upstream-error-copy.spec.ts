@@ -157,7 +157,7 @@ describe('issue #78: a parameter rejection must not read as an exhausted pool', 
     expect(message).not.toContain('池中没有其他可用账号')
     // And the correct advice is the request-shaped one, because that is the
     // only thing that can fix a parameter rejection.
-    expect(message).toContain('与网络、账号、额度都无关，换账号也不会改变结果')
+    expect(message).toContain('请求参数被拒绝，请按服务端提示调整后重试')
   })
 
   it('prints the HTTP status exactly once', async () => {
@@ -194,7 +194,7 @@ describe('issue #78: a parameter rejection must not read as an exhausted pool', 
     expect(asked).toBe(1)
     expect(status).toBe(429)
     expect(message).toContain('池中已无可用账号（2 个账号被限流）')
-    expect(message).toContain('建议换一个模型继续')
+    expect(message).toContain('请切换模型')
     expect(message).toContain('被限流')
     // The upstream's reset time survives: it is the one actionable fact a
     // generic sentence would destroy.
@@ -210,7 +210,7 @@ describe('issue #78: a parameter rejection must not read as an exhausted pool', 
 
     const { message } = await messageOf(shim)
     expect(message).not.toContain('池中已无可用账号')
-    expect(message).not.toContain('建议换一个模型继续')
+    expect(message).not.toContain('请切换模型')
     // With no `displayTips`, `displayMsg` is the receipt rather than the body.
     expect(message).toContain('too fast')
   })
@@ -272,7 +272,7 @@ describe('issue #78: a parameter rejection must not read as an exhausted pool', 
     await shim.ready
     first = await messageOf(shim)
     expect(first.message).toContain('请求过于频繁，请稍后重试。')
-    expect(first.message).toContain('这不是账号被限流')
+    expect(first.message).toContain('模型当前繁忙')
     expect(first.message).not.toContain('已尝试')
   })
 })

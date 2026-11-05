@@ -573,7 +573,7 @@ const PROBE_TIMEOUT_MS = 30_000
  * 实测一张 1024x1024 的图在官方网关要 17–39 秒（`hunyuan-image-alpha`，
  * 2026-10-21，两个国内入口各测一次），比任何 JSON 接口都慢一个数量级，
  * 因此不能复用 {@link JSON_TIMEOUT_MS}。三分钟足够覆盖一次正常的排队+推理，
- * 又不至于让一个卡死的连接占住工具槽位太久。
+ * 又不至于让一个卡死的连接占住工具界面扩展位置太久。
  */
 const IMAGE_TIMEOUT_MS = 180_000
 /** 视频提交/轮询的总超时：视频要生成几十秒到几分钟，远大于生图。 */
@@ -585,7 +585,7 @@ const VIDEO_POLL_INTERVAL_MS = 5_000
  *
  * 比 {@link VIDEO_TIMEOUT_MS} 短 60s：工具层给的是一个更短的 signal
  * （`VIDEO_TOOL_TIMEOUT_MS`），两者叠在一起时**这个检查要先生效**，才能带着
- * task id 抛出 `POLL_TIMEOUT`。曾经的 600s 与宿主工具上限相等，先在宿主那边
+ * task id 抛出 `POLL_TIMEOUT`。曾经的 600s 与 DSH 工具上限相等，先在 DSH 那边
  * 掐断，于是用户只看到 `tool call timed out after 600000ms`（issue #187）。
  */
 const VIDEO_POLL_TIMEOUT_MS = 540_000
@@ -1567,7 +1567,7 @@ function originReferer(credential: WorkBuddyCredential): string {
 /**
  * 5.16.0 的公共头，**不含 P1 增补**。
  *
- * 只给 {@link refreshHeaders} 用，而且是有意的：refresh 是整条链路里唯一
+ * 只给 {@link refreshHeaders} 用，而且是有意的：refresh 是整条处理过程里唯一
  * "失败就等于掉登录"的一跳，它的字节不该因为一次身份统一而变化。B 的
  * `RefreshHeaders` 确实也走 `CommonHeaders`（因此带 `X-CodeBuddy-Request`），
  * 但那是 B 一直在跑的形状；本插件没有在 refresh 上验过任何新头，
@@ -1595,7 +1595,7 @@ function commonHeaders(
 ): Record<string, string> {
   const headers = legacyCommonHeaders(credential)
   if (profileOf(identity) === 'balanced') {
-    // 风控闸门头：官方客户端的每个请求都带（B 的 D1）。`conservative` 下不发，
+    // 网关要求的请求头：官方客户端的每个请求都带（B 的 D1）。`conservative` 下不发，
     // 因为那一档的契约是"逐字节等于 5.16.0"。
     headers['X-CodeBuddy-Request'] = '1'
     headers['Accept-Language'] = acceptLanguageOf(credential)
@@ -1715,13 +1715,13 @@ export function uuidv7(nowMs = Date.now()): string {
 }
 
 /**
- * 出站身份档位（`docs/DEVICE-IDENTITY-AUDIT.md` 的 P1）。
+ * 请求头中的客户端标识档位（`docs/DEVICE-IDENTITY-AUDIT.md` 的 P1）。
  *
  * 两档而不是三档：`conservative` 逐字节还原 5.16.0，`balanced` 是 P1 的完整形态。
- * 审计里预留的 `max`（B3 / Trace 链路族）刻意没有实现——那几项只影响上游侧的
- * 可观测性与聚合，不影响放行，而伪造一棵并不存在的 trace 树比不发更可疑。
+ * 审计里预留的 `max`（B3 / Trace 处理过程族）刻意没有实现——那几项只影响上游侧的
+ * 可通过日志和界面检查的结果与聚合，不影响放行，而伪造一棵并不存在的 trace 树比不发更可疑。
  *
- * 为什么需要档位而不是直接改：这一次改动动的是**每一条出站请求**的头。P0.5 的
+ * 为什么需要档位而不是直接改：这一次改动动的是**每一条发出的请求**的头。P0.5 的
  * 对照实验证明收益存在，但它证明的是"这组头",不是"这组头的每一条"；留一个
  * 逐字节回退档，是让"换回来"成为一个配置项而不是一次回滚发版。
  */
@@ -1760,7 +1760,7 @@ export interface WorkBuddyWireIdentity {
    */
   usageIdentity?: boolean
   /**
-   * 出站头档位，缺省 {@link DEFAULT_WIRE_PROFILE}。
+   * 发出的请求头档位，缺省 {@link DEFAULT_WIRE_PROFILE}。
    *
    * `conservative` 必须逐字节还原 5.16.0 —— 不是"少发几个新头"，而是连
    * `X-Product: SaaS` 这种被改名前的值也要还原，否则它就不是回退档。
@@ -1808,7 +1808,7 @@ export interface WorkBuddyWireIdentity {
    * 不会同时带这两种标识。
    *
    * 它与 {@link deviceToken}（P2 的文件源）不在同一档：真实值档由 SDK 供数，文件源
-   * 只在虚拟值档起作用。两者同时配置时 SDK 优先——"真实值"这个选项的语义就是
+   * 只在虚拟值档起作用。两者同时配置时 SDK 优先——"真实值"这个选项的处理规则就是
    * "这台机器真的装着的那套东西"，换成别人写的文件就不再是了。
    */
   deviceReal?: string
@@ -1973,7 +1973,7 @@ function refreshHeaders(credential: WorkBuddyCredential): Record<string, string>
     'X-Refresh-Token': credential.refreshToken,
     // 这个取值 A（`converter.py:307`）与 B（`headers.go:410`）都是 `plugin`，
     // 本插件用的是 `workbuddy`。两者在当前网关上都被接受（刷新一直是好的），
-    // 属于一致性隐患而非现行故障；但"能用"不等于"该改"——refresh 是整条链路
+    // 属于一致性隐患而非现行故障；但"能用"不等于"该改"——refresh 是整条处理过程
     // 里最不能出错的一跳，改它必须单独实测，所以 P1 刻意不碰，留给 P2 一次性
     // 连同 token 源一起验（见审计 §4 的 D3）。
     'X-Auth-Refresh-Source': 'workbuddy',
@@ -1999,7 +1999,7 @@ function refreshHeaders(credential: WorkBuddyCredential): Record<string, string>
  *   - `User-Agent: WorkBuddy/<ver>`：B 的 billing 域用单段形态（官方 banner
  *     白名单头组不带 CLI 段），A 则对所有路径复用同一套头。
  *   - `Origin` / `Referer` / `X-Requested-With`：B 的 `CommonHeaders` 全路径发送。
- *   - `X-CodeBuddy-Request` + `Accept-Language`：B 在 billing 域单独注入（D1/D5）。
+ *   - `X-CodeBuddy-Request` + `Accept-Language`：B 在 billing 域单独添加（D1/D5）。
  *   - 归属头与设备头：与本插件的 chat 路径同源，保证"同一个客户端"这个说法成立。
  *
  * `conservative` 档整段跳过，billing 逐字节还原 5.16.0 的裸形状。
@@ -2035,10 +2035,10 @@ function billingHeaders(
 /**
  * 生图请求头。
  *
- * 实测口径（2026-10-21，国内区）：`Authorization: Bearer` + `X-Product: SaaS` +
+ * 实测方法（2026-10-21，国内区）：`Authorization: Bearer` + `X-Product: SaaS` +
  * 用户/企业/域三连 + 会话身份三连 + `PRODUCT_UA`，在 `copilot.tencent.com` 与
  * `www.workbuddy.cn` 两个入口都返回 200。刻意**不带** `Origin` / `Referer`：
- * 探针当时没带，带了只是多一个可能被网关拒掉的变量，没有收益。
+ * 检查请求当时没带，带了只是多一个可能被网关拒掉的变量，没有收益。
  *
  * 2026-10-31（P1）：`X-Product` 由 `SaaS` 改为 `WorkBuddy`，并补上
  * `X-Agent-Purpose` / `X-IDE-*` 与设备对，与 chat / billing 同一份自称（见
@@ -2050,26 +2050,26 @@ function billingHeaders(
  *   - **网络环境类头**（`Origin` / `Referer`）保持上表的实测形态。它们回答的是
  *     "这条请求从哪来"，与"谁在说话"不是一个判据，当时特意排除就先不请回来。
  *
- * 代价说清楚：这毕竟是在一条逐字节测过的路径上加了几个头。若生图那道闸哪天
+ * 代价说清楚：这毕竟是在一条逐字节测过的路径上加了几个头。若生图那项检查哪天
  * 开始拒，第一个该试的是把 `wireProfile` 切到 `conservative` —— 那一档会把这
  * 一行连同所有新增头一起还原成 5.16.0。
  *
  * 增量的边界是"**自我描述**"：`X-Product` / `X-IDE-*` / `X-Agent-Purpose` /
  * 设备对 / `X-Root-Request-ID` 进，`X-CodeBuddy-Request` 与 `Accept-Language`
- * **不进**。后两个不是身份而是传输层标记：若闸门真的要求 `X-CodeBuddy-Request`，
+ * **不进**。后两个不是身份而是传输层标记：若检查真的要求 `X-CodeBuddy-Request`，
  * 生图（从来没发过它）今天就该失败，而它一直是 200；语言同理，生图输出不是
  * 语言相关的东西。没有收益的变量不加——这条正是上面那段实测留下的规则。
  *
  * 复用 {@link conversationHeaders}：官方 CLI 的 ImageService 也是每次现生成
  * 一组会话 UUID。但这里**传 `'image'`，且刻意不跟 `usageIdentity` 开关走**：
  * issue #132 的实测只覆盖 chat，而生图这两个入口在 2026-10-21 是用带连字符的
- * v4 答的 200，而 id 的**格式**从来不是生图那道闸问的事。把对齐「顺手统一」到
+ * v4 答的 200，而 id 的**格式**从来不是生图那项检查问的事。把对齐「顺手统一」到
  * 这里，等于用一条没人测过的字节去换一次显示对齐——`tests/upstream.spec.ts` 里
- * 那条生图守卫钉的就是这一点，而 `shape` 是**唯一**挡住它的东西：客户端把
+ * 那条生图检查钉的就是这一点，而 `shape` 是**唯一**挡住它的东西：客户端把
  * `usageIdentity` 一路传进了 `imageHeaders`，是 `'image'` 这个形状参数让它即便带着开关
- * 也不采用 chat 的形状。守卫因此真能失败——两个方向都实跑过：把 `'image'` 改成
+ * 也不采用 chat 的形状。检查因此真能失败——两个方向都实跑过：把 `'image'` 改成
  * `'chat'` 会红，删掉 `shape === 'chat'` 判据也会红。（identity 没接进来之前，`shape`
- * 是空转参数、只改它守卫照样绿；接进来是这一步的前提，别退回成不传 identity。）
+ * 是空转参数、只改它检查照样绿；接进来是这一步的前提，别退回成不传 identity。）
  */
 function imageHeaders(
   credential: WorkBuddyCredential,
@@ -2108,7 +2108,7 @@ export type WorkBuddyWireRequestKind = 'chat' | 'image' | 'refresh' | 'billing'
  * {@link refreshHeaders} / {@link billingHeaders}），返回它们的键集合——往
  * `chatHeaders` 里加一个头，这里自动跟着变，不需要第二次修改。
  *
- * 两处**刻意与调用点对齐**的地方：
+ * 两处**刻意与调用时使用的值一致**的地方：
  *   - `chat` 的 `Authorization` 由调用点合并（`:3739` / `:3810`），不在这批构造器
  *     里，所以这里补上；不补的话，"chat 有没有带鉴权"会被答成"没有"。
  *   - `refresh` 确实没有 `Authorization`（它用 `X-Refresh-Token`），不补。
@@ -4054,9 +4054,9 @@ export class WorkBuddyUpstreamClient {
   private readonly baseIdentity: Promise<WorkBuddyWireIdentity>
   /** 外部 device token 的 TTL 读取器；未配置时为 undefined。 */
   private readonly deviceTokens: DeviceTokenReader | undefined
-  /** 每账号覆盖值的读取器（设置里齿轮保存的那些）；未接线时为 undefined。 */
+  /** 每账号覆盖值的读取器（设置里齿轮保存的那些）；未调用关系时为 undefined。 */
   private readonly deviceProfiles: WorkBuddyDeviceProfileLookup | undefined
-  /** 真实值档的 token 源（本机安装的桌面端 SDK）；未接线时为 undefined。 */
+  /** 真实值档的 token 源（本机安装的桌面端 SDK）；未调用关系时为 undefined。 */
   private readonly realDevice: TuringTokenSource | undefined
 
   constructor(
@@ -4099,7 +4099,7 @@ export class WorkBuddyUpstreamClient {
     // 档位是每台机器的选择，与账号无关：一次读（5 s 缓存）后分两条互斥路径。
     const tier = this.deviceProfiles === undefined ? 'virtual' : await this.deviceProfiles.mode()
     if (tier === 'real') {
-      // 真实值档**不读** `deviceToken.file`，也不读逐账号覆盖值：这一档的语义是
+      // 真实值档**不读** `deviceToken.file`，也不读逐账号覆盖值：这一档的处理规则是
       // "所有账号共用这台机器真实的设备"，混进按号派生的 id 正是审计 §5.3 要避免
       // 的组合。
       const real = this.realDevice === undefined ? undefined : await this.realDevice.current()
@@ -4114,7 +4114,7 @@ export class WorkBuddyUpstreamClient {
        * **退回**（默认开）：落到下面的虚拟值通道，但**档位降成 `virtual`**，不是
        * 保留 `real` 再补一对派生 id。这一点是刻意的：`deviceTier` 既决定发哪些头，
        * 也决定界面与 `doctor` 怎么称呼"现在发的是什么"。保留 `real` 会让报告与
-       * 出站字节相反，而报告正是用户用来判断"到底退没退"的唯一依据。
+       * 发出的请求字节相反，而报告正是用户用来判断"到底退没退"的唯一依据。
        *
        * 退回的那个瞬间不会静默：`readout()` 里 token 状态是 `unavailable` 并带
        * 原因，卡片与 `doctor` 都照实显示"现在发的是虚拟值，因为 SDK 取不到 token"。
@@ -4123,7 +4123,7 @@ export class WorkBuddyUpstreamClient {
         return { ...base, deviceTier: 'real' }
       }
       // 落到虚拟值通道，但**不带**逐账号覆盖值：这一跳是"真实值档塌回虚拟值"，
-      // 不是"用户切到了虚拟值档"。把每账号的覆盖值混进来，等于让一次降级顺便
+      // 不是"用户切到了虚拟值档"。把每账号的覆盖值混进来，等于让一次改用预设设备参数时又
       // 改变这台机器对外声称的身份——而用户并没有要求这件事。
       const fallbackToken = this.deviceTokens === undefined ? undefined : await this.deviceTokens.current()
       return {
@@ -4434,8 +4434,8 @@ export class WorkBuddyUpstreamClient {
    * 读该账号所属区的产品配置，返回**全部**媒体模型（图 + 视频，按 tag 区分）。
    *
    * 走的是和 {@link fetchModels} 同一条 `/v3/config`（国内区与国际区都答），
-   * 区别只在这里保留 `data.models` 的媒体条目、而不是投影成 CLI 聊天目录。
-   * 两区实测（2026-10-25，同日各跑一次只读探针）：
+   * 区别只在这里保留 `data.models` 的媒体条目、而不是转换成 CLI 聊天目录。
+   * 两区实测（2026-10-25，同日各跑一次只读取数据的检查请求）：
    *   - 国内区 61 条模型 / 17 条带 tag：`hunyuan-image-alpha`（`text-to-image`）、
    *     `hunyuan-image-alpha-edit`（`image-to-image`）、`kling-video-v3` 与
    *     `minimax-video-h3`（`text-to-video` + `image-to-video`）。
@@ -4448,11 +4448,11 @@ export class WorkBuddyUpstreamClient {
    * （{@link selectMediaModels} / `pickMediaModel`）。生图工具、改图路径、卡片清单
    * 因此共用这一次读取，而不是各读一遍目录。
    *
-   * 这是一次 EXTRA 读取，不是「复用目录那一次」：`fetchModels` 的结果被投影成
+   * 这是一次 EXTRA 读取，不是「复用目录那一次」：`fetchModels` 的结果被转换成
    * 聊天目录就丢掉了媒体标签，所以这里必须再读一遍同一份文档。它是只读 GET、
    * 不花积分，且工具侧有 5 分钟缓存，但「零新增请求」的说法不成立，别那么写。
-   * 国内区与 {@link fetchModels} 一样走 `/v3` → `/v2` 降级：上游一旦不答
-   * `/v3`，聊天目录会降级而这里不能变成一个原始异常。
+   * 国内区与 {@link fetchModels} 一样走 先请求 `/v3`，失败后请求 `/v2`：上游一旦不答
+   * `/v3`，聊天目录会改用 `/v2`而这里不能变成一个原始异常。
    */
   async fetchMediaModels(
     credential: WorkBuddyCredential,
@@ -4591,7 +4591,7 @@ export class WorkBuddyUpstreamClient {
    * `data.id` 作为 task id 返回，真正的视频要再轮询 `/v2/videos/tasks` 才拿得到。
    *
    * 这是一次**花钱**的请求（与生图一样），所以失败分类交给 {@link describeVideoFailure}：
-   * 401/403 提示重新登录、404 提示该区没有视频路由、429 提示限流、其它透传 msg。
+   * 401/403 提示重新登录、404 提示该区没有视频路由、429 提示限流、其它原样传递 msg。
    * HTTP 200 但信封 `code !== 0` 由 {@link parseVideoSubmission} 处理。
    */
   async submitVideo(
@@ -4651,7 +4651,7 @@ export class WorkBuddyUpstreamClient {
    * 就是每 5 秒查一次、直到 `status === 'completed' | 'failed'`。这里照搬同样的
    * 轮询节奏与整体超时（默认 ~600s，远大于生图的 180s，因为视频要生成几十秒到几分钟）。
    *
-   * 注意：轮询**已经花过钱**（提交那次就扣了），所以轮询期间的网络抖动、超时要
+   * 注意：轮询**已经花过钱**（提交那次就扣了），所以轮询期间的临时网络故障、超时要
    * 当成真实失败——调用方据此进冷却。只有"提交那一次"因为参数写错 / 没登录而没
    * 发出去，才不进冷却（同生图工具的设计）。
    */
@@ -4723,7 +4723,7 @@ export class WorkBuddyUpstreamClient {
           `workbuddy video: 生视频任务失败（task ${taskId}）。`
           + (result.detail === undefined
             ? '上游没有给出任何原因字段。'
-            : ` 上游返回的额外字段：${result.detail}`),
+            : ` 服务端返回字段：${result.detail}`),
           'TASK_FAILED',
         )
       }
@@ -4740,7 +4740,7 @@ export class WorkBuddyUpstreamClient {
    *
    * 官方 CLI 的 `VideoService.downloadVideos` 把每条 `data[].url` 写成本地 `.mp4`
    * （产物是 COS 签名 URL，和生图同源，但不是图片 MIME）。这里每次一条，工具层
-   * 负责把多条结果各自落盘并回 `file://` 给模型与用户。
+   * 负责把多条结果各自写入文件并回 `file://` 给模型与用户。
    */
   async downloadVideo(
     credential: WorkBuddyCredential,

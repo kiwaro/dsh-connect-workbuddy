@@ -1,7 +1,7 @@
 /**
  * Package version, injected at build time by `tsdown.config.ts`.
  *
- * 参考：corrinehu/dsh-workbuddy-connect（MIT）— 版本由构建期 define 注入，
+ * 参考：corrinehu/dsh-workbuddy-connect（MIT）— 版本由构建期 define 添加，
  *   而非运行时读 package.json（发布包只含 lib/，不含 package.json 的
  *   可解析路径）。沿用该做法。
  *

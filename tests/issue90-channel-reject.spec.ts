@@ -324,13 +324,13 @@ describe('the rendered reply names the line the gate refused', () => {
     expect(type).toBe('channel_reject')
     // 1. The evidence, quoted — this is the whole fix. The reader can now see
     //    WHICH line was refused instead of cycling accounts.
-    expect(message).toContain(`请求里被网关扫描的消息开头：「system：${NOVEL}，共 59 字」（不在插件已知名单里`)
+    expect(message).toContain(`待检查的消息开头：「system：${NOVEL}，共 59 字」（首行未匹配已知客户端标识`)
     // 2. Support's handles, compact.
     expect(message).toContain('code 11128')
     expect(message).toContain('requestId 26d17b97-c53b-461a-bd21-34c61c86f15b')
     // 3. The remedy, and the explicit rejection of the misleading story.
-    expect(message).toContain('换账号或换区域也不会改变结果')
-    expect(message).toContain('误导性文案')
+    expect(message).toContain('WorkBuddy 网关会检查 system 和 assistant 消息的开头及正文')
+    expect(message).toContain('检查原因时还需核对消息正文')
     // 4. None of the account-fix language the old generic path produced.
     expect(message).not.toContain('换账号也不会改变结果，请按上面的提示调整后重试')
   })
@@ -345,7 +345,7 @@ describe('the rendered reply names the line the gate refused', () => {
     shim = mount(failure(400, CHANNEL_REJECT_BODY), async () => undefined)
     await shim.ready
     const { message } = await chat(shim, 'You are an AI agent powered by DeepSeek Harness.')
-    expect(message).toContain('「system：You are an AI agent powered by DeepSeek Harness.，共 48 字」（插件已加中性头）')
+    expect(message).toContain('「system：You are an AI agent powered by DeepSeek Harness.，共 48 字」（已添加中性提示）')
     expect(message).not.toContain(`「system：${WORKBUDDY_FALLBACK_SYSTEM_PROMPT}」`)
   })
 
@@ -362,9 +362,9 @@ describe('the rendered reply names the line the gate refused', () => {
       body: JSON.stringify({ model: 'deepseek-v4.1-flash', messages: [{ role: 'user', content: 'hi' }] }),
     })
     const parsed = JSON.parse(await response.text()) as { error: { message: string } }
-    expect(parsed.error.message).toContain('（请求里没有可读的 system 或 assistant 消息开头。）')
+    expect(parsed.error.message).toContain('请求中未找到可读取的 system 或 assistant 消息。')
     expect(parsed.error.message).toContain('code 11128')
-    expect(parsed.error.message).toContain('换账号或换区域也不会改变结果')
+    expect(parsed.error.message).toContain('WorkBuddy 网关会检查 system 和 assistant 消息的开头及正文')
   })
 
   it('does not spend a failover round trip on a second account', async () => {
@@ -395,7 +395,7 @@ describe('the rendered reply names the line the gate refused', () => {
     shim = mount(failure(400, CHANNEL_REJECT_BODY), async () => undefined)
     await shim.ready
     const { message } = await chat(shim, 'You are an AI agent powered by DeepSeek Harness.')
-    expect(message).toContain('被网关的渠道校验拦截（不是账号、额度或网络问题）')
+    expect(message).toContain('网关渠道校验拦截')
     // 2. Same outer frame as every other failure, so the sentence users paste
     //    into issues keeps its shape.
     expect(message).toContain('workbuddy 上游失败：')
@@ -513,9 +513,9 @@ describe('the host keeps the plugin\'s sentence and does not retry the gate', ()
     // This host call carries only a user message, so there is no opening to
     // quote — the reply says so rather than inventing one, and the gate's own
     // name still reaches the reader.
-    expect(text).toContain('被网关的渠道校验拦截')
-    expect(text).toContain('（请求里没有可读的 system 或 assistant 消息开头。）')
-    expect(text).toContain('换账号或换区域也不会改变结果')
+    expect(text).toContain('网关渠道校验拦截')
+    expect(text).toContain('请求中未找到可读取的 system 或 assistant 消息。')
+    expect(text).toContain('WorkBuddy 网关会检查 system 和 assistant 消息的开头及正文')
     // The upstream's misleading half must NOT be what the reader is left with.
     expect(text).not.toContain('请用官方版本重新发送')
   })

@@ -199,8 +199,8 @@ describe('signed-out diagnostics copy', () => {
   it('says the desktop app is needed, and does not tell the user to sign in again', () => {
     const notice = zh['row.signedOutEncrypted']
     expect(notice).toContain('WORKBUDDY_APP_EXECUTABLE')
-    expect(notice).toContain('重新登录')
-    expect(notice).toContain('无法解决')
+    expect(notice).toContain('读取密钥失败')
+    expect(notice).toContain('安装 WorkBuddy 桌面端')
     expect(en['row.signedOutEncrypted']).toContain('WORKBUDDY_APP_EXECUTABLE')
     expect(en['row.signedOutEncrypted']).toContain('will not change this')
   })

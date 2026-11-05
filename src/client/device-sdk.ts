@@ -1,7 +1,7 @@
 /**
  * 卡片「SDK」分区的浏览器侧读写。
  *
- * 三个动作对应 Host 的三个入口：读状态（GET）、强制重取与取完整值（POST）。完整值
+ * 三个动作对应 DSH 的三个入口：读状态（GET）、强制重取与取完整值（POST）。完整值
  * 单独一个动作，是因为它会进剪贴板、会被截图——默认只给掩码，看与复制各要一次
  * 显式操作。
  *
@@ -44,7 +44,7 @@ export interface DeviceSdkReport {
    * SDK 总开关的当前值（`Config.deviceSdkEnabled`）。
    *
    * 缺席 = 这个 Host 没有 settings 服务，卡片据此把开关标成不可用。缺席与
-   * `false` 必须能分开：前者是"这个宿主做不到"，后者是"用户关掉了"。
+   * `false` 必须能分开：前者是"这个 DSH 做不到"，后者是"用户关掉了"。
    */
   sdkEnabled?: boolean
 }
@@ -83,7 +83,7 @@ function normalize(body: unknown): DeviceSdkReport | undefined {
       ...typeof tokenRecord['lastAttemptMs'] === 'number' ? { lastAttemptMs: tokenRecord['lastAttemptMs'] } : {},
       ...typeof tokenRecord['reason'] === 'string' ? { reason: tokenRecord['reason'] } : {},
     },
-    // 只在宿主真的答了布尔时才带上：没有 settings 服务的宿主不该被画成"关"。
+    // 只在 DSH 真的答了布尔时才带上：没有 settings 服务的 DSH 不该被画成"关"。
     ...typeof record['sdkEnabled'] === 'boolean' ? { sdkEnabled: record['sdkEnabled'] } : {},
   }
 }
@@ -116,7 +116,7 @@ export async function refreshDeviceSdk(path: string): Promise<DeviceSdkReport | 
 /**
  * 写 SDK 总开关（`Config.deviceSdkEnabled`）。
  *
- * 501 = 这个宿主没有 settings 写入路径。抛出去而不是静默吞掉：卡片要把开关置灰，
+ * 501 = 这个 DSH 没有 settings 写入路径。抛出去而不是静默吞掉：卡片要把开关置灰，
  * 而那需要知道"做不到"，不是"做失败了"。
  */
 export async function setDeviceSdkEnabled(path: string, enabled: boolean): Promise<void> {

@@ -14,10 +14,10 @@
  *   `https://www.codebuddy.cn`；国际版按凭据域分家（`workbuddy.ai` 与
  *   `codebuddy.ai` 两把钥匙各自签发，混用会被网关拒绝），插件发起登录时
  *   还没有凭据，因此由用户显式传基址，缺省 `https://www.workbuddy.ai`。
- *   登录结果不落独立账号库，而是交给宿主写入统一凭据库（`src/auth.ts` 的
+ *   登录结果不落独立账号库，而是由插件写入统一凭据库（`src/auth.ts` 的
  *   vault），与桌面端扫描到的账号共用一套发现/选择/刷新机制。
  *
- * 会话状态只在进程内（`LoginSession`）：PKCE 类 state 与登录进度不落盘，
+ * 会话状态只在进程内（`LoginSession`）：PKCE 类 state 与登录进度只保存在内存中，
  * 拿到凭据即终结。刷新凭据仍走 `refreshToken`（上游 refresh 端点），此处
  * 只负责首次取凭据。
  *

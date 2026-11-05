@@ -296,8 +296,8 @@ export function resolveCliEntry(binary: string): CliEntryChoice {
         entry: '',
         configured: true,
         reason:
-          `cliBridge.binary 指向了 ${binary}，那是一个批处理包装，运行它要经过 cmd.exe，` +
-          '会把配置里的 --model / --append-system-prompt 当成命令解释。请改成同一个包里的 JS 入口，' +
+          `cliBridge.binary 指向了 ${binary}，该路径为批处理文件，执行时经过 cmd.exe，` +
+          '配置中的 --model 和 --append-system-prompt 可能被解释为命令。请指定该包内的 JavaScript 入口，' +
           `例如 ${join(binary.replace(/\.(?:cmd|bat)$/iu, ''), '..', 'node_modules', CLI_PACKAGE_PATH)}。`,
       }
     }
@@ -316,10 +316,10 @@ export function resolveCliEntry(binary: string): CliEntryChoice {
     entry: '',
     configured: false,
     reason:
-      '没有找到本机安装的 CodeBuddy CLI（已查过 npm/pnpm/yarn/volta 全局目录与 nvm/fnm 的版本目录）。' +
+      '未找到本机安装的 CodeBuddy CLI。' +
       '请先安装 @tencent-ai/codebuddy-code，或在插件配置里用 cliBridge.binary 指定它的绝对路径' +
-      '（要指向包内的 bin/codebuddy，不要指向 .cmd 包装）。' +
-      '不会回退到 PATH 上的 codebuddy —— 那样会把 WorkBuddy 凭据交给一个来源不明的程序。',
+      '，路径应指向包内的 bin/codebuddy。' +
+      '为保护登录凭据，仅执行已确认来源的程序。',
   }
 }
 

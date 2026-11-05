@@ -275,9 +275,9 @@ export function mountCliBridge(input: CliBridgeMountInput): () => void {
     .join(' + ')
   input.log(
     surfaces === ''
-      ? 'CLI 路线已开启，但这个宿主既没有 tools 也没有 commands 服务，两个入口都没挂上'
-      : `CLI 路线已开启：${surfaces}（权限模式 ${options.permissionMode}，模型 ${options.model === '' ? 'CLI 默认' : options.model}，` +
-        `每小时上限 ${String(options.maxTurnsPerSessionHour)} 次/会话、${String(options.maxTurnsPerHour)} 次/全场）`,
+      ? 'CodeBuddy 调用已开启，工具与指令注册失败：DSH 缺少对应服务'
+      : `CodeBuddy 调用已开启：${surfaces}（权限模式 ${options.permissionMode}，模型 ${options.model === '' ? 'CLI 默认' : options.model}，` +
+        `每小时上限 ${String(options.maxTurnsPerSessionHour)} 次/会话、${String(options.maxTurnsPerHour)} 次/全局）`,
   )
 
   return () => {

@@ -1,8 +1,10 @@
-# Independent verification of the raphael-y7 root-cause claim (issue #59)
+# Issue #59: independent mechanism verification
 
-Role: independent verifier (teammate `verifier`, shared task-1). Goal: **falsify**, not rubber-stamp, the mechanism proposed in issue #59 comment `IC_kwDOUHHjNs8AAAABdD5Afg` (2026-10-18T03:30:08Z, raphael-y7). Date of verification: 2026-10-18, on this machine only.
+Scope: verification on 2026-10-18. The initial findings are followed by the later billing correction; file paths and line numbers identify the investigated snapshot.
 
-## Verdict table
+Role: independent verifier (teammate `verifier`, shared task-1). Goal: verify the mechanism proposed in issue #59 comment `IC_kwDOUHHjNs8AAAABdD5Afg` (2026-10-18T03:30:08Z, raphael-y7). Date of verification: 2026-10-18, on this machine only.
+
+## 1. Verdict table
 
 | # | Claim | Verdict | Evidence (absolute path:line) |
 |---|-------|---------|-------------------------------|
@@ -15,11 +17,11 @@ Role: independent verifier (teammate `verifier`, shared task-1). Goal: **falsify
 | C7 | **Load-bearing premise**: an upstream gateway does NOT count replayed `reasoning_content` toward prompt tokens, while the same characters as plain text ARE counted | **UNVERIFIABLE-LOCALLY / INCONCLUSIVE** — no direct local measurement settles it | FOR: `CHANGELOG.md:41` "同一份 3.6 MB 请求体，CN 计 642,800、GL 计 447,306 … 同一批字节因此落进不同计费桶" (but this pair is CN>LARGER = the opposite sign from the 1.94× GL>LARGER — both signs appear in the thread, consistent with "same formula, two signs"); `src/body-report.ts:13-17` paired capture (bodyBytes 3,628,068 vs 3,626,374, ratio 0.9995 = bytes equal, buckets differ). AGAINST/UNSETTLED: `docs/reasoning-investigation.md:174` marks "(ii) 上游忽不忽略它 … 尚未测定", `:176` "这两条互不蕴含 … (i) 为真不构成对 (ii) 的任何证据", `:219` "跨区域那笔账仍需国际侧实测才能定案" — **the repo's own investigation doc holds this premise UNSETTLED**. The probe grids (`scripts/probe-region-token-accounting.mjs`, `CHANGELOG.md:382` ratios 0.98–1.06) send same-class bytes to both regions but **no** assistant reasoning_content-vs-text comparison, so they do not test the split. Plugin request path does NOT move bytes between fields: `src/upstream.ts:755-779` (`prepareChatBody` only sets stream:true, developer→system, `ensureSystemHead`, `normalizeToolChoice` — no reasoning handling; CN base `https://copilot.tencent.com` :231, GL base `https://www.workbuddy.ai` :233); `src/shim.ts:1325-1327` passes the prepared body to `onRequestBody`; `src/context-rescue.ts` 0 reasoning/thinking hits. **Conclusion: the split, if any, happens at the gateway and cannot be measured from this machine.** |
 | Lead's discriminator (independent second line for C7) | **ACCEPTED as indirect, internally-derived evidence** | Recomputed exactly from r-y7's published block table + billed totals. Reasoning-UNBILLED → density CN 642,800/1,712,365=0.37539 vs GL 447,306/1,153,632=0.38774, ratio 1.0329 (+3.3% — near-equal, as expected for the same conversation). Reasoning-BILLED → CN 0.36019 vs GL 0.25107, ratio 0.6970 (−30.3% gap). Reframed: observed token ratio GL/CN = 0.69587; UNBILLED predicts non-reasoning char ratio 1,153,632/1,712,365=0.67371 (rel err −3.19%); BILLED predicts all-char ratio 1,781,626/1,784,635=0.99831 (misses by ~30–43%). **The 43% gap under BILLED cannot be tokenizer-mix noise**: the billed-hypothesis mixes are nearly identical (1,784,635 vs 1,781,626, 0.17% apart), so mix non-linearity cannot void the argument; the unbilled mixes differ (text share 43.3% CN vs 16.0% GL), but the 3.3% residual is still small *despite* that difference, which only strengthens the unbilled hypothesis. **However**: this discriminator is built from r-y7's own published numbers — it is not an independent fresh measurement, so it is corroborating consistency, not proof. |
 
-## Bottom line (one paragraph)
+## 2. Conclusion
 
 The mechanism is **safe to publish provided the billing step is explicitly labeled as inferred, not measured**. The code-trace half is solid and locally verified end-to-end: pi-ai 1.1.0 `transform-messages.js:68-90` downgrades cross-model thinking to a billed text block and drops its signature, `:103` strips `thoughtSignature`, the caller runs this unconditionally (`openai-completions.js:896`), the serializer only writes `assistantMsg[signature]=thinking` when the signature survives (`:1002-1008`), and the two DSH provider ids differ in **exactly one** `isSameModel` leg (`provider`) because api and model id are identical — all confirmed against the live host bundle and a real session log that shows both providers with the same model id, both sides recording usage, and 100% uniform `reasoning_content` signatures on both sides (which is precisely why the old in-repo "signature value" explanation must be retracted). The arithmetic of the conservation claim is internally consistent to the last digit (with the residual 1,407 identified as the CN-only tail). The one unproven link is the load-bearing premise C7 — that the gateway bills a downgraded text block but not a `reasoning_content` field — which **cannot be settled from this machine**: the repo's own `reasoning-investigation.md` still marks it "尚未测定", the probe grid never tests reasoning-vs-text, the local body reports lack promptTokens, and no paired capture exists here. The lead's density discriminator (1.033 vs 0.697) is a strong *consistency* check but is derived from the same published numbers, not an independent measurement. Recommend publishing the mechanism with the C7 step phrased as "consistent with the reporter's paired measurement" and citing the international-side measurement as the outstanding confirmation, rather than as an established fact.
 
-## Commands run (representative)
+## 3. Commands run (representative)
 
 ```bash
 grep -E '"version"' /private/tmp/asar-full/dsh/node_modules/@earendil-works/pi-ai/package.json
@@ -32,7 +34,7 @@ grep -n '尚未测定\|互不蕴含' docs/reasoning-investigation.md
 grep -rn '0.3518' docs/ src/ README.md CHANGELOG.md /Users/dmh2002/.dsh/body-reports/   # 0 real hits
 ```
 
-## Counter-evidence / ambiguity found
+## 4. Counter-evidence / ambiguity found
 
 - **0.3518 tok/char** (r-y7's implied rate) cannot be reproduced from any local number and is defined nowhere in the repo. Either it uses data not shown, or it is a typo. Do not repeat it publicly without the reporter showing its derivation.
 - The residual 1,407 and the "CN-only tail" 1,407 are the **same** quantity — r-y7 presents them as two separate observations ("0.3% residual" + "both sides 812,815 after removing tail"); it is one identity, not two confirmations.
@@ -40,7 +42,7 @@ grep -rn '0.3518' docs/ src/ README.md CHANGELOG.md /Users/dmh2002/.dsh/body-rep
 - First `prompt is too long: 1374460` occurrence in the local log (L42) happened while the current config was **workbuddy/CN**, not GL — the string is quoted in untrusted conversation/tool text, not necessarily a live GL error; do not read direction into it.
 - pi-ai's `requiresReasoningContentOnAssistantMessages` (`openai-completions.js:1046-1049`, default `isDeepSeek` :1235, workbuddy baseUrl is the shim's local URL) is probably inactive for workbuddy, but this was not live-tested — a small residual uncertainty.
 
-## Cannot be verified from this machine
+## 5. Cannot be verified from this machine
 
 - r-y7's paired CN/GL capture (the block table 741,952/72,270 vs 184,821/627,994) and the "127 messages satisfy CN(text+reasoning) === GL(text) with 0 exceptions" conservation — the capture came from r-y7's machine; no `global.jsonl` exists locally and local `cn.jsonl` records have no `promptTokens`.
 - The **exact** 496/496 signature count (only the same uniformity is confirmed locally: 790/790 = `reasoning_content` in this session's log).
@@ -48,7 +50,7 @@ grep -rn '0.3518' docs/ src/ README.md CHANGELOG.md /Users/dmh2002/.dsh/body-rep
 - The derivation of 0.3518 tok/char.
 ---
 
-## 追记（2026-10-18 晚）：C6 / C7 与 `0.3518` 的后续
+## 6. 追记（2026-10-18 晚）：C6 / C7 与 `0.3518` 的后续
 
 本节**不改动**上面的判决表（它记录的是当时能核到什么），只补记报告者 2026-10-18T09:40:43Z 回复之后的结果。
 
@@ -57,13 +59,13 @@ grep -rn '0.3518' docs/ src/ README.md CHANGELOG.md /Users/dmh2002/.dsh/body-rep
 | C6 的 `text` 值 741,952 | 按报告者原数复算 | **改为 741,687**（user 69,431 + assistant 672,256；原数重复计了 265） | 报告者自撤；`src/body-report.ts:16`、`tests/issue59-body-report.spec.ts:27`、`docs/audit/ISSUE59-OPTIONS.md` 已同步 |
 | C6 的「residual 0.3%」与「两侧都等于 812,815」 | 记为两个观察 | **同一个恒等式**（字符守恒）：`741,687 + 72,270 − 1,142 = 812,815 = 184,821 + 627,994` | 报告者接受本报告的意见 |
 | `0.3518 tok/char` | 判为「无法复现，勿公开引用」 | **已解释**：分母串了，真分母是 555,724（两区 reasoning 之差），不是 812,815。该系数本身作废 | 报告者自撤；从未进过公开文档 |
-| **C7（计费前提）** | UNVERIFIABLE-LOCALLY | **可定案：reasoning 不计费** —— 但性质是「报告者实测 + 本仓库系数复算佐证」，**不是本机实测** | `docs/audit/ISSUE59-BILLING.md`（独立对抗性复核）；`docs/reasoning-investigation.md` §11.7 |
+| **C7（计费前提）** | UNVERIFIABLE-LOCALLY | **可定案：reasoning 不计费** —— 但性质是「报告者实测 + 本项目系数复算佐证」，**不是本机实测** | `docs/audit/ISSUE59-BILLING.md`（独立对抗性复核）；`docs/reasoning-investigation.md` 第 5、6 节 |
 
 C7 定案的两条算式（详见 `ISSUE59-BILLING.md` 的 A1/A4/Q4）：
 
 1. **同区同模型增量**（报告者的机器）：+416 tok 对 +1,290 reasoning 字符 / +892 其他字符 → 计费读法 0.1907 tok/char，不计费读法 0.4664；后者与我们实测的 tool-result 0.4555 相差 2.4%。
-2. **国际侧自己的账**（纯本仓库系数）：tool 块 959,283 字符 × 0.4555 = 436,953 tok = 它 447,306 总账的 **97.7%**，剩下的 10,353 tok 要分给另外 822,343 字符（0.0126 tok/char）——**reasoning 若也计费，这笔账凑不出来**。
+2. **国际侧自己的账**（纯本项目系数）：tool 块 959,283 字符 × 0.4555 = 436,953 tok = 它 447,306 总账的 **97.7%**，剩下的 10,353 tok 要分给另外 822,343 字符（0.0126 tok/char）——**reasoning 若也计费，这笔账凑不出来**。
 
 **同时撤回本报告用过的一个说法**：我们曾写「若计费，预测比值 0.697」。那是量纲串了 —— 0.697 是两边非 reasoning 密度的比值，不是计费假设的预测。计费假设下两区计费字符几乎相等（差 0.15%），预测比值 **≈1.00**，而实测 **1.4370**，所以计费假设是**被证伪**，不是被吻合。报告者的这一条批评成立。
 
-**仍然未定的**：报告者预测「单区跑完再切区跳变接近 0」在本机无法验证（无 `global.jsonl`，`cn.jsonl` 685 条 `promptTokens` 命中 0）；他的字符总数比本仓库分块表多出恒定 30,507 / 30,772（一个我们没采集的桶），不要当成本仓库的数引用。
+**仍然未定的**：报告者预测「单区执行完成再切区跳变接近 0」在本机无法验证（无 `global.jsonl`，`cn.jsonl` 685 条 `promptTokens` 命中 0）；他的字符总数比本项目分块表多出恒定 30,507 / 30,772（一个我们没采集的桶），不要当成本项目的数引用。

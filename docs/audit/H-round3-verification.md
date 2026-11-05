@@ -1,8 +1,10 @@
-# H — Round-3 verification (adversarial, teammate `round3-verify`)
+# Account-pool verification: round 3
+
+Historical scope: this report checks the ten round-3 fixes against the frozen snapshot. Findings describe that revision; later resolutions are recorded in [E-fix-log.md](E-fix-log.md).
 
 > Verifier: `round3-verify` (shared task `task-6`), independent of the Lead who wrote the fixes.
 > Subject: the ten third-round account-pool fixes (M-2/A-4, D1, D2, D4, H7/H8, D5, M-4, L-5, A-8, D6),
-> as claimed in [E-fix-log.md](E-fix-log.md) §十一.
+> as claimed in [E-fix-log.md](E-fix-log.md) §11.
 > **Only reproduction counts, never the claim.** For every fix I built a mutant in a `/tmp` copy and
 > asked whether the suite notices. A claim is CONFIRMED only when (i) I can point at the implementing
 > code AND (ii) a mutant makes a test fail. Everything else is reported as a gap, not as a pass.
@@ -150,7 +152,7 @@ and the e2e independently catch it.
 × has each key in BOTH tables, in both languages   tests/pool-state.spec.ts:318
 × keeps the two languages in exact key parity      tests/pool-state.spec.ts:338
 ```
-2 failed — matching E-fix-log §十一's claim precisely. En keys are at `src/client/locales.ts:48-55`.
+2 failed — matching E-fix-log §11's claim precisely. En keys are at `src/client/locales.ts:48-55`.
 
 ### Claim 6 — D5: callbacks declare what they read — CONFIRMED, but narrower than stated
 
@@ -358,7 +360,7 @@ true as written but narrower than the staleness class it is meant to prevent.
 ## 7. What I could NOT verify
 
 - **No committed pre-fix baseline exists.** The whole feature is uncommitted (`git show HEAD:src/web-status.ts`
-  has no `effectiveMemberAccountIds`), so "before/after" rests on the Lead's E-fix-log §十一 and on my own
+  has no `effectiveMemberAccountIds`), so "before/after" rests on the Lead's E-fix-log §11 and on my own
   mutants, not on git history.
 - **No real Host process or real network.** Every probe goes through the suite's stubbed `globalThis.fetch`;
   I verified the *tests*, not live upstream behaviour.

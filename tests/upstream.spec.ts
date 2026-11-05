@@ -532,7 +532,7 @@ describe('prepareChatBody keepPromptLast (issue #132)', () => {
       messages: [
         { role: 'system', content: 'prompt' },
         real('真实输入'),
-        injected('SOME-NEW-PLUGIN-CONTEXT:\n未来某插件注入的内容'),
+        injected('SOME-NEW-PLUGIN-CONTEXT:\n未来某插件传入的内容'),
       ],
     })
     const prepared = messagesOf(prepareChatBody(source, {
@@ -547,7 +547,7 @@ describe('prepareChatBody keepPromptLast (issue #132)', () => {
       messages: [
         { role: 'system', content: 'prompt' },
         real('真实输入'),
-        injected('a[b( c) 看起来像正则的注入'),
+        injected('a[b( c) 看起来像正则的传入'),
       ],
     }), { keepPromptLast: true, extraInjectedPrefixes: ['a[b( c)'] }))
     expect(String(tricky.at(-1)?.content)).toBe('真实输入')

@@ -712,8 +712,8 @@ export function defaultDesktopAuthDirs(
    */
   if (platform === 'openharmony') {
     const root = nonEmptyEnv(env['WORKBUDDY_USER_HOME']) ?? OPENHARMONY_USER_HOME
-    // `posix.join`，不是宿主的 `join`：这些是**数据**规定的分隔符（鸿蒙是
-    // POSIX 路径），用宿主 join 会在 Windows 上产出
+    // `posix.join`，不是运行平台的 `join`：这些是**数据**规定的分隔符（鸿蒙是
+    // POSIX 路径），用运行平台 join 会在 Windows 上产出
     // `/storage/Users/currentUser.localshare...` 这种永不存在的混分隔符，
     // 而单元测试也会变成"只在 POSIX 上绿"。同 `turing-sdk.ts` 与 `at-rest.ts`
     // 里踩过的那个坑（docs/WINDOWS.md）。

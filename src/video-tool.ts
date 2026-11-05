@@ -13,8 +13,8 @@
  * 上面那段异步执行流程。
  *
  * 为什么手写 ToolDefinition（不 import `@deepseek-ai/dsh-tools` 的 `defineTool`）：
- * 同 image-tool.ts 的注释——宿主 `Tools.register` 只校验 `output.render` 是函数、
- * `output.schema` 是受支持的 JSON Schema，`schemaOf()` 把 `parameters` 原样投影，
+ * 同 image-tool.ts 的注释——DSH `Tools.register` 只校验 `output.render` 是函数、
+ * `output.schema` 是受支持的 JSON Schema，`schemaOf()` 把 `parameters` 原样传递，
  * 手写换来零新 peer 依赖、不会触发 tests/host-peers.spec.ts 对可达图的断言。
  *
  * @module dsh-connect-workbuddy/video-tool
@@ -48,20 +48,20 @@ import {
   type WorkBuddyVideoSubmission,
 } from './video-gen.ts'
 
-/** 工具名。宿主禁止 `run_code`，这个名字与其它 connect 插件的命名习惯一致。 */
+/** 工具名。DSH 禁止 `run_code`，这个名字与其它 connect 插件的命名习惯一致。 */
 export const WORKBUDDY_VIDEO_TOOL_NAME = 'workbuddy_draw_video'
 
 /**
  * 工具单次执行的上限：提交 + 轮询 + 下载。
  *
- * ## 为什么必须比宿主的 600 秒**明显小**（issue #187 的第三种现象）
+ * ## 为什么必须比 DSH 的 600 秒**明显小**（issue #187 的第三种现象）
  *
- * 这个值原本正好是 `600_000`，与宿主自己给工具调用的上限**完全相等**。两者同时到
- * 期，而宿主的计时器先落地：调用被宿主直接掐断，用户看到的是裸的
+ * 这个值原本正好是 `600_000`，与 DSH 自己给工具调用的上限**完全相等**。两者同时到
+ * 期，而 DSH 的计时器先落地：调用被 DSH 直接掐断，用户看到的是裸的
  * `tool call timed out after 600000ms`——没有 `taskId`、没有 `POLL_TIMEOUT`、没有
  * 任何结构化错误，日志里也找不到是提交卡住还是轮询卡住。
  *
- * 内部超时短于宿主上限，插件就能**先**抛 `POLL_TIMEOUT`，把 task id 带出去。那个
+ * 内部超时短于 DSH 上限，插件就能**先**抛 `POLL_TIMEOUT`，把 task id 带出去。那个
  * id 是这个故障里唯一能拿去问上游的东西，丢掉它等于把可排障的失败变成不可排障的。
  *
  * 570s 而不是更短：正常任务实测几十秒到几分钟，砍太狠会把慢但成功的任务判死。
@@ -84,15 +84,15 @@ const VIDEO_INPUT_TIMEOUT_MS = 30_000
 /** 失败后的冷却：视频按次扣积分且一次要几十秒，连续重试会烧掉大量积分。 */
 const FAILURE_COOLDOWN_MS = 60_000
 
-/** 宿主 ContentBlock 的最小结构（只需要文本块）。 */
+/** DSH ContentBlock 的最小结构（只需要文本块）。 */
 export interface VideoToolContentBlock {
   readonly type: 'text'
   readonly text: string
 }
 
 /**
- * 宿主 `ToolDefinition` 的结构子集。不 import 宿主类型，避免把插件绑死在
- * 某个宿主版本的类型上。
+ * DSH `ToolDefinition` 的结构子集。不 import DSH 类型，避免把插件绑死在
+ * 某个 DSH 版本的类型上。
  */
 export interface VideoToolDefinition {
   readonly name: string
@@ -106,12 +106,12 @@ export interface VideoToolDefinition {
   execute(args: unknown, exec: VideoToolExec): Promise<Record<string, unknown>>
 }
 
-/** 宿主传给 execute 的执行上下文里本工具用得到的部分。 */
+/** DSH 传给 execute 的执行上下文里本工具用得到的部分。 */
 export interface VideoToolExec {
   readonly signal?: AbortSignal
 }
 
-/** 工具运行所需的外部能力，全部由 `src/index.ts` 注入，便于单测替换。 */
+/** 工具运行所需的外部能力，全部由 `src/index.ts` 添加，便于单测替换。 */
 export interface VideoToolDeps {
   /** 解析生视频所用区的凭据；该区未登录/未授权则返回 undefined（不要抛异常）。 */
   readonly resolveCredential: () => Promise<WorkBuddyCredential | undefined>
@@ -248,7 +248,7 @@ function asVideoImageInput(value: unknown): string | undefined {
     if (typeof item !== 'string' || item.trim() === '') {
       throw new WorkBuddyVideoError(
         'workbuddy video: image 数组的唯一元素必须是非空字符串'
-        + '（本地路径 / file:// / http(s) / data URL / 裸 base64）。',
+        + '（本地路径 / file:// / http(s) / data URL / base64 编码）。',
         'INVALID_ARGS',
       )
     }
@@ -256,7 +256,7 @@ function asVideoImageInput(value: unknown): string | undefined {
   }
   throw new WorkBuddyVideoError(
     'workbuddy video: image 必须是字符串或单元素字符串数组'
-    + '（本地路径 / file:// / http(s) / data URL / 裸 base64）。',
+    + '（本地路径 / file:// / http(s) / data URL / base64 编码）。',
     'INVALID_ARGS',
   )
 }
@@ -295,7 +295,7 @@ function isBillableFailure(error: unknown, sent: boolean): boolean {
  *
  * ## 为什么 http(s) 也要下载下来（issue #187）
  *
- * 这里以前只发一个 `HEAD` 做可达性校验，然后把 URL **原样**交给上游。两个问题：
+ * 这里以前只发一个 `HEAD` 做触发条件校验，然后把 URL **原样**交给上游。两个问题：
  *
  * 1. **`HEAD` 会被 COS 拒绝。** 插件自己出图返回的是腾讯 COS 签名 URL
  *    （`ai-corpus-backup-*.cos.ap-beijing.myqcloud.com`），签名只覆盖 `GET`。
@@ -307,7 +307,7 @@ function isBillableFailure(error: unknown, sent: boolean): boolean {
  *    URL → invoke model error"）。原样传 URL 只是把失败推迟到上游，并且那时已经
  *    建了 task、扣了积分。
  *
- * 所以这里与 `image-tool.ts` 的 `resolveImageInput` 完全对齐：**下载并编码成
+ * 所以这里与 `image-tool.ts` 的 `resolveImageInput` 采用相同处理方式：**下载并编码成
  * data URL**。这也顺带让签名过期、上游改域名的场景在本地就报出可读的错，而不是
  * 变成一个花了钱才发现的 `TASK_FAILED`。
  *
@@ -321,7 +321,7 @@ async function resolveVideoImageInput(value: string, signal?: AbortSignal): Prom
     const parsed = parseImageDataUrl(text)
     if (parsed === undefined) {
       throw new WorkBuddyVideoError(
-        'workbuddy video: image 看起来是 data URL，但格式不对（需要 data:image/*;base64,...）。',
+        'workbuddy video: image 格式无效，请使用 data:image/*;base64,...。',
         'INVALID_ARGS',
       )
     }
@@ -373,7 +373,7 @@ async function resolveVideoImageInput(value: string, signal?: AbortSignal): Prom
     bytes = await readFile(path)
   } catch (error: unknown) {
     throw new WorkBuddyVideoError(
-      `workbuddy video: 读不到输入图「${path}」：`
+      `workbuddy video: 读取输入图失败「${path}」：`
       + (error instanceof Error ? error.message : String(error)),
       'INVALID_ARGS',
     )
@@ -382,7 +382,7 @@ async function resolveVideoImageInput(value: string, signal?: AbortSignal): Prom
 }
 
 /**
- * 体积与空文件闸门——所有输入图都从这里过，所以「空文件」和「超过 8 MB」
+ * 文件大小与空文件检查——所有输入图都从这里过，所以「空文件」和「超过 8 MB」
  * 的文案只有一份。与 `image-tool.ts` 的 `assertInputImageBytes` 同逻辑。
  *
  * `byteLength` 必须是解码后的字节数：base64 比原始字节长约 4/3。
@@ -441,18 +441,18 @@ export function createVideoTool(deps: VideoToolDeps): VideoToolDefinition {
   return {
     name: WORKBUDDY_VIDEO_TOOL_NAME,
     description:
-      '用当前账号的 WorkBuddy 视频生成能力生成一段短视频。'
-      + '不填 image 是文生视频（用该区带 text-to-video 标签的模型）；'
-      + '填了 image 是图生视频（用带 image-to-video 标签的模型，只收一张输入图）。'
-      + '可选参数要么不填、要么类型正确；填错类型直接 INVALID_ARGS 且不发请求，'
-      + '不会静默丢参数或切换模式。'
+      '使用已授权区域的 WorkBuddy 账号生成短视频，费用从该账号扣除。'
+      + '通过 prompt 描述画面，插件使用 text-to-video 模型生成视频。'
+      + '提供 image 时，插件使用 image-to-video 模型，以这张图片生成视频。每次支持一张输入图。'
+      + '请使用正确的参数类型；类型错误时返回 INVALID_ARGS，'
+      + '修改参数后可重试。'
       + '国内区与国际区都可用，模型取自该区产品配置'
       + '（国内区 kling-video-v3、minimax-video-h3；国际区 kling-video-v3，'
       + '两种 video tag 都有；以该区目录为准）。'
-      + '视频是异步任务：先提交、再轮询到完成、最后把视频下载到本地，单次可能要几十秒到几分钟。'
-      + '每次生成会真实消耗 WorkBuddy 积分，单价随区域与模型不同，以返回结果里的 credit 为准；'
-      + '不要在没必要时调用，也不要为了试错连续调用。'
-      + '返回的是本地 .mp4 文件路径（file:// URL），由宿主/客户端打开或下载。',
+      + '插件先提交任务，等待服务端完成生成，再下载视频。整个过程可能需要几十秒至几分钟。'
+      + '费用随区域和模型变化，响应中的 credit 表示本次扣除的积分。'
+      + '请在用户授权后调用。'
+      + '返回本地 .mp4 视频的 file:// URL，可在 DSH 中打开或下载。',
     parameters: {
       type: 'object',
       properties: {
@@ -464,35 +464,35 @@ export function createVideoTool(deps: VideoToolDeps): VideoToolDefinition {
           type: ['string', 'array'],
           items: { type: 'string' },
           description:
-            '输入图，可选。填了就是图生视频（image-to-video）；不填就是文生视频。'
-            + '接受本地绝对路径、file:// URL、http(s) URL、data URL 或裸 base64。'
+            '提供一张输入图，插件使用 image-to-video 模型生成视频。省略此参数时，插件使用 text-to-video 模型。'
+            + '可提供图片的绝对路径、file:// URL、http(s) URL、data URL 或 base64 编码。'
             + '上限 8 MB，不做缩放或格式转换。'
             + '单元素字符串数组与字符串等价；图生视频只支持一张输入图，'
-            + '传多张会直接报错（不会静默改走文生视频）。'
+            + '提供多张图片时返回参数错误。'
             + '需要多图参考（如按模板换装）时，先用生图工具 workbuddy_draw_image 把参考'
             + '合成一张成品图，再把这张图传进来。',
         },
         model: {
           type: 'string',
           description:
-            '模型 id，可选。不填就用用户在设置卡片上按模式钉住的模型；'
-            + '卡片上没钉就用该区目录里第一个带当前模式标签的模型'
+            '模型标识，可选。省略时使用设置中对应模式的默认模型；'
+            + '未设置时使用当前区域对应模式的第一个模型'
             + '（文生视频看 text-to-video，图生视频看 image-to-video）。'
-            + '填了但该 tag 组里没有会直接报错，不会盲发。',
+            + '指定模型需属于当前模式对应的模型列表。',
         },
         seconds: {
           type: 'number',
           description:
             '视频时长（秒），可选。不填用模型默认（通常 5s）。'
-            + '该模型在目录里给了 videoGeneration.minSeconds..maxSeconds 时，越界直接报错、不会静默夹取；'
-            + '目录没给区间时交给上游判断，被拒的错误里会带上游支持的范围，改完可立刻重试（不计失败冷却）。',
+            + '时长须符合模型目录声明的 videoGeneration.minSeconds..maxSeconds 范围，超出时返回参数错误。'
+            + '目录未声明范围时，由服务端校验；被拒绝时请按返回的范围调整后重试。',
         },
         resolution: {
           type: 'string',
           description:
             '分辨率，可选，如 720P / 1080P（大小写不敏感，按模型目录里的拼写发）。不填用模型默认。'
-            + '该模型在目录里给了 videoGeneration.resolutions 时，不在列内会回落到默认分辨率并给出告警；'
-            + '目录没给这份清单时原样透传，交给上游判断（与 seconds 同一条判据）。',
+            + '模型目录包含 videoGeneration.resolutions 时，超出列表的选项会改用默认分辨率，并返回提示；'
+            + '目录未声明分辨率时，将所选值直接提交至服务端校验。',
         },
         aspect_ratio: {
           type: 'string',
@@ -585,8 +585,8 @@ export function createVideoTool(deps: VideoToolDeps): VideoToolDefinition {
       if (now < cooldownUntil) {
         const seconds = Math.ceil((cooldownUntil - now) / 1000)
         throw new WorkBuddyVideoError(
-          `workbuddy video: 上一次生视频刚失败过，请 ${seconds} 秒后再试`
-          + '（失败冷却是为了避免连续重试白白烧积分）。',
+          `workbuddy video: 视频生成失败后需等待，请 ${seconds} 秒后再试`
+          + '，以减少重复计费。',
           'COOLDOWN',
         )
       }
@@ -594,9 +594,9 @@ export function createVideoTool(deps: VideoToolDeps): VideoToolDefinition {
       const credential = await deps.resolveCredential()
       if (credential === undefined) {
         throw new WorkBuddyVideoError(
-          'workbuddy video: 没有可用的 WorkBuddy 账号——要么两个区都没登录，'
-          + '要么已登录的那个区没有打开「允许模型自主生图」。'
-          + '请先在插件设置里登录该区账号，并打开那个开关。',
+          'workbuddy video: 当前没有已授权的视频生成账号。'
+          + '请登录需要使用的区域，'
+          + '并在设置中开启「允许模型调用视频生成工具」。',
           'NOT_LOGGED_IN',
         )
       }
@@ -697,14 +697,14 @@ export function createVideoTool(deps: VideoToolDeps): VideoToolDefinition {
   }
 }
 
-/** 宿主 tools 服务里本工具用到的那一个方法。 */
+/** DSH tools 服务里本工具用到的那一个方法。 */
 export interface ToolsServiceLike {
   register(definition: unknown): () => void
 }
 
 /**
- * 把工具注册进宿主。返回 disposer；调用方负责在插件卸载时调用它。
- * 注册本身是同步的；`tools` 服务由宿主提供，拿不到就直接返回 undefined 并记警告。
+ * 把工具注册进 DSH。返回 disposer；调用方负责在插件卸载时调用它。
+ * 注册本身是同步的；`tools` 服务由 DSH 提供，拿不到就直接返回 undefined 并记警告。
  */
 export function registerWorkBuddyVideoTool(
   tools: ToolsServiceLike,

@@ -9,13 +9,13 @@ import type { WorkBuddyDeviceProfileLookup } from '../src/device-profile.ts'
 import type { TuringTokenSource } from '../src/turing-sdk.ts'
 
 /**
- * P1 —— 出站身份档位（`docs/DEVICE-IDENTITY-AUDIT.md` 的 P1）。
+ * P1 —— 请求头中的客户端标识档位（`docs/DEVICE-IDENTITY-AUDIT.md` 的 P1）。
  *
  * 两档的契约完全不同，因此这里分两组测：
  *   - `balanced`（默认）：每一条请求说同一种话，billing 不再是裸 HTTP 客户端。
  *   - `conservative`：**逐字节**等于 5.16.0，连 `X-Product: SaaS` 都还原。
  *
- * 盐一律显式注入（`SALT`），所以这些测试不读盘、不创建 `$DSH_HOME` 下的任何文件，
+ * 盐一律显式传入（`SALT`），所以这些测试不读盘、不创建 `$DSH_HOME` 下的任何文件，
  * 也不依赖运行顺序。
  */
 
@@ -169,7 +169,7 @@ describe('balanced — one client identity everywhere', () => {
   })
 
   it('leaves refresh on the 5.16.0 bytes, with its own token', async () => {
-    // refresh 是整条链路里唯一"失败就等于掉登录"的一跳，所以它不参与 P1 的
+    // refresh 是整条处理过程里唯一"失败就等于掉登录"的一跳，所以它不参与 P1 的
     // 身份统一：没有归属头、没有设备头，**连 CodeBuddy-Request / Accept-Language
     // 也不加**（B 会加，但那是 B 一直在跑的形状；本插件没有在 refresh 上验过
     // 任何新头）。这条断言就是"统一"的边界——凡是维护类/元数据类的一跳，
@@ -331,7 +331,7 @@ describe('P3 — the real tier', () => {
 
     it('does NOT reuse the per-account overrides while falling back', async () => {
       // 这一跳是"真实值档塌回虚拟值"，不是"用户切到了虚拟值档"。把齿轮里那对
-      // 覆盖值混进来，等于让一次降级顺手改变这台机器对外声称的身份。
+      // 覆盖值混进来，等于让一次改用预设设备参数时又改变这台机器对外声称的身份。
       const seen = await headersOf('chat', { profile: 'balanced', deviceSalt: SALT }, {}, {
         deviceProfiles: realMode('real', true),
         realDevice: tokenSource(undefined),

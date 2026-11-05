@@ -6,7 +6,7 @@
  * its own shim and catalog so the two regions serve simultaneously.
  *
  * 参考：corrinehu/dsh-workbuddy-connect（MIT，Copyright (c) 2026 Corrine Hu）
- *   — pi-ai provider 的装配方式（createProvider + openAICompletionsApi +
+ *   — pi-ai provider 的组合加载方式（createProvider + openAICompletionsApi +
  *     inert auth plane + 用 shim 的进程内 secret 作为 apiKey）由该项目实现；
  *   DSH 插件结构与 provider 注册的思路参照
  *     franksong2702/dsh-codex-connect（Apache-2.0），经其转引。

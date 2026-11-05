@@ -1,7 +1,7 @@
 /**
  * WorkBuddy 生图的纯逻辑层：媒体模型筛选、请求体构造、响应解析、失败描述。
  *
- * 这一层刻意不做任何网络 I/O、不引用宿主的任何包。`src/upstream.ts` 会被
+ * 这一层刻意不做任何网络 I/O、不引用 DSH 的任何包。`src/upstream.ts` 会被
  * `src/bin.ts` 静态可达（见 tests/host-peers.spec.ts 对 lib/bin.js 可达图的断言：
  * 除 `node:` 外不得出现任何裸说明符），所以任何被它引用的模块都必须保持零外部依赖。
  *
@@ -75,7 +75,7 @@ export interface WorkBuddyMediaModel {
   readonly tags: readonly string[]
   /**
    * 模型级视频生成配置（上游 `models[].videoGeneration`），只对视频模型出现，
-   * 图像链路从不读它。透传它是因为**同一份目录**同时喂生图与生视频两条链路：
+   * 图像处理过程从不读它。原样传递它是因为**同一份目录**同时喂生图与生视频两条处理过程：
    * 视频工具要靠这里的 `minSeconds`/`maxSeconds` 在本地拦下越界时长，
    * 而不是发上去等一个「unsupported video duration」的 400。
    *
@@ -102,7 +102,7 @@ export interface WorkBuddyImageRequest {
   readonly n?: number
 }
 
-/** 上游成功响应的归一化结果。`url` 与 `b64` 至少有一个。 */
+/** 上游成功响应的格式转换结果。`url` 与 `b64` 至少有一个。 */
 export interface WorkBuddyImageOutcome {
   readonly url?: string
   readonly b64?: string
@@ -110,7 +110,7 @@ export interface WorkBuddyImageOutcome {
   readonly credit?: number
 }
 
-/** 生图链路的错误码。调用方据此决定是提示登录、提示换模型还是原样透传。 */
+/** 生图处理过程的错误码。调用方据此决定是提示登录、提示换模型还是原样转发。 */
 export type WorkBuddyImageErrorCode =
   | 'INVALID_ARGS'
   | 'NOT_LOGGED_IN'
@@ -122,7 +122,7 @@ export type WorkBuddyImageErrorCode =
   | 'EMPTY_RESULT'
   | 'COOLDOWN'
 
-/** 生图链路的错误。带一个稳定的 `code`，避免调用方去匹配文案。 */
+/** 生图处理过程的错误。带一个稳定的 `code`，避免调用方去匹配文案。 */
 export class WorkBuddyImageError extends Error {
   readonly code: WorkBuddyImageErrorCode
 
@@ -152,7 +152,7 @@ function asFiniteNumber(value: unknown): number | undefined {
 }
 
 /**
- * 把目录条目上的 `videoGeneration` 读成已知字段的配置对象（图像链路只是搬运，
+ * 把目录条目上的 `videoGeneration` 读成已知字段的配置对象（图像处理过程只是搬运，
  * 不解释它）。与 `video-gen.ts` 的 `readVideoGeneration` 必须同形——同一份上游
  * 数据，两个入口不能读出两个答案。缺字段即 undefined，不补默认值。
  */
@@ -244,9 +244,9 @@ export function pickMediaModel(
   const first = group[0]
   if (first === undefined) {
     throw new WorkBuddyImageError(
-      `workbuddy image: 该区账号的产品配置里没有任何带 ${tag} 标签的模型（${tagLabel(tag)}）。`
-      + '国内区文生图应是 hunyuan-image-alpha、改图是 hunyuan-image-alpha-edit；'
-      + '国际区 hy-image-3.5 同时带这两个标签；一个都没有说明该区目录暂时没有这类模型。',
+      `workbuddy image: 当前区域模型目录中缺少 ${tag} 标签的模型（${tagLabel(tag)}）。`
+      + '请刷新当前区域模型目录后重试。'
+      + '',
       'NO_IMAGE_MODEL',
     )
   }
@@ -331,7 +331,7 @@ export function imageMimeForPath(path: string): string | undefined {
 /**
  * 按魔数嗅探图片 MIME，照抄官方 CLI 的 `detectMimeTypeFromBase64`。
  *
- * 认不出来时兜底 `image/png`（CLI 也是这么兜的）：宁可让上游按 png 试一次，
+ * 无法识别格式时按 `image/png` 处理（CLI 也是这么兜的）：宁可让上游按 png 试一次，
  * 也不要因为一个我们没见过的头就拒掉用户给的图。
  */
 export function sniffImageMime(bytes: Uint8Array): string {
@@ -464,7 +464,7 @@ export function describeImageFailure(status: number, bodyText: string): WorkBudd
   }
   if (status === 404) {
     return new WorkBuddyImageError(
-      `workbuddy image: 上游没有这条生图路由（HTTP 404）——该区网关没有开放生图接口。${detail === '' ? '' : ` ${detail}`}`,
+      `workbuddy image: 上游没有这条生图路由（HTTP 404）——当前区域暂未提供图片生成接口。${detail === '' ? '' : ` ${detail}`}`,
       'NO_ROUTE',
     )
   }

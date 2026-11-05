@@ -189,10 +189,10 @@ describe('the evidence block, after issue #213', () => {
       expect(stripBreaks(text).startsWith(`${WORKBUDDY_FALLBACK_SYSTEM_PROMPT}\n\n`)).toBe(true)
     }
     // And the reply now states it, next to the openings it applies to.
-    expect(reply.message).toContain('这次重试里每一条被扫描消息都已经加了中性头，仍然被拒')
+    expect(reply.message).toContain('本次重试已为所有被检查的消息添加中性提示，请求再次被拒绝')
     // The label no longer claims to know more than the first line.
-    expect(reply.message).toContain('（不在插件已知名单里，仅指首行）')
-    expect(reply.message).toContain('只说明该消息的首行不是已知指纹')
+    expect(reply.message).toContain('（首行未匹配已知客户端标识）')
+    expect(reply.message).toContain('首行标记用于说明首次请求的匹配情况')
     // The two sentences that produced the false lead are gone.
     expect(reply.message).not.toContain('网关可能新增了词条')
     expect(reply.message).not.toContain('请修改该提示')
@@ -212,7 +212,7 @@ describe('the evidence block, after issue #213', () => {
     ])
 
     expect(reply.status).toBe(400)
-    expect(reply.message).not.toContain('这次重试里每一条被扫描消息都已经加了中性头')
-    expect(reply.message).toContain('并已用一次不可见扰动')
+    expect(reply.message).not.toContain('本次重试已为所有被检查的消息添加中性提示')
+    expect(reply.message).toContain('一次不可见字符处理')
   })
 })

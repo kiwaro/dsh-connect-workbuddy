@@ -92,7 +92,7 @@ export async function resolveCredentials(
 
   if (out.length === 0) {
     throw new Error(
-      '没有可用的 WorkBuddy 登录凭据：插件配置里没读到你登录过的账号。' +
+      '未找到可用的 WorkBuddy 登录凭据。' +
         `先在 WorkBuddy / CodeBuddy 里登录，或设置环境变量 ${AUTH_TOKEN_ENV}。`,
     )
   }

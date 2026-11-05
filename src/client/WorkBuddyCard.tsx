@@ -3,20 +3,20 @@
  *
  * 参考：dingminhua/dsh-connect-trae（MIT，Copyright (c) 2026 LaoDing）
  *   — 卡片的整体结构（折叠外壳 / 账号状态行 / 账号下拉 / 积分区 / 模型表 /
- *     操作按钮行）、模块加载时注入一次 `<style>` 的写法、
+ *     操作按钮行）、模块加载时添加一次 `<style>` 的写法、
  *     草稿态（draftModels/draftEnabledIds）与 dirty 标记的保存流程、
  *     60 秒轮询与 AbortController 清理，均来自该项目的 TraeUsageCard。
- *   折叠卡片外壳与 `settings.plugin.item` 槽位形态来自
+ *   折叠卡片外壳与 `settings.plugin.item` 界面扩展位置形态来自
  *   dingminhua/dsh-subagent-default-model（MIT）。
  * 改动：
- *   0. 折叠箭头改用纯 CSS caret（理由见 styles.ts）：两版宿主的图标命名族
+ *   2. 折叠箭头改用纯 CSS caret（理由见 styles.ts）：两版 DSH 的图标命名族
  *      不同，静态导入必挂一边。此前沿用的 `IconChevronDownOutline14` 已
  *      随该改动移除，故不再计入上方参考项。
- *   1. 积分区改为「合计 + 按套餐名聚合的进度条」，因为实测单个账号下
+ *   3. 积分区改为「合计 + 按套餐名聚合的进度条」，因为实测单个账号下
  *      同名套餐可达 19 个，逐条渲染会淹没卡片（原项目按上游条目直出）；
- *   2. 模型行补上 WorkBuddy 上游给出的积分倍率、多模态与推理档位；
- *   3. 移除与 WorkBuddy 上游无关的 1M 变体勾选；
- *   4. 双 provider 化后卡片顶部为「国内版 / 国际版」tab 栏 —— 每个 tab
+ *   4. 模型行补上 WorkBuddy 上游给出的积分倍率、多模态与推理档位；
+ *   5. 移除与 WorkBuddy 上游无关的 1M 变体勾选；
+ *   6. 双 provider 化后卡片顶部为「国内版 / 国际版」tab 栏 —— 每个 tab
  *      是一个独立供应商（workbuddy / workbuddy-global），账号、积分、
  *      模型目录与草稿完全按区域隔离，切 tab 不丢另一侧未保存的草稿。
  *
@@ -1038,7 +1038,7 @@ function WorkBuddyCardBody({ t, settingsScope, view, surface, backToConversation
    * 设备头设置：卡片打开时读一次。
    *
    * 不跟 60 秒轮询走：这份文档只在用户自己点开关或保存齿轮时变，定时重读只是
-   * 每分钟多一次请求。每次写完都把 Host 的返回值直接放进状态（见下面两个
+   * 每分钟多一次请求。每次写完都把 DSH 的返回值直接放进状态（见下面两个
    * handler），所以这个标签页看到的永远是最新写入的那一份。
    */
   useEffect(() => {
@@ -3282,13 +3282,13 @@ function WorkBuddyCardBody({ t, settingsScope, view, surface, backToConversation
                       // (see the `onRefresh` prop note in AccountPool).
                       onRefresh={() => refreshUsage(activeRegion)}
                       // 设备头设置（「虚拟值 / 真实值」+ 每账号齿轮）。三件一起
-                      // 只在 Host 真的回了设置时才传：一个没有这条路由的 Host
+                      // 只在 DSH 实际回了设置时才传：一个没有这条路由的 Host
                       // 不该出现一个点不动的开关。
                       {...deviceSettings === undefined ? {} : {
                         deviceMode: deviceSettings.mode,
                         deviceProfiles: deviceSettings.accounts,
                         // 派生值随每次响应刷新：切档/保存后弹窗里显示的那一对必须
-                        // 与下一条请求真正发出的一致，不能停在打开页面时那份快照。
+                        // 与下一条请求真正发出的一致，不能停在打开页面时读取的旧值。
                         ...deviceSettings.derived === undefined ? {} : { deviceDerived: deviceSettings.derived },
                         onDeviceModeChange: changeDeviceMode,
                         onSaveDeviceProfile: saveDeviceProfile,

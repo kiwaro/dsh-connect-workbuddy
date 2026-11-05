@@ -231,6 +231,6 @@ describe('issue #159: the abort gate protects the DIAGNOSIS, not just quota', ()
     // Every rung that can change this body is tried: neutral head, sparse, dense.
     expect(mounted.sent.length, 'the ladder did not run on a live request').toBeGreaterThan(1)
     // And the reader is told so, by name, rather than being left to guess.
-    expect(text).toContain('并已用')
+    expect(text).toContain('重试处理：')
   })
 })

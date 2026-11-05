@@ -967,7 +967,7 @@ describe('issue #108: a long reason mark must not be clipped mid-sentence', () =
   it('prints the SHORT verdict, not the 88-character explanation', async () => {
     const m = await open()
     const mark = document.body.querySelector('.dsm-workbuddy-composer-panel-mark-reason')?.textContent ?? ''
-    expect(mark).toBe('✗ 网关拦的是提示词')
+    expect(mark).toBe('✗ 渠道校验拦截')
     // The point is WIDTH, so assert it directly: a swap back to the long label
     // is the exact regression, and 88 vs 11 characters is what made it break.
     expect(mark.length, 'the mark must be a verdict, not a paragraph').toBeLessThan(20)
@@ -981,8 +981,8 @@ describe('issue #108: a long reason mark must not be clipped mid-sentence', () =
     const title = Array.from(document.body.querySelectorAll('tr[title]'))
       .find(node => node.querySelector('.dsm-workbuddy-composer-panel-name')?.textContent === 'ISSAC')
       ?.getAttribute('title') ?? ''
-    expect(title, 'the full sentence must survive in the title').toContain('网关拦的是提示词本身')
-    expect(title, 'and must still name the real cause').toContain('第三方 agent 过滤')
+    expect(title, 'the full sentence must survive in the title').toContain('请求内容触发网关渠道校验')
+    expect(title, 'and must still name the real cause').toContain('第三方客户端标识')
     await m.unmount()
   })
 

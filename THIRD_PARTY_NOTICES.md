@@ -1,69 +1,50 @@
-# 第三方开源声明（Third-Party Notices）
+# 第三方开源声明
 
-> 本文件记录本项目在设计、实现与外观上参考或借鉴的开源项目，以及各自的许可证与合规要求。
->
-> 通用平台与构建依赖（`@deepseek-ai/*`、`react`、`typescript`、`tsdown`、`vitest` 等）的许可证随各自 npm 包自动携带，不属于本文档范围。
->
-> 若你对本文件的完整性有疑问或发现遗漏，请提交 issue 或 PR。
+本文件记录项目参考或移植的开源实现、相应来源及许可证。平台和构建依赖的许可文件随各依赖包提供。新增外部代码时，需要同步登记来源及适用的许可要求。
 
-## 一、项目缘起
+## 1. 项目来源
 
-本项目是 **WorkBuddy 接入 DeepSeek Harness（DSH）** 的重新实现，目标是在保留已验证连接能力的同时，改善使用体验。它的两个来源必须被明确承认：
+本项目在 DSH 中接入 WorkBuddy。连接实现参考 `corrinehu/dsh-workbuddy-connect`；设置卡片和模型管理参考 `dingminhua/dsh-connect-trae`，后者的样式与语言资源组织还参考 `dingminhua/dsh-subagent-default-model`。
 
-| 角色 | 项目 | 提供了什么 |
-|---|---|---|
-| 连接内核的参照 | [`dsh-workbuddy-connect`](https://github.com/corrinehu/dsh-workbuddy-connect) | 已验证可用的 WorkBuddy 接入方案：桌面端凭据发现与刷新、上游协议、SSE 直通、loopback shim 加固、pi-ai provider 装配、状态 CLI |
-| 插件外观的基准 | [`dsh-connect-trae`](https://github.com/dingminhua/dsh-connect-trae) | 插件卡片的结构与 CSS、模型管理与账号选择的交互模型、host↔client 路由形态、npm 发布工程 |
+## 2. 参考项目
 
-> `dsh-connect-trae` 的外观本身又派生自 [`dsh-subagent-default-model`](https://github.com/dingminhua/dsh-subagent-default-model)（同一作者的插件家族基准），其 `dsm-*` 卡片样式与 `row.*` 文案键约定来自那里。
-
-## 二、参考项目清单
-
-### 与 WorkBuddy 接入直接相关
-
-| 项目 | 仓库 | 参考内容 | 许可证 |
+| 项目 | 来源 | 内容 | 许可证与版权 |
 | --- | --- | --- | --- |
-| `dsh-workbuddy-connect` | <https://github.com/corrinehu/dsh-workbuddy-connect> | WorkBuddy 接入的完整参照：凭据发现、上游协议、shim、适配器、CLI | **MIT**（Copyright (c) 2026 Corrine Hu） |
-| `workbuddy2api` | <https://github.com/Sliverkiss/workbuddy2api> | WorkBuddy 上游协议（`copilot.tencent.com` 的 wire behavior）的参照实现 | **MIT** |
-| `workbuddy2api`（DSML 解析器） | <https://github.com/hawklithm/workbuddy2api> | **代码移植**（本清单中唯一一项不只是思路参照）：`src/codebuddy_proxy/dsml_parser.py` 的标签状态机、忽略区域判定（Markdown 围栏 / 行内代码 / CDATA / 注释）、缺包裹修复、参数递归解析与流式缓冲，移植为 `src/dsml-recovery.ts`；并在其上补了该实现没有的两道闸（工具名必须在本次请求声明的工具里、无声明工具完全不做恢复）。逐条改动与理由见该文件头部注释与 `docs/DSML-RECOVERY-PLAN.md` | **MIT**（Copyright (c) 2026 Mayer） |
+| dsh-workbuddy-connect | <https://github.com/corrinehu/dsh-workbuddy-connect> | 凭据发现、协议、回环服务、适配器及诊断 | MIT，Copyright (c) 2026 Corrine Hu |
+| workbuddy2api | <https://github.com/Sliverkiss/workbuddy2api> | WorkBuddy 协议参考 | MIT |
+| workbuddy2api | <https://github.com/hawklithm/workbuddy2api> | DSML 解析器移植来源 | MIT，Copyright (c) 2026 Mayer |
+| dsh-connect-trae | <https://github.com/dingminhua/dsh-connect-trae> | 卡片、模型管理、账号交互和发布结构 | MIT，Copyright (c) 2026 LaoDing |
+| dsh-subagent-default-model | <https://github.com/dingminhua/dsh-subagent-default-model> | CSS、图标和文案键组织 | MIT，Copyright (c) 2026 LaoDing |
+| dsh-codex-connect | <https://github.com/franksong2702/dsh-codex-connect> | 经连接项目引用的插件结构及供应商注册设计 | Apache-2.0 |
+| dsh-auto-continue | <https://github.com/HsiangNianian/dsh-auto-continue> | 连续失败次数与停止条件 | MIT |
+| dsh-purge | <https://github.com/YuJunZhiXue/dsh-purge> | 失败类别、消息排队和用户消息识别 | MIT |
 
-### 与 DSH 插件结构 / 外观相关
+## 3. DSML 解析器移植
 
-| 项目 | 仓库 | 参考内容 | 许可证 |
-| --- | --- | --- | --- |
-| `dsh-connect-trae` | <https://github.com/dingminhua/dsh-connect-trae> | 插件卡片外观、模型管理与账号选择交互、路由与发布工程 | **MIT**（Copyright (c) 2026 LaoDing） |
-| `dsh-subagent-default-model` | <https://github.com/dingminhua/dsh-subagent-default-model> | `dsm-*` 卡片 CSS、`row.*` 文案键约定、品牌图标 | **MIT**（Copyright (c) 2026 LaoDing） |
-| `dsh-codex-connect` | <https://github.com/franksong2702/dsh-codex-connect> | DSH 插件结构与 pi-ai provider 注册的参照（经 `dsh-workbuddy-connect` 转引） | **Apache-2.0** |
+`src/dsml-recovery.ts` 将 Mayer 的 `src/codebuddy_proxy/dsml_parser.py` 移植为 TypeScript。移植内容包括标签状态变化规则、忽略区域判断、缺少包裹标签的处理、参数递归解析和流式缓冲。
 
-### 与「失败后自动续跑」相关（5.13.0 新增）
+项目在该实现上增加请求工具名校验，并依据本次请求声明的工具决定是否进行恢复。其他调整涉及参考实现中的重复函数定义及流式输出与解析结构的一致性。具体差异保存在源文件头部，保留 MIT 版权和许可声明。
 
-| 项目 | 仓库 | 参考内容 | 许可证 |
-| --- | --- | --- | --- |
-| `dsh-client-auto-continue` | <https://github.com/HsiangNianian/dsh-auto-continue> | 「连续失败上限」这一整套语义：发出时 `consecutive` 自增、达到 `maxConsecutive` 停止、成功回合清零、`session.header.origin === 'subagent'` 跳过子代理、用 `agent.followup(createUserMessage(...))` 投递。`src/channel-continue.ts` 只取这层语义，未照搬其约 1590 行的引擎（收尾原因矩阵、自适应退避、自主循环、循环守卫、通知） | **MIT** |
-| `dsh-purge` | <https://github.com/YuJunZhiXue/dsh-purge> | `lib/continue-retry.js` 的三处做法：`NO_CONTINUE_CODES`（配额/限流/传输这类「重发也拿同一句回答」的失败不续）、`inboxBusy`（收件箱有排队就不插队）、以及用 `user/message` 的 `source.kind` 区分真人介入与插件自己的消息 | **MIT** |
+## 4. DSH 工具函数的后备实现
 
-> 两项均为**思路参照**，未复制其源码。本项目相对两者是收窄：只认 `channel_reject` 一种失败、不换号、不原地重试、不落盘状态。逐条差异写在 `src/channel-continue.ts` 的头部注释里（`docs/DESIGN.md` §5.3 要求）。
+`src/host-peers.ts` 提供独立 CLI 需要的后备工具函数。`writeFileAtomic`、`withFileLock` 对照 `@deepseek-ai/dsh-atomic-write` 的行为，`resolveDshHome` 对照 `@deepseek-ai/dsh-home-paths`。
 
-## 三、Apache-2.0 特别说明
+这些函数采用相同的锁命名、Windows 瞬时错误分类和重试规则，使 CLI 与 DSH 能够操作同一文件。DSH 提供相应依赖时使用依赖实现；独立执行时按解析结果选择后备实现。说明及测试见 `tests/host-peers.spec.ts`。
 
-`dsh-codex-connect` 采用 **Apache License 2.0**，其义务重于 MIT。本项目对它的参考是**间接的**：经由 `dsh-workbuddy-connect` 转引其 DSH 插件结构与 provider 注册思路。即便如此，本项目仍遵守 Apache-2.0 第 4 条的要求：
+## 5. 自动发送规则的参考
 
-- **保留声明**：在该项目条目中标注其许可证为 Apache-2.0，并注明「经 `dsh-workbuddy-connect` 转引」的事实路径。
-- **NOTICE 文件**：`dsh-codex-connect` 未随其仓库提供独立的 `NOTICE` 文本文件；若上游后续补充，本项目将同步将其内容纳入本文件或随包的 `NOTICE`。
-- **改动声明**：本项目**未修改** `dsh-codex-connect` 的源码；相关模块（适配器装配、插件注册）为独立实现。
-- **专利与商标**：本项目不主张 `dsh-codex-connect` 作者的任何专利许可或商标权利。
+`src/channel-continue.ts` 参考自动继续项目的连续次数计数、成功后重置和子会话排除规则；参考 dsh-purge 的失败分类、收件箱忙碌判断及消息来源识别。
 
-> 附：Apache-2.0 与本项目自身的 MIT 许可证在**再分发**层面兼容（Apache-2.0 允许以 MIT 条款再分发衍生作品，前提是满足其第 4 条的声明义务）。本项目通过本文件满足该义务。
+该模块仅针对所配置的渠道校验失败发送后续消息。事件订阅由调用方提供，具体实现及差异见该模块注释。
 
-## 四、本项目的使用方式
+## 6. Apache-2.0 来源说明
 
-- **借鉴设计思路 + 独立实现**：关键模块均为本项目独立编写，并在各源文件头部注释中标注所参考的具体项目与模式。
-- **唯一一处跨项目代码移植**：`src/dsml-recovery.ts` 是 [`hawklithm/workbuddy2api`](https://github.com/hawklithm/workbuddy2api) 的 `src/codebuddy_proxy/dsml_parser.py`（MIT，Copyright (c) 2026 Mayer）的 **TypeScript 移植**，不是思路参照。该文件的头部注释逐条列出了三处**有意偏离**（参考实现里重复定义的 `find_invoke_blocks`、其流式注入与自身解析器输出形状不一致、以及它没有的两道闸）。按 MIT 条款，本项目保留其版权与许可声明，并在上表与本条中同时标注。
-- **`src/host-peers.ts` 的例外说明（issue #47）**：该文件里的 `writeFileAtomic` / `withFileLock` 两个后备实现**转写自 `@deepseek-ai/dsh-atomic-write`，`resolveDshHome` 转写自 `@deepseek-ai/dsh-home-paths`**——参数语义、锁文件命名（`<file>.lock`）、Windows 瞬时错误集合与重试节奏都照抄，只有这样才能与宿主进程共用同一个跨进程写协议。这两者属于上文排除项中的 **`@deepseek-ai/*` 通用平台依赖**（其版权与许可随各自 npm 包携带），且均为零依赖、无 cordis、无进程级状态的纯工具函数。此处转写的是**行为契约**而非源文件；之所以不直接 import，见该文件头部与 `tests/host-peers.spec.ts`（静态 import 会让独立 CLI 在缺 peer 的机器上于加载期崩溃）。
-- **除此之外不复制源码**：其余各参考项目均只借鉴设计思路，未复制、修改或再分发其源文件。
-- **版权声明保留**：所有参考项目的版权归各自作者所有。
-- **后续引入依赖时**：引入任何新的 WorkBuddy 相关外部依赖、或复用其他项目代码时，必须同步更新本文件，并遵守对应许可证的署名与声明要求。
+`dsh-codex-connect` 通过 `dsh-workbuddy-connect` 提供了插件结构及供应商注册设计的间接参考。相关模块由本项目实现，该来源在项目清单中保留 Apache-2.0 标识。
 
-## 五、随包分发
+原来源记录称对应仓库未提供独立 NOTICE 文件。后续采用其代码或更新参考来源时，需要重新核对许可文件和 NOTICE，并检查修改声明以及适用的专利、商标条款。该来源作者的版权及权利归其所有。
 
-本文件已列入 `package.json` 的 `files` 白名单，随 npm 包一同分发，确保最终用户在安装包内即可看到完整的第三方声明。README（中英双语）中的「致谢」章节与本文件互为索引。
+## 7. 分发与维护
+
+`THIRD_PARTY_NOTICES.md` 列入 `package.json.files`，随包发布。中英文 README 提供来源索引，LICENSE 保留 `Copyright (c) 2026 LaoDing`。
+
+维护者在引入新依赖或复用外部代码时，记录项目地址、许可及修改内容，并在相应源文件中注明来源。各参考项目的版权归各自作者所有。

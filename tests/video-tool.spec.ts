@@ -117,7 +117,7 @@ describe('video tool model resolution', () => {
     const tool = createVideoTool(deps())
     const seconds = (tool.parameters['properties'] as Record<string, Record<string, unknown>>)['seconds']!
     const description = seconds['description'] as string
-    expect(description).toContain('报错')
+    expect(description).toContain('超出时返回参数错误')
     expect(description).not.toContain('夹回')
   })
 
@@ -307,14 +307,14 @@ describe('video tool image input (issue #187)', () => {
  * 三个 deadline 同时存在的场景里，谁先到期决定了用户看到什么：
  *
  * - 插件内部（轮询）先到期 → 抛出 `POLL_TIMEOUT`，**带上 task id**，日志里有据可查；
- * - 宿主工具上限先到期 → 裸的 `tool call timed out after 600000ms`，task id 丢掉。
+ * - DSH 工具上限先到期 → 裸的 `tool call timed out after 600000ms`，task id 丢掉。
  *
- * 修之前三者都是 600000，等于同时到期，实际总是宿主那个赢。这组断言钉的是
+ * 修之前三者都是 600000，等于同时到期，实际总是 DSH 那个赢。这组断言钉的是
  * "内部的永远严格更早"，而不是某个具体数字——数值以后可以调，顺序不能反。
  */
 describe('video tool timeout ordering (issue #187)', () => {
   it('the host tool limit is strictly below the host default of 600s', () => {
-    // 宿主给工具调用的默认上限就是 600_000；等于它就是这次 bug。
+    // DSH 给工具调用的默认上限就是 600_000；等于它就是这次 bug。
     expect(VIDEO_TOOL_TIMEOUT_MS).toBeLessThan(600_000)
   })
 
@@ -452,7 +452,7 @@ describe('video tool strict argument validation', () => {
     expect(sent[0]?.model).toBe('kling-video-v3')
   })
 
-  it('schema 把 image 声明为字符串或数组，宿主才不会先于工具拒掉数组', async () => {
+  it('schema 把 image 声明为字符串或数组，DSH 才不会先于工具拒掉数组', async () => {
     const tool = createVideoTool(deps())
     const image = (tool.parameters['properties'] as Record<string, Record<string, unknown>>)['image']!
     expect(image['type']).toEqual(['string', 'array'])

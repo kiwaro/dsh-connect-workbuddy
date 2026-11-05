@@ -256,7 +256,7 @@ describe('pool failover: retrying a failed chat on another account', () => {
     expect(response.body).not.toContain('quota_exceeded')
     // The three things the user needs: it is not the account, what to do, and the
     // upstream's own words as the receipt.
-    expect(response.body).toContain('这不是账号被限流')
+    expect(response.body).toContain('模型当前繁忙')
     expect(response.body).toContain('等待约 1 分钟')
     expect(response.body).toContain('请求过于频繁，请稍后重试。')
     // The count of accounts tried is absent because nobody else was tried.
@@ -823,7 +823,7 @@ describe('a failover says so in the answer', () => {
     const response = await chat(shim)
     const text = contentOf(response.body)
     expect(text).toContain('Straight answer.')
-    expect(text).not.toContain('已改用池中另一个账号')
+    expect(text).not.toContain('已切换账号继续请求')
     expect(attemptsOf()).toEqual([SELECTED_ID])
   })
 
@@ -840,7 +840,7 @@ describe('a failover says so in the answer', () => {
 
     const response = await chat(shim)
     expect(response.status).toBe(429)
-    expect(response.body).not.toContain('已改用池中另一个账号')
+    expect(response.body).not.toContain('已切换账号继续请求')
   })
 
   it('reports ONE reason even when several accounts fail before one answers', async () => {
@@ -869,7 +869,7 @@ describe('a failover says so in the answer', () => {
     const text = contentOf(response.body)
     expect(text).toContain('Third time lucky.')
     // Exactly one notice, naming the account the request STARTED on.
-    expect(text.split('已改用池中另一个账号').length - 1).toBe(1)
+    expect(text.split('已切换账号继续请求').length - 1).toBe(1)
     expect(text).toContain('selected')
   })
 
@@ -925,7 +925,7 @@ describe('a failed request explains why the pool had nowhere to go', () => {
     // sentence the user reads is the one the routing decision was made on.
     expect(response.body).toContain('池中已无可用账号（2 个账号被限流）')
     // And the remaining move, stated as advice rather than left to inference.
-    expect(response.body).toContain('建议换一个模型继续')
+    expect(response.body).toContain('请切换模型')
     // The upstream's own words survive: they carry the reset time, which is the
     // one actionable fact a generic sentence would destroy.
     expect(response.body).toContain('2026-10-02 05:23:27')
@@ -961,7 +961,7 @@ describe('a failed request explains why the pool had nowhere to go', () => {
     // No dangling punctuation where the explanation would have gone, and no
     // advice about a pool the host never described.
     expect(response.body).not.toContain('池中已无可用账号')
-    expect(response.body).not.toContain('建议换一个模型继续')
+    expect(response.body).not.toContain('请切换模型')
   })
 
   it('reports the real upstream failure when the explanation itself fails', async () => {

@@ -5,7 +5,7 @@
  *
  * 参考：corrinehu/dsh-workbuddy-connect（MIT，Copyright (c) 2026 Corrine Hu）
  *   — 该机制由其设计：浏览器端无法写文件，其健康只能靠 console.error 上报，
- *     因此由宿主写心跳文件，缺失即代表宿主从未启动；崩溃后的陈旧心跳
+ *     因此由 DSH 写心跳文件，缺失即代表 DSH 从未启动；崩溃后的陈旧心跳
  *     通过 PID 存活检查识别。
  * 改动：无。机制本身已完备，原样沿用。
  *

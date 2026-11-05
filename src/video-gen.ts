@@ -1,7 +1,7 @@
 /**
  * WorkBuddy 生视频的纯逻辑层：媒体模型筛选、请求体构造、任务轮询解析、失败描述。
  *
- * 这一层刻意不做任何网络 I/O、不引用宿主的任何包（同 `src/image-gen.ts` 的约定，
+ * 这一层刻意不做任何网络 I/O、不引用 DSH 的任何包（同 `src/image-gen.ts` 的约定，
  * 见其模块注释里的可达图说明）。`src/upstream.ts` 会静态引用本模块，所以这里
  * 必须保持零外部依赖。
  *
@@ -86,7 +86,7 @@ export interface WorkBuddyVideoModelConfig {
  *
  * 实测上游媒体条目只有 `{"id","name","tags"}` 三个字段（见 `image-gen.ts` 的
  * 模块注释）；`videoGeneration` 是**模型级**配置，随条目下发时才有。这里只做
- * 透传：下游校验拿它当**唯一**的时长/分辨率依据，没有就交给上游，绝不臆造默认区间。
+ * 原样传递：下游校验拿它当**唯一**的时长/分辨率依据，没有就交给上游，绝不臆造默认区间。
  *
  * `image-gen.ts` 的同名接口带同一个可选字段——两边读的是同一份目录，
  * `fetchMediaModels` 只会返回一种形状（见该文件的 `WorkBuddyMediaVideoGeneration`）。
@@ -127,7 +127,7 @@ export interface WorkBuddyVideoOutcome {
   readonly warnings?: readonly string[] | undefined
 }
 
-/** 生视频链路的错误码。调用方据此决定是提示登录、提示换模型还是原样透传。 */
+/** 生视频处理过程的错误码。调用方据此决定是提示登录、提示换模型还是原样转发。 */
 export type WorkBuddyVideoErrorCode =
   | 'INVALID_ARGS'
   | 'NOT_LOGGED_IN'
@@ -143,7 +143,7 @@ export type WorkBuddyVideoErrorCode =
   | 'REJECTED'
   | 'COOLDOWN'
 
-/** 生视频链路的错误。带一个稳定的 `code`，避免调用方去匹配文案。 */
+/** 生视频处理过程的错误。带一个稳定的 `code`，避免调用方去匹配文案。 */
 export class WorkBuddyVideoError extends Error {
   readonly code: WorkBuddyVideoErrorCode
 
@@ -283,9 +283,9 @@ export function pickVideoModel(
   const first = group[0]
   if (first === undefined) {
     throw new WorkBuddyVideoError(
-      `workbuddy video: 该区账号的产品配置里没有任何带 ${tag} 标签的模型（${tagLabel(tag)}）。`
-      + '国内区文生视频/图生视频是 kling-video-v3、minimax-video-h3；'
-      + '国际区 kling-video-v3 同时带这两个标签；一个都没有说明该区目录暂时没有这类模型。',
+      `workbuddy video: 当前区域模型目录中缺少 ${tag} 标签的模型（${tagLabel(tag)}）。`
+      + '请刷新当前区域模型目录后重试。'
+      + '',
       'NO_VIDEO_MODEL',
     )
   }
@@ -376,7 +376,7 @@ export function resolveVideoParams(
   if (request.seconds !== undefined) {
     // 只有拿到该模型的 videoGeneration 配置才做"不支持自定义时长"的断言——
     // 否则我们根本不知道它支不支持，盲拒会让所有自定义时长都失败。拿不到配置时
-    // 直接透传，交给上游校验。
+    // 直接原样传递，交给上游校验。
     if (minSeconds !== undefined && maxSeconds !== undefined
       && (seconds < minSeconds || seconds > maxSeconds)) {
       throw new WorkBuddyVideoError(
@@ -396,10 +396,10 @@ export function resolveVideoParams(
       // 目录没给 resolutions（或这条条目压根没有 videoGeneration）：我们并不知道
       // 上游认不认这个值，盲回落会把调用方显式给的分辨率**静默丢掉**——于是
       // 「resolution: 1080P」从来没到达过上游，日志里却只留一条「改用 上游默认」的
-      // 告警。这里原样透传，认不认交给上游判，与秒数的「拿不到区间就不拦」一致。
+      // 告警。这里原样转发，认不认交给上游判，与秒数的「拿不到区间就不拦」一致。
       resolution = requested
     } else {
-      // 目录里的拼写可能与调用方给的只差大小写（官方 CLI 的兜底档位是
+      // 目录里的拼写可能与调用方给的只差大小写（官方 CLI 的默认档位是
       // `["720P","1080P"]`，而工具描述举的例子是 `720p`/`1080p`）。命中的话采纳
       // **目录的拼写**——上游认的是它自己那一份，不是调用方写的那份。
       const matched = resolutions.includes(requested)
@@ -459,7 +459,7 @@ export function parseVideoSubmission(payload: unknown): WorkBuddyVideoSubmission
   const taskId = asString(data['id'])
   if (taskId === undefined) {
     throw new WorkBuddyVideoError(
-      'workbuddy video: 上游没返回 task id，无法进入轮询。',
+      'workbuddy video: 服务端未返回任务标识，视频状态查询失败。',
       'EMPTY_RESULT',
     )
   }
@@ -537,7 +537,7 @@ export function parseVideoTask(payload: unknown): {
 /**
  * `data` 里除已知键以外的内容，序列化成一行短文本。
  *
- * 已知键：`status`（状态机自己用）、`data`（成品 URL 列表）、`usage`（扣费）。
+ * 已知键：`status`（状态变化规则自己用）、`data`（成品 URL 列表）、`usage`（扣费）。
  * 其余全部带上——那正是"上游说了原因但我们没读"的地方（issue #187）。
  *
  * 深层结构做 JSON 序列化并截断到 400 字符：一轮报错不该因为上游回了一棵大树而
@@ -557,7 +557,7 @@ function describeUnknownTaskFields(data: Record<string, unknown>): string | unde
     text = JSON.stringify(extra)
   } catch {
     // 循环引用之类：退回一句"有额外字段"，至少不让诊断本身变成新的故障。
-    return '（上游返回了无法序列化的额外字段）'
+    return '服务端返回字段解析失败'
   }
   return text.length > 400 ? `${text.slice(0, 400)}…` : text
 }
@@ -598,7 +598,7 @@ export function describeVideoFailure(
   }
   if (status === 404) {
     return new WorkBuddyVideoError(
-      `workbuddy video: 上游没有这条生视频路由（HTTP 404）——该区网关没有开放视频接口。${detail === '' ? '' : ` ${detail}`}`,
+      `workbuddy video: 当前区域的视频生成接口不可用，HTTP 404。${detail === '' ? '' : ` ${detail}`}`,
       'NO_ROUTE',
     )
   }
@@ -611,7 +611,7 @@ export function describeVideoFailure(
     return new WorkBuddyVideoError(
       `workbuddy video: 上游拒绝了这次生视频请求（HTTP ${status}），没有创建任务、没有扣积分`
       + `${range === undefined ? '' : `；该模型支持的时长是 ${range.minSeconds}-${range.maxSeconds} 秒`}`
-      + `。按下面的提示改参数后可以立刻重试。${detail === '' ? '' : ` ${detail}`}`,
+      + `。请按服务端提示调整参数后重试。${detail === '' ? '' : ` ${detail}`}`,
       'REJECTED',
     )
   }

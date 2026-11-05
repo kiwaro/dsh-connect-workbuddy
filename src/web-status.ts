@@ -6,7 +6,7 @@
  * 参考：dingminhua/dsh-connect-trae（MIT，Copyright (c) 2026 LaoDing）
  *   — 路由的注册方式（`ctx.webServer.register({kind:'exact', path, handler})`）、
  *     回环来源校验、`safeMessage` 的脱敏规则（JWT 与 token 查询参数截断至
- *     500 字符）、以及「积分查询失败降级为 creditsError 而非让整个文档失败」
+ *     500 字符）、以及「积分查询失败在 creditsError 中记录查询错误 而非让整个文档失败」
  *     的处理，均来自该项目。
  *   单条 status 路由的原始形态来自
  *     corrinehu/dsh-workbuddy-connect（MIT）。
@@ -398,7 +398,7 @@ export interface WorkBuddyStatusRouteOptions {
   /**
    * 真实设备参数（本机安装的桌面端 SDK）的状态与取值口。
    *
-   * Optional like the rest: 一个没有接 SDK 的宿主（别的平台、或构建时裁掉了
+   * Optional like the rest: 一个没有接 SDK 的 DSH（别的平台、或构建时裁掉了
    * `native/`）答 503，卡片就把「SDK」这一页藏起来——比渲染一页永远"不可用"的
    * 红字诚实。
    */
@@ -2401,7 +2401,7 @@ export function registerWorkBuddyStatusRoute(ctx: Context, deps: WorkBuddyStatus
       kind: 'exact',
       path: WORKBUDDY_DEVICE_PROFILE_PATH,
       handler: async (req: IncomingMessage, res: ServerResponse) => {
-        // 闸门先于一切：包括"这条路由有没有接线"。503 会顺带告诉一个外部来源
+        // 先检查请求来源：包括"这条路由有没有调用关系"。503 会顺带告诉一个外部来源
         // "此路由存在但未接"——那不是它该知道的事；403 对任何来源都是同一句话。
         if (!requireLoopback(req, res)) return
         const port = deps.deviceSettings
@@ -2504,7 +2504,7 @@ export function registerWorkBuddyStatusRoute(ctx: Context, deps: WorkBuddyStatus
       kind: 'exact',
       path: WORKBUDDY_DEVICE_SDK_PATH,
       handler: async (req: IncomingMessage, res: ServerResponse) => {
-        // 同上：闸门先于"是否接线"，否则 503 会把这条路由的存在性告诉外部来源。
+        // 同上：请求来源检查先于"是否调用关系"，否则 503 会把这条路由的存在性告诉外部来源。
         if (!requireLoopback(req, res)) return
         const port = deps.deviceSdk
         if (port === undefined) {
@@ -2512,7 +2512,7 @@ export function registerWorkBuddyStatusRoute(ctx: Context, deps: WorkBuddyStatus
         }
         if (req.method === 'GET') {
           try {
-            // 快照里带上总开关的**当前值**：卡片要能画出那个勾选框，而开关住在
+            // 返回的数据中带上总开关的**当前值**：卡片要能画出那个勾选框，而开关住在
             // 插件配置里、不在设备设置文件里——多一次往返只为读一个布尔不值当，
             // 也容易让两处答案短暂不一致。
             const report = await port.read()
@@ -2542,7 +2542,7 @@ export function registerWorkBuddyStatusRoute(ctx: Context, deps: WorkBuddyStatus
            */
           if (action === 'enable' || action === 'disable') {
             const written = await port.writeEnabled(action === 'enable')
-            // 老宿主没有 settings 服务：501 而不是 500——这不是故障，是宿主缺一项
+            // 老 DSH 没有 settings 服务：501 而不是 500——这不是故障，是 DSH 缺一项
             // 能力，卡片据此把开关标成不可用。
             if (!written) return json(res, 501, { reason: 'settings-unavailable', error: 'this host has no settings write path' })
             return json(res, 200, { sdkEnabled: action === 'enable' })

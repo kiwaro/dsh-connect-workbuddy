@@ -3,9 +3,9 @@
  *
  * 这一层只回答一个问题——给定账号 uid 与一个本机盐，这台设备"看起来"是哪一个。
  * 把它与 IO 分开，是因为它要被三处共用而只有一处会写盘：诊断（`doctor`）、
- * 出站注入（P1）、单测。混在一起的话，任何一处想验算都得先落一个文件。
+ * 向发出的请求添加字段（P1）、单测。混在一起的话，任何一处想验算都得先落一个文件。
  *
- * ## 为什么是派生，而不是真值
+ * ## 为什么是派生，而不是实际值
  *
  * 官方设备身份只能由 Turing Shield SDK 签发（见 `docs/DEVICE-IDENTITY-AUDIT.md`
  * §5.1 的三角不可能：真实 / 账号隔离 / 可维护，三者不可兼得）。派生是明确选择
@@ -71,7 +71,7 @@ const DEVICE_SALT_PATTERN = /^[0-9a-f]{64}$/u
  * Derive one stable, account-scoped device identifier.
  *
  * `uid` 为空串时返回空串：匿名请求没有"这台设备属于哪个账号"可言，上游也不要求
- * （B 的同名实现在 uid 为空时同样不注入）。返回空串而不是抛错，是因为调用方
+ * （B 的同名实现在 uid 为空时同样不添加）。返回空串而不是抛错，是因为调用方
  * 只需要"发还是不发"，而"没有 uid"是正常状态，不是异常。
  *
  * @param uid the account's stable id, as the desktop auth document records it

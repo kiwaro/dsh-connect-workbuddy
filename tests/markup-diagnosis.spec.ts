@@ -269,9 +269,9 @@ describe('explainShape', () => {
   it('refuses to call a non-reproduction evidence', () => {
     // A clean run must not read as "the defect is gone" — the model oscillates,
     // so one clean response is not proof of anything.
-    expect(explainShape(classifyStream(nativeBody()))).toContain('没有复现')
-    expect(explainShape(classifyStream(''))).toContain('不能作为证据')
-    expect(explainShape(classifyStream(frame({ content: 'hi' })))).toContain('不能作为证据')
+    expect(explainShape(classifyStream(nativeBody()))).toContain('本次工具调用格式正常')
+    expect(explainShape(classifyStream(''))).toContain('缺少助手内容')
+    expect(explainShape(classifyStream(frame({ content: 'hi' })))).toContain('未调用工具')
   })
 
   it('always returns a sentence, for every shape', () => {

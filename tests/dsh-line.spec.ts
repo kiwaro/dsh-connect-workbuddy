@@ -20,7 +20,7 @@ import { describe, expect, it } from 'vitest'
  * `reportSkippedBundles` 打到 stderr。它不是崩溃，是**静默消失**——provider 不注册、
  * 卡片不出现、模型列表清空，页面上没有任何提示。
  *
- * 本次复核已经在本机实测到这条路径**正在生效**：0.2.0-rc.1 宿主上，`dsh-rewind-plugin`
+ * 本次复核已经在本机实测到这条路径**正在生效**：0.2.0-rc.1 DSH 上，`dsh-rewind-plugin`
  * (`^0.1.7-rc.2`)、`dsh-free-search` (`^0.1.7-rc.1`)、`dsh-better-reasoning-effort`、
  * `@changfenhuang/dsh-genui` 四个组合包都因此**没有出现在实时组合里**
  * （`listConfigs` 共 203 条，其中无一条来自它们；同 profile 内 peer 全通过的包全部在场）。
@@ -45,7 +45,7 @@ import { describe, expect, it } from 'vitest'
  * 3. 本仓库没有 `semver` 依赖，而引入它只为跑一条断言不划算；下面用一个
  *    小而完整的 semver 序比较直接判定边界，不依赖任何第三方解析器。
  *
- * 变异验证：把任一条改回 `<0.2.0` → 上界用例变红；把 `<0.3.0-0` 改成 `<0.3.0` →
+ * 恢复缺陷后的测试：把任一条改回 `<0.2.0` → 上界用例变红；把 `<0.3.0-0` 改成 `<0.3.0` →
  * 「上界必须真的挡住下一线预发布」那条变红；把下界抬到 `>=0.2.0-rc.1` → 下界用例变红。
  */
 
@@ -63,7 +63,7 @@ function manifest(): {
  * 每条 `dsh-*` peer 的期望上界。
  *
  * 写成常量而不是就地拼字符串，是为了让「上界该是多少」这件事只有一个出处：
- * 改这里就等于改口径，而下面的用例会同时盯住声明与实际边界行为。
+ * 改这里就等于改采用的规则，而下面的用例会同时盯住声明与实际边界行为。
  */
 const UPPER_BOUND = '<0.3.0-0'
 const LOWER_BOUND = '>=0.1.7-rc.1'
@@ -78,7 +78,7 @@ function dshPeers(section: 'peerDependencies' | 'devDependencies'): Array<[strin
 
 /**
  * 判定一个版本是否落在 `>= 下界 < 上界` 形态的范围里，**按 npm semver 的
- * 真实语义**求值，包括那条最容易写错的「预发布悬崖」。
+ * 真实处理规则**求值，包括那条最容易写错的「预发布悬崖」。
  *
  * 存在的理由：下面「上界真的挡得住」那几条**必须对声明本身求值**，而不是对
  * 测试里另写一遍的字面量求值。否则声明与断言各自漂移也照样全绿——那正是本
@@ -195,7 +195,7 @@ function declaredRange(): string {
 
 describe('declared DSH host line', () => {
   it('declares at least the ten dsh packages the plugin actually imports', () => {
-    // 反向兜底：这十条是源码真实 import 的那批（见 `src/` 的 kernel imports）。
+    // 反向核对：这十条是源码真实 import 的那批（见 `src/` 的 kernel imports）。
     // 少一条意味着有人删声明却没删引用，或反之——两者都该当场发现。
     const names = dshPeers('peerDependencies').map(([name]) => name)
     expect(names).toEqual(expect.arrayContaining([
@@ -244,19 +244,19 @@ describe('declared DSH host line', () => {
     //     更新说明，而不是静默漂移；
     //   - 若有人「修」比较器把它判成 true，这条同样变红。
     //
-    // 为什么 rc 宿主上插件照常加载（0.2.1-rc.3 实测）——**原因是宿主的判定口径**，
+    // 为什么 rc DSH 上插件照常加载（0.2.1-rc.3 实测）——**原因是 DSH 的判定采用的规则**，
     // 不是链接方式。`evaluatePluginCompatibility()`（`dsh-app-boot/lib/index.js`）
     // 用 `semver.satisfies(rt, range, { includePrerelease: true })` 求值（其内部
     // `:276` 的 `satisfies` 包装即带该第三参数）。因此 `0.2.1-rc.3` 对现声明判
-    // **true**，兼容闸门从未拦过 rc 宿主。
+    // **true**，兼容检查从未拦过 rc DSH。
     //
-    // ⚠️ 此处原先写的是「闸门只校验 `@deepseek-ai/dsh*` 命名空间；profile 用
-    // `link:` 且默认不自动装 peer，所以 rc 宿主照常加载」。那个解释是**错的**：
-    // 闸门确实校验，只是用 `includePrerelease` 放过。本用例钉的「裸 semver 判
+    // ⚠️ 此处原先写的是「检查只校验 `@deepseek-ai/dsh*` 命名空间；profile 用
+    // `link:` 且默认不自动装 peer，所以 rc DSH 照常加载」。那个解释是**错的**：
+    // 检查确实校验，只是用 `includePrerelease` 放过。本用例钉的「裸 semver 判
     // false」始终成立，错的只是对**为什么没被拦**的归因，现已按实测订正。
     //
     // 范围本身仍不改：`includePrerelease` 也会放行 `0.3.0-rc.1`，而 `<0.3.0-0`
-    // 把它挡住（见下一条用例）。等宿主发 `0.2.1` GA，现声明同样放行。
+    // 把它挡住（见下一条用例）。等 DSH 发 `0.2.1` GA，现声明同样放行。
     const declared = declaredRange()
     expect(satisfiesRange('0.2.1-rc.1', declared)).toBe(false)
     expect(satisfiesRange('0.2.0-rc.1', declared)).toBe(false)
@@ -274,7 +274,7 @@ describe('declared DSH host line', () => {
   })
 
   it('still refuses hosts older than the declared baseline', () => {
-    // 下界不是本次改动对象，但同一处口径必须一起守住：0.1.5 线已移除，
+    // 下界不是本次改动对象，但同一处采用的规则必须一起守住：0.1.5 线已移除，
     // 停在 v2.0.15 的用户不应被这一版静默接受。
     const declared = declaredRange()
     for (const host of ['0.1.5-rc.3', '0.1.6-alpha.1', '0.1.7-alpha.2']) {
@@ -326,7 +326,7 @@ describe('declared DSH host line', () => {
 
 describe('host-range policy is written down where releases read it', () => {
   /**
-   * 上界这类口径**只有在人看得到的地方被复核**才不会过期，而发布清单是唯一
+   * 上界这类采用的规则**只有在人看得到的地方被复核**才不会过期，而发布清单是唯一
    * 「每次发布都必然被读到」的位置（2.1.1 对 `docs/WINDOWS.md` 的处置同理）。
    * 这几条是 POLICY 断言，不是行为断言：它们不证明上界是对的，只证明这条
    * 复核路径还在——少了它，下一次 DSH 换线时没人会被提醒。
@@ -337,15 +337,15 @@ describe('host-range policy is written down where releases read it', () => {
 
   it('keeps the host-range check in the release flow', () => {
     const releasing = read('RELEASING.md')
-    expect(releasing).toContain('宿主范围核对')
+    expect(releasing).toContain('DSH 版本兼容性核对')
     expect(releasing).toContain(UPPER_BOUND)
     // 必须说明 -0 的理由，否则下一个人会「顺手」把它删成 <0.3.0。
     expect(releasing).toContain('-0')
   })
 
   it('keeps the supported-range table in both READMEs', () => {
-    expect(read('README.md')).toContain('受支持的宿主范围')
-    expect(read('README.en.md')).toContain('Supported host range')
+    expect(read('README.md')).toContain('支持的 DSH 版本')
+    expect(read('README.en.md')).toContain('Supported DSH versions')
     // 两语的表都必须点名被拒绝的那条线，而不是只写好话。
     for (const doc of ['README.md', 'README.en.md']) {
       expect(read(doc), doc).toContain('0.3.0-0')
@@ -391,7 +391,7 @@ describe('the GitHub Release step stays in the release flow', () => {
 })
 
 describe('version-comparator self-check', () => {
-  // 上面全部断言都建立在比较器上；它自己错了，整套守卫就是装饰品。
+  // 上面全部断言都建立在比较器上；它自己错了，整套检查就是装饰品。
   //
   // 这段自检**真的救过一次**：初版的 `satisfiesRange` 只做朴素 `>=`/`<`
   // 比较，判 `0.2.1-rc.1` 通过，而 npm 实算是 false。下面的悬崖用例就是

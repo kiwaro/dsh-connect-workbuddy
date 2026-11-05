@@ -479,7 +479,7 @@ describe('the account-pool route', () => {
     // That matters because the card PREFERS `reason` over the raw `error`
     // string (src/client/pool-state.ts:172 maps it to localized copy) and only
     // falls back to English when no reason arrives. `pool-failed` in particular
-    // would tell the user a BATCH FAILED ("批量操作在宿主侧失败") when the truth
+    // would tell the user a BATCH FAILED ("批量操作在 DSH 侧失败") when the truth
     // is that this build simply has no check-in route — a different problem
     // with a different fix, which is exactly the distinction D2 protects.
     //

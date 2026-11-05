@@ -128,7 +128,7 @@ describe('shim wiring of the #132/#133 switches', () => {
       messages: [
         { role: 'system', content: 'prompt' },
         { role: 'user', content: '真实输入' },
-        { role: 'user', content: 'SOME-NEW-PLUGIN-CONTEXT:\n注入块' },
+        { role: 'user', content: 'SOME-NEW-PLUGIN-CONTEXT:\n自动添加的提示段' },
       ],
     }))
     const messages = JSON.parse(created.seenBodies[0]!).messages
@@ -143,10 +143,10 @@ describe('shim wiring of the #132/#133 switches', () => {
       messages: [
         { role: 'system', content: 'prompt' },
         { role: 'user', content: '真实输入' },
-        { role: 'user', content: 'SOME-NEW-PLUGIN-CONTEXT:\n注入块' },
+        { role: 'user', content: 'SOME-NEW-PLUGIN-CONTEXT:\n自动添加的提示段' },
       ],
     }))
     const messages = JSON.parse(created.seenBodies[0]!).messages
-    expect(String(messages.at(-1).content)).toBe('SOME-NEW-PLUGIN-CONTEXT:\n注入块')
+    expect(String(messages.at(-1).content)).toBe('SOME-NEW-PLUGIN-CONTEXT:\n自动添加的提示段')
   })
 })

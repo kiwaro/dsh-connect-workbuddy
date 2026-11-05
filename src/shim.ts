@@ -5,9 +5,9 @@
  * It binds 127.0.0.1 only and never serves another interface.
  *
  * 参考：corrinehu/dsh-workbuddy-connect（MIT，Copyright (c) 2026 Corrine Hu）
- *   — 入站加固的四重校验（Host 必须回环、Origin 必须回环、chat POST 必须
+ *   — 接收请求时增加校验的四重校验（Host 必须回环、Origin 必须回环、chat POST 必须
  *     JSON、bearer 必须匹配进程内随机 secret）、常量时间比对、
- *     随机端口绑定、body 上限、上游错误分类到 HTTP 状态码的映射，
+ *     随机端口绑定、body 上限、上游错误分类对应的 HTTP 状态码，
  *     均由该项目设计并验证。
  * 改动：随机端口绑定加了「先确认客户端能用」一步（`listenOnClientReachablePort`）。
  *   绑定方式仍是 `listen(0)` + 仅回环，随机性不变；改的只是抽到 HTTP 客户端
@@ -21,6 +21,7 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import { Readable } from 'node:stream'
+import { recordExactCredit } from './local-credit-journal.ts'
 import type { WorkBuddyCredential, WorkBuddyCredentialStore } from './auth.ts'
 import { workbuddyAccountId } from './auth.ts'
 import type { WorkBuddyCatalog } from './catalog.ts'
@@ -550,6 +551,7 @@ function readBody(req: IncomingMessage): Promise<Buffer> {
  *      {@link consume}.
  */
 class RecoveryStream {
+  creditAccount: string | undefined
   private carry = ''
   private readonly decoder = new TextDecoder('utf-8')
   /** Frames received after the hold began, in arrival order. */
@@ -820,6 +822,7 @@ class RecoveryStream {
     // (the final chunk on a streamed answer), so it must be read BEFORE the
     // choices check below — otherwise every such frame is forwarded unread and
     // the measurement never leaves the stream.
+    recordExactCredit(chunk, this.creditAccount, { onError: error => this.logger?.warn('local credit journal write failed', error) })
     this.noteUsage(chunk)
     const choice = Array.isArray(choices) ? choices[0] : undefined
     if (typeof choice !== 'object' || choice === null || Array.isArray(choice)) {
@@ -1125,7 +1128,7 @@ function failoverReasonText(failure: WorkBuddyChatResult): string {
       // account pool. The failure belongs to the model, and the notice this
       // text feeds only ever appears when the plugin DID switch accounts — which
       // it no longer does for this kind.
-      return '该模型当前繁忙（不是账号问题）'
+      return '该模型当前繁忙'
     case 'session_dead':
       return '登录已失效'
     case 'policy_reject':
@@ -1140,7 +1143,7 @@ function failoverReasonText(failure: WorkBuddyChatResult): string {
     // client", which is what sent issues #87–#90's reporters through account
     // swaps; none of them could help, and saying so is the point of this line.
     case 'channel_reject':
-      return '被网关的渠道校验拦截（不是账号、额度或网络问题）'
+      return '网关渠道校验拦截'
     case 'not_found':
       return '模型不可用'
     case 'server':
@@ -1208,20 +1211,9 @@ function clippedUpstreamText(text: string, limit: number): string {
  * later turn will fail the same way until that line is changed.
  *
  * Each entry also says whether the plugin's own neutralisation already covers
- * it. An entry marked "not in the plugin's list" is the actionable one: either
- * the host wrote it or the gateway's list grew.
- *
- * WHAT THAT MARKER MAY NOT SAY (issue #213). It used to read 「网关可能新增了
- * 词条」, and a reporter read it as "this opening went out verbatim" — then
- * reported that the three `assistant` openings the gate had named were never
- * neutralised at all. They were: `forceNeutralHead` puts the head in front of
- * every scanned opening regardless of the list (since 4.15.1), so the request
- * that was refused for the third time had heads on all of them. The marker
- * describes the FIRST attempt and only the opening's FIRST LINE; the gateway
- * matches an exact substring anywhere in the text, so a first line that is
- * absent from the snapshot says nothing about the message as a whole. Both of
- * those are stated in the reply's closing sentence, which is the part a
- * reporter actually quotes back at us.
+ * it. An entry marked "not in the plugin's list" is the actionable one: that
+ * opening goes on the wire verbatim, so either the host wrote it or the
+ * gateway's list grew.
  *
  * Capped at {@link CHANNEL_EVIDENCE_LIMIT} entries: a session can carry dozens
  * of system/assistant messages, and a wall of them would bury the one that
@@ -1229,21 +1221,21 @@ function clippedUpstreamText(text: string, limit: number): string {
  */
 function channelEvidenceText(bodyJson: string): string {
   const entries = openingEvidenceOfBody(bodyJson)
-  if (entries.length === 0) return '（请求里没有可读的 system 或 assistant 消息开头。）'
+  if (entries.length === 0) return '请求中未找到可读取的 system 或 assistant 消息。'
   const shown = entries.slice(0, CHANNEL_EVIDENCE_LIMIT)
   const rendered = shown
     .map(entry => {
       const label = entry.neutralized
-        ? '（插件已加中性头）'
-        : '（不在插件已知名单里，仅指首行）'
+        ? '（已添加中性提示）'
+        : '（首行未匹配已知客户端标识）'
       const span = entry.closing === undefined
         ? `，共 ${entry.textLength} 字`
-        : `，首尾为「${entry.closing}」，共 ${entry.textLength} 字`
+        : `，结尾为「${entry.closing}」，共 ${entry.textLength} 字`
       return `「${entry.role}：${entry.opening}${span}」${label}`
     })
     .join('、')
   const hidden = entries.length - shown.length
-  return `请求里被网关扫描的消息开头：${rendered}${hidden > 0 ? `……另有 ${hidden} 条未列出。` : '。'}`
+  return `待检查的消息开头：${rendered}${hidden > 0 ? `……另有 ${hidden} 条未列出。` : '。'}`
 }
 
 /** How many message openings the channel-gate reply lists. */
@@ -1267,7 +1259,7 @@ const CHANNEL_EVIDENCE_LIMIT = 4
  * here was the one line of the reply a Chinese reader had to decode.
  */
 function failoverNoticeText(from: string, reason: string): string {
-  return `\n\n> [dsh-connect-workbuddy] 「${from}」${reason}，已改用池中另一个账号回答\n\n`
+  return `\n\n> [dsh-connect-workbuddy] 「${from}」${reason}，已切换账号继续请求\n\n`
 }
 
 /** One frame carrying replacement text for a frame whose content was consumed. */
@@ -2029,10 +2021,10 @@ export function createWorkBuddyShim(options: WorkBuddyShimOptions): WorkBuddyShi
         if (detail?.requestId !== undefined) meta.push(`requestId ${detail.requestId}`)
         const lead = detail?.displayMsg ?? clippedUpstreamText(result.message, 200)
         const message =
-          `${lead}（${meta.join('，')}）${note}${why}。该账号已被 WorkBuddy 上游按账号限制，`
-          + '与本次请求内容、网络和额度无关；插件会记录该测量并改用其他可用账号。'
-          + '该限制是上游对该账号的判定：重新登录不改变插件认的这个账号，'
-          + '需要 WorkBuddy 官方渠道解除后，在卡片上手动「测试」该账号才会回池'
+          `${lead}（${meta.join('，')}）${note}${why}。该账号已被 WorkBuddy 限制使用。`
+          + '插件已记录限制状态，并尝试使用其他可用账号。'
+          + '请联系 WorkBuddy 官方处理账号限制。'
+          + '解除后，在设置中点击该账号的「测试」按钮，恢复账号池使用资格。'
         writeOpenAIError(res, KIND_STATUS[result.kind], result.kind, message, hostErrorCode(result.kind))
         return
       }
@@ -2061,9 +2053,9 @@ export function createWorkBuddyShim(options: WorkBuddyShimOptions): WorkBuddyShi
           // upstream. The matcher for that half is a sentence in the localized
           // fields, so when it misses, this reply would push the user away from the
           // one remedy that works — hence the hedge.
-          `${lead}（${meta.join('，')}）${note}。该请求被 WorkBuddy 服务端策略拒绝；` +
-          '若上游的说明指向内容，重新登录不会解决，可在 WorkBuddy 桌面端用同一账号验证；' +
-          '若它指向账号本身，则需要走官方渠道处理，插件会在遇到该措辞时另行标明'
+          `${lead}（${meta.join('，')}）${note}。请求被 WorkBuddy 服务端策略拒绝。` +
+          '请按服务端提示调整内容，或在 WorkBuddy 桌面端使用同一账号核查。' +
+          '涉及账号限制时，请联系 WorkBuddy 官方处理。'
         writeOpenAIError(res, KIND_STATUS[result.kind], result.kind, message, hostErrorCode(result.kind))
         return
       }
@@ -2091,9 +2083,9 @@ export function createWorkBuddyShim(options: WorkBuddyShimOptions): WorkBuddyShi
         if (detail?.upstreamCode !== undefined) meta.push(`code ${detail.upstreamCode}`)
         if (detail?.requestId !== undefined) meta.push(`requestId ${detail.requestId}`)
         const message =
-          `${lead}（${meta.join('，')}）${note}。这不是账号被限流，也与积分、额度无关——` +
-          '同一凭据下换一个模型即可正常使用；插件不会为此切换账号，因为该限制跟随模型本身。' +
-          '这类失败会被自动重试几次；若仍然失败，请等待约 1 分钟后重试，或切换到负载较低的模型'
+          `${lead}（${meta.join('，')}）${note}。模型当前繁忙。` +
+          '请等待约 1 分钟，或切换到负载较低的模型。' +
+          'DSH 会按重试设置自动重试此类请求。'
         writeOpenAIError(res, KIND_STATUS[result.kind], result.kind, message, hostErrorCode(result.kind))
         return
       }
@@ -2130,10 +2122,10 @@ export function createWorkBuddyShim(options: WorkBuddyShimOptions): WorkBuddyShi
         const stamp = meta.length === 0 ? '' : `（${meta.join('，')}）`
         const evidence = channelEvidenceText(raw)
         const retries: string[] = []
-        if (retriedWithForcedHead) retries.push('强制中性头')
-        if (retriedWithPerturbation) retries.push('一次不可见扰动')
-        if (retriedWithDensePerturbation) retries.push('一次密集不可见扰动')
-        const retryNote = retries.length === 0 ? '' : `，并已用${retries.join('与')}重试过`
+        if (retriedWithForcedHead) retries.push('添加中性提示')
+        if (retriedWithPerturbation) retries.push('一次不可见字符处理')
+        if (retriedWithDensePerturbation) retries.push('一次密集不可见字符处理')
+        const retryNote = retries.length === 0 ? '' : `；重试处理：${retries.join('、')}`
         // ISSUE #113: WHICH MEMBER of the `11128` family this is, decided by the
         // plugin's OWN evidence rather than by the upstream's `msg` — which
         // issue #113 measured to misreport a content refusal as
@@ -2148,7 +2140,7 @@ export function createWorkBuddyShim(options: WorkBuddyShimOptions): WorkBuddyShi
         // "why it cannot be true" are two different facts and the reader needs
         // both: without the echo they cannot tell what they are up against.
         const said = detail?.rawMsg ?? detail?.displayMsg
-        const echo = said === undefined ? '' : `上游的 msg 是「${said}」，`
+        const echo = said === undefined ? '' : `服务端提示：「${said}」，`
         // A `prompt` member whose body NAMES another gate is the misreport
         // issue #113 measured: the wording points at a header or a shape
         // problem, but the plugin's own request disproves it, so the refusal
@@ -2157,29 +2149,25 @@ export function createWorkBuddyShim(options: WorkBuddyShimOptions): WorkBuddyShi
         // and "the gateway is fingerprinting what you sent" (right, and the
         // plugin has just retried for it).
         const memberNote = member === 'headers'
-          ? `${echo}但本次请求已经带上了会话 id 三件套（X-Conversation-ID / -Request-ID / -Message-ID），所以这条措辞是上游误报；`
+          ? `${echo}请求已包含 X-Conversation-ID、X-Request-ID 和 X-Message-ID，请核查网关校验要求。`
           : member === 'first_message'
-            ? `${echo}但本次请求的首条消息就是 system；`
+            ? `${echo}请求首条消息为 system，请核查网关校验要求。`
             : member === 'prompt'
               ? (isConversationIdGateBody(result.message)
-                  ? `${echo}但本次请求已经带上了会话 id 三件套（X-Conversation-ID / -Request-ID / -Message-ID），所以这条措辞是上游误报，实际被拒的是请求内容；`
+                  ? `${echo}请求已包含 X-Conversation-ID、X-Request-ID 和 X-Message-ID，当前按请求内容拦截处理。`
                   : isFirstMessageGateBody(result.message)
-                    ? `${echo}但本次请求的首条消息就是 system，所以这条措辞是上游误报，实际被拒的是请求内容；`
+                    ? `${echo}请求首条消息为 system，当前按请求内容拦截处理。`
                     : '')
-              : `${echo}它属于 11128 这一族但没点名是哪一道门，插件按渠道校验统一处理；`
+              : `${echo}请求未通过渠道校验，请凭请求标识联系 WorkBuddy 客服。`
         // Same `workbuddy 上游失败：…（http N）` frame as every other failure, on
         // purpose: reporters paste this sentence into issues verbatim, so the
         // shape they search for must not change just because the diagnosis did.
         const message =
           `workbuddy 上游失败：${failoverReasonText(result)}（http ${result.status}）${note}${stamp}。${memberNote}${evidence}` +
-          '该请求被 WorkBuddy 网关的渠道校验拦截，上游把它描述成「不是官方客户端发出的」，但那是误导性文案：' +
-          '网关扫描每一条 system 与 assistant 消息（开头做前缀匹配，正文做精确子串匹配），与账号、积分、额度、网络都无关，换账号或换区域也不会改变结果。' +
-          '插件已对已知的第三方 agent 指纹做归一化' + retryNote +
-          (retriedWithForcedHead
-            ? '；这次重试里每一条被扫描消息都已经加了中性头，仍然被拒，说明卡点不在这些开头本身'
-            : '') +
-          '。上面标着「不在插件已知名单里」的，只说明该消息的首行不是已知指纹，既不表示这条消息没被处理，也不表示它一定有问题；' +
-          '如果这些消息确实有问题，命中的更可能是中段的某一句。请把这条报错整段反馈到 issue 里——首行之外的线索只能从完整请求里找'
+          'WorkBuddy 网关会检查 system 和 assistant 消息的开头及正文。' +
+          '插件已处理已知客户端标识' + retryNote +
+          (retriedWithForcedHead ? '；本次重试已为所有被检查的消息添加中性提示，请求再次被拒绝' : '') +
+          '。首行标记用于说明首次请求的匹配情况；检查原因时还需核对消息正文。反馈时请附上完整报错和请求标识。'
         writeOpenAIError(res, KIND_STATUS[result.kind], result.kind, message, hostErrorCode(result.kind))
         return
       }
@@ -2223,12 +2211,12 @@ export function createWorkBuddyShim(options: WorkBuddyShimOptions): WorkBuddyShi
       // is refused by every account, and the fix is in the request or the model.
       // The pool sentence is emitted only when a search really produced a verdict.
       const advice = refusedTier !== undefined
-        ? '这不是账号或网络问题：该模型实测拒绝「off」推理档位，请到模型卡片里取消该行的「可关闭思考」勾选后重试'
+        ? '该模型拒绝 off 推理档位。请在模型设置中取消「可关闭思考」后重试'
         : result.kind === 'client'
-          ? '该请求被上游按参数拒绝：与网络、账号、额度都无关，换账号也不会改变结果，请按上面的提示调整后重试'
+          ? '请求参数被拒绝，请按服务端提示调整后重试'
           : shortfall === undefined
             ? ''
-            : '建议换一个模型继续，或稍后等待该账号的额度恢复'
+            : '请切换模型，或等待账号额度恢复'
       // `displayTips` and most `msg` bodies already end in a full stop, so gluing
       // an advice sentence on would read "。。" — the upstream's sentence is left
       // exactly as it arrived, minus that final stop, and the join supplies one.
@@ -2292,6 +2280,7 @@ export function createWorkBuddyShim(options: WorkBuddyShimOptions): WorkBuddyShi
       ? undefined
       : failoverNoticeText(switchedFrom, switchedBecause)
     const writer = new RecoveryStream(res, gate, logger, notice, onUpstreamUsage)
+    writer.creditAccount = workbuddyAccountId(credential)
     await writer.consume(result.response.body)
 
     // The one outcome that can only be recognised AFTER the stream: the turn
@@ -2311,6 +2300,7 @@ export function createWorkBuddyShim(options: WorkBuddyShimOptions): WorkBuddyShi
           // the failover loop refuses to risk.
           writer.discard()
           const retried = new RecoveryStream(res, gate, logger)
+          retried.creditAccount = workbuddyAccountId(retryCredential)
           await retried.consume(attempt.response.body)
           retried.finish()
           reportFailures()

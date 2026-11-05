@@ -7,10 +7,10 @@
  * compaction, and permissions stay Harness-owned.
  *
  * 参考：corrinehu/dsh-workbuddy-connect（MIT，Copyright (c) 2026 Corrine Hu）
- *   — 宿主的装配顺序（先起 shim，拿到端口后才构造 provider，
+ *   — DSH 的组件加载顺序（先起 shim，拿到端口后才构造 provider，
  *     再注册 adapter 与可配置 provider，最后异步刷新目录）由其设计并验证；
  *     `installSettingsSection` 的用法、webServer 为可选服务（无头 profile
- *     下宿主仍工作）的处理，亦沿用其做法。
+ *     下 DSH 仍工作）的处理，亦沿用其做法。
  * 参考：dingminhua/dsh-connect-trae（MIT，Copyright (c) 2026 LaoDing）
  *   — 配置 schema 的字段划分（lastCatalog 目录 + enabledModelIds 勾选分离）、
  *     `displayModels` 与 `configuredModels` 的区分、
@@ -345,12 +345,12 @@ export const inject = ['llm', 'settings']
  * (历史注记：0.1.5 线上插件自选命名空间并经 `installSection` 注册；自
  * 2.1.0 起只支持 0.1.7 线，该路径已移除。) 0.1.7 的 settings 服务自行推导
  * 命名空间 —— `describe()` 返回 `ns: entry.options.id`，即 Loader 条目 id
- * —— 因此插件不再能自选。此常量仅作为「宿主不暴露条目 id」时的回落值；
+ * —— 因此插件不再能自选。此常量仅作为「DSH 不暴露条目 id」时的回落值；
  * 实际生效值来自 {@link settingsNamespaceOf}。
  *
- * 这个区分不是装饰性的。宿主按**精确匹配**查表
+ * 这个区分不是装饰性的。DSH 按**精确匹配**查表
  * （模型设置页的 `namespaces.get(entry.settingsNs)`），所以宣告
- * `workbuddy` 而宿主实际服务 `include:dsh-connect-workbuddy` 时，provider
+ * `workbuddy` 而 DSH 实际服务 `include:dsh-connect-workbuddy` 时，provider
  * 会被判为「未配置」：配置入口与模型发现双双静默失效。
  */
 
@@ -655,9 +655,9 @@ export interface Config {
    */
   channelPerturbation?: 'off' | 'failure' | 'always'
   /**
-   * 出站身份档位（`docs/DEVICE-IDENTITY-AUDIT.md` 的 P1）。
+   * 请求头中的客户端标识档位（`docs/DEVICE-IDENTITY-AUDIT.md` 的 P1）。
    *
-   * `balanced`（默认）让每一条出站请求说同一种话：`X-Product` / `X-IDE-Name` /
+   * `balanced`（默认）让每一条发出的请求说同一种话：`X-Product` / `X-IDE-Name` /
    * `X-IDE-Type` 同值 `WorkBuddy`，加 `X-Agent-Purpose`、`X-CodeBuddy-Request`、
    * `Accept-Language`、`X-Root-Request-ID`，以及按账号派生的一对
    * `X-Machine-ID` / `X-Session-ID`；billing 域补齐 UA / Origin / Referer。
@@ -785,7 +785,7 @@ export interface Config {
    * 这条失败**不换号也不重试**（`isFailoverWorthy` 刻意把它排除在外：网关匹配的
    * 是消息开头，换账号只会每个账号白烧一次请求），所以这一轮就此结束，用户看到的
    * 是「本轮运行失败400: … 被网关的渠道校验拦截 …」。固定指纹由 `prepareChatBody`
-   * 的按句改词处理；这条开关只是**最后兜底**：只有被拒内容刚好随轮次变化的窄情况
+   * 的按句改词处理；这条开关只是**最后一次恢复尝试**：只有被拒内容刚好随轮次变化的窄情况
    * 才可能靠新回合碰过去。固定 system 指纹每轮相同，重发也救不了（#163 实测）。
    *
    * 默认关闭的理由与 {@link Config.usageIdentity} 相同：它会在用户没有发消息的
@@ -1283,9 +1283,9 @@ const REGION_KEYS: readonly WorkBuddyRegion[] = ['cn', 'global']
  *
  * `state`：
  *   - `available` —— 能取到 token，切成「真实值」就能用；
- *   - `broken` —— 这套 SDK 在本平台取不到 token，切过去只会降级，界面上应禁用
+ *   - `broken` —— 这套 SDK 在本平台取不到 token，选择后也无法取得设备凭据，界面上应禁用
  *     并说明原因；
- *   - `unavailable` —— 本平台没有这条取链（不预期出现，留作兜底）。
+ *   - `unavailable` —— 本平台没有这条取链（不预期出现，用于报告暂不支持的情况）。
  */
 export function realTierAvailabilityFor(platform: string): {
   state: 'available' | 'broken' | 'unavailable'
@@ -1873,8 +1873,8 @@ export function apply(ctx: Context, config: Config): void {
    *
    * 挂在这里而不是 adapter 里，理由是**它要的是一个新回合**：adapter 只看得到
    * 一次请求，`channel_reject` 在同一个请求内已经跑完三级救援阶梯，再在那一层
-   * 重发就是把被拒的字节原样再送一遍。宿主把这一轮判死之后才追加 `turn/end`，
-   * 而新回合会让宿主重新组装 surface —— 那才是 `docs/PINNED-11128-RETRY.md`
+   * 重发就是把被拒的字节原样再送一遍。DSH 把这一轮判死之后才追加 `turn/end`，
+   * 而新回合会让 DSH 重新组装 surface —— 那才是 `docs/PINNED-11128-RETRY.md`
    * 里「把这条消息再发一次」真正做的事。
    *
    * 会花真实请求，所以开关默认关闭，且只在用户显式打开后才读配置（见
@@ -1897,9 +1897,9 @@ export function apply(ctx: Context, config: Config): void {
       return agents?.get(sessionId)
     },
     log: message => { ctx.logger.warn(`dsh-connect-workbuddy: ${message}`) },
-    // `session/event` 是宿主事件，本插件没有 `@deepseek-ai/dsh-session` 这条
+    // `session/event` 是 DSH 事件，本插件没有 `@deepseek-ai/dsh-session` 这条
     // peer 依赖（也不该有，只为一条监听引入它不划算）。鸭子类型的 cast 只在这
-    // 一行，引擎本身因此可以在没有宿主包的测试里逐条验证。
+    // 一行，引擎本身因此可以在没有 DSH 包的测试里逐条验证。
     //
     // 返回值的真实类型是 `() => boolean`（「取消时它是否还在」），这里照实写：
     // 声明成 `() => void` 也是可赋值的，但那条断言会骗过将来的一次重构，让
@@ -2354,7 +2354,7 @@ export function apply(ctx: Context, config: Config): void {
   // （国内区 5.71、国际区 0.03 积分/张），所以工具文案不再写死一张的价钱，
   // 改为回报上游结算里真实的 `data.usage.credit`。
   //
-  // `tools` 是宿主自己的服务（`class Tools extends Service`，服务名 `tools`），
+  // `tools` 是 DSH 自己的服务（`class Tools extends Service`，服务名 `tools`），
   // 用 `ctx.inject` 等它出现再注册，而不是 apply 期间 `ctx.get()` 采样一次：
   // 采样会静默丢掉工具（同 webServer 的注释）。
   //
@@ -2443,7 +2443,7 @@ export function apply(ctx: Context, config: Config): void {
         listMediaModels: (credential, signal) => client.fetchMediaModels(credential, signal),
         submitVideo: (credential, request, signal) => client.submitVideo(credential, request, signal),
         pollVideoTask: (credential, taskId, signal) => client.pollVideoTask(credential, taskId, signal),
-        // 卡片上按模式钉住的模型。读 CURRENT 配置而不是注册时的快照，和上面
+        // 卡片上按模式钉住的模型。读 CURRENT 配置而不是注册组件时读取的数据，和上面
         // resolveCredential 读活值同一个理由：用户可能在两次调用之间改偏好。
         // 区域由凭据自己的登录域决定，所以「国内区钉了 kling、国际区没钉」
         // 这种组合能各按各的来。
@@ -2737,7 +2737,7 @@ export function apply(ctx: Context, config: Config): void {
       /**
        * 总开关走插件配置（`Config.deviceSdkEnabled`），不走设备设置文件。
        *
-       * `read` 取的是 `current()`——也就是宿主交给 `apply()` 的那份活的引用，
+       * `read` 取的是 `current()`——也就是 DSH 交给 `apply()` 的那份活的引用，
        * 所以 `ctx.settings.update` 写完它就能读到新值（`asVolatile` 会就地改）。
        * 回 `undefined` 让卡片把开关标成不可用，而不是把它画成"关"。
        */
@@ -3573,7 +3573,7 @@ export function apply(ctx: Context, config: Config): void {
     switch (reason) {
       case 'rate-limited': return '账号被限流'
       case 'out-of-credit': return '账号积分耗尽'
-      case 'model-busy': return '账号撞上模型繁忙'
+      case 'model-busy': return '账号请求的模型繁忙'
       case 'credential-rejected': return '账号登录已失效'
       case 'account-restricted': return '账号被上游限制使用'
       case 'not-found': return '账号已不存在'
@@ -4137,7 +4137,7 @@ export function apply(ctx: Context, config: Config): void {
      * 写一个设置命名空间下的字段——卡片上那个 SDK 总开关用的就是它。
      *
      * 只在 0.1.7 起存在（`tests/settings-integration.spec.ts` 也是这么用的），
-     * 所以这里是可选：老宿主上卡片会退化成只读（开关置灰），而不是让整个面板
+     * 所以这里是可选：老 DSH 上卡片会退化成只读（开关置灰），而不是让整个面板
      * 抛出。
      */
     update?: (ns: string, patch: Record<string, unknown>) => Promise<unknown>

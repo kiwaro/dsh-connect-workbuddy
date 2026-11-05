@@ -49,9 +49,9 @@ const REVIEW_PERMISSION_MODE = 'dontAsk'
  * human cannot tell the two apart in the output.
  */
 const REVIEW_BRIEF =
-  '评审当前工作区里未提交的改动（git 未提交改动；没有未提交改动时看最近一次提交）。' +
-  '自己运行 git 命令确认范围，必要时读相关文件理解上下文，然后给出评审结论：' +
-  '哪些地方有问题、为什么、怎么改。只报你确实看见的问题，不要猜。'
+  '审查当前工作区未提交的修改；工作区干净时审查最近一次提交。' +
+  '运行 git 命令确定审查范围，读取相关文件后说明：' +
+  '实际发现的问题、代码依据、影响和修改建议。'
 
 /**
  * The opt-in prefix that lets ONE invocation write.
@@ -156,7 +156,7 @@ export function formatCommandOutcome(
     return `CodeBuddy 失败${scope}：${value.error === '' ? '未知错误' : value.error}`
   }
   const body = value.reply.trim()
-  const head = body === '' ? `CodeBuddy 完成${scope}：没有输出任何结论。` : `CodeBuddy 完成${scope}：\n\n${body}`
+  const head = body === '' ? `CodeBuddy 完成${scope}：任务已结束，输出为空。` : `CodeBuddy 完成${scope}：\n\n${body}`
   const toolList =
     value.tools.length > 0
       ? value.tools.map(tool => (tool.count > 1 ? `${tool.name}×${String(tool.count)}` : tool.name)).join(', ')
@@ -164,8 +164,8 @@ export function formatCommandOutcome(
   const denied =
     value.denied_tools.length > 0
       ? `\n\n[注意：CodeBuddy 请求过这些工具但被拒绝：${value.denied_tools.join(', ')}。` +
-        '评审类任务读到这些就该够了；要它真动手，在指令前加 --edit（只影响这一轮），' +
-        '或在配置里设 cliBridge.permissionMode=acceptEdits（影响之后每一轮）]'
+        '需要修改文件时，在指令前添加 --edit，仅本次生效；' +
+        '也可设置 cliBridge.permissionMode=acceptEdits，作为后续调用的默认权限]'
       : ''
   const footer =
     `\n\n[session_id=${value.session_id === '' ? '?' : value.session_id} turns=${String(value.num_turns)} ` +
@@ -175,7 +175,7 @@ export function formatCommandOutcome(
     (value.working_dir !== '' ? ` dir=${value.working_dir}` : '') +
     ']'
   const truncated = value.truncated
-    ? '\n\n[注意：输出已截断。让 CodeBuddy 把完整内容写到文件里再读，别只靠这一份摘要]'
+    ? '\n\n[注意：输出已截断。请让 CodeBuddy 将完整结果保存到文件后读取]'
     : ''
   const delivery = extra.injection === undefined ? '' : `\n\n${formatInjection(extra.injection)}`
   return head + denied + footer + truncated + delivery
@@ -227,11 +227,11 @@ export function mountCodebuddyCommand(commands: BridgeCommandsService | undefine
     return commands.register({
       name: COMMAND_NAME,
       description:
-        '用 CodeBuddy 在当前工作区跑一轮；留空 = 评审未提交改动；以 --edit 开头 = 这一轮允许改文件。' +
-        `注意：默认（cliBridge.injectResult=true）跑完会把结论回注给本会话的模型，那一次唤醒会真的消耗 DSH token；` +
-        '设 injectResult=false 才完全不碰模型。CodeBuddy 那一侧的账号额度每次都会消耗。',
+        '在当前工作区调用 CodeBuddy。留空时审查未提交的修改；添加 --edit 时允许本次修改文件。' +
+        `默认将结果发送给当前会话模型，此步骤会增加模型请求及 token 消耗；` +
+        '设置 injectResult=false 可关闭结果发送。每次调用均消耗 CodeBuddy 账号额度。',
       input: {
-        hint: '留空 = 评审未提交改动；写要求 = 只读执行（如"看一下这个函数为什么崩"）；要以 --edit 开头 = 允许改文件（如"--edit 修一下这个空指针"）',
+        hint: '留空时审查未提交的修改；填写任务要求时只读执行；以 --edit 开头时允许修改文件。',
       },
       handler: async (invocation: BridgeCommandInvocation) => {
         // The command has no tool-call context, so the workspace comes from the
@@ -250,8 +250,8 @@ export function mountCodebuddyCommand(commands: BridgeCommandsService | undefine
           return {
             kind: 'error',
             text:
-              '这个会话没有工作区路径（会话的工作目录投影为空，回退的 session.header.cwd 也为空），' +
-              '无法确定 CodeBuddy 该在哪里跑。请在一个打开过目录的会话里再试。',
+              '当前会话缺少工作区路径，' +
+              '请在已打开工作目录的会话中调用 CodeBuddy。',
           }
         }
 

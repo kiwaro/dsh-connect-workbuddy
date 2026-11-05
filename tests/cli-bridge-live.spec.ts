@@ -269,7 +269,7 @@ describe('announcing a turn', () => {
       live: board,
     })
     expect(value.ok).toBe(false)
-    expect(value.error).toContain('不在本回合允许的范围内')
+    expect(value.error).toContain('不在本次允许的范围内')
     expect(board.begun).toHaveLength(0)
   })
 })

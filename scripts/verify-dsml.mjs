@@ -239,7 +239,7 @@ function staticChecks() {
     console.log(`    ${redact(`${hit.file}:${hit.line}: ${hit.text.trim()}`).slice(0, 140)}`)
   }
   console.log(`  响应路径接管点：${takeoverLines.length === 0
-    ? '未找到（响应路径可能又退回原样透传）'
+    ? '未找到（响应路径可能又退回原样转发）'
     : takeoverLines.map(entry => `shim.ts:${entry.line}`).join('、')}`)
   console.log(`  恢复模块：${recoveryFile ? 'src/dsml-recovery.ts 存在' : '不存在'}`)
   console.log(`  修过这个问题的提交：${commits === '' ? '没有' : commits}`)
@@ -256,7 +256,7 @@ function staticChecks() {
     console.log('    要量"客户端最终看到什么"，跑 --live N --through-shim；直接 --live 量的是模型本身，')
     console.log('    它会绕过转换，对已经能恢复的泄漏给出"仍在泄漏"的假结论。')
   } else if (unrouted > 0) {
-    console.log(`  → 记录证明泄漏真实发生过（${unrouted} 次调用无法被路由），而响应路径仍是原样透传、`)
+    console.log(`  → 记录证明泄漏真实发生过（${unrouted} 次调用无法被路由），而响应路径仍是原样转发、`)
     console.log('    src/ 里没有任何转换器：所以"能拦住它的代码"今天并不存在。')
     console.log('    这不是"修复后回归"，是从来没修过。')
   } else {

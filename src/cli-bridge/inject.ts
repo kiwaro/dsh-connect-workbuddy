@@ -66,7 +66,7 @@ export const INJECT_SOURCE_KIND = 'codebuddy-bridge'
 
 /** The first line of every injected message. Not decoration: the model never
  * sees `source.kind`, so this line is its only provenance signal. */
-export const PROVENANCE_LINE = '[dsh-connect-workbuddy · 由 /codebuddy 自动回注，不是用户输入]'
+export const PROVENANCE_LINE = '[dsh-connect-workbuddy · /codebuddy 自动发送的任务结果]'
 
 /**
  * An instruction appended so a model does not turn the result into a loop.
@@ -78,8 +78,8 @@ export const PROVENANCE_LINE = '[dsh-connect-workbuddy · 由 /codebuddy 自动�
  * same bridge to chase it.
  */
 const NO_LOOP_NOTE =
-  '这条结论已经完成，不要为了"再确认一次"而重复调用 codebuddy_ask 或 /codebuddy —— ' +
-  '每一次调用都会真实消耗一份 CodeBuddy 额度。只有出现新的、不重复的问题时才再发起一轮。'
+  '此次 CodeBuddy 任务已完成。' +
+  '再次调用将消耗 CodeBuddy 额度，请仅针对新的任务发起调用。'
 
 /**
  * The slice of a live agent this module needs.
@@ -110,10 +110,10 @@ export interface ContinuationMeta {
 
 /** Every refusal this module can produce, by name. */
 const REFUSALS = {
-  'agent-not-live': '拿不到这个会话的 agent，结论没有交给模型',
-  'text-required': '这一轮没有可交给模型的输出',
-  'text-too-large': `输出超过 ${String(INJECT_TEXT_LIMIT)} 字符，没有交给模型`,
-  'inject-failed': '把结论交给模型时出错',
+  'agent-not-live': '会话运行实例不可用，结果发送失败',
+  'text-required': '本次输出为空',
+  'text-too-large': `输出超过 ${String(INJECT_TEXT_LIMIT)} 字符，未发送给会话模型`,
+  'inject-failed': '发送结果失败',
 } as const
 
 export type RefusalCode = keyof typeof REFUSALS
@@ -164,16 +164,16 @@ export function composeContinuation(reply: string, meta: ContinuationMeta = {}):
 
   const lines: Array<string | null> = [
     PROVENANCE_LINE,
-    'CodeBuddy（另一个独立的 AI 编程助手，跑在本机真实的 CodeBuddy CLI 上）刚完成一次任务。',
+    'CodeBuddy CLI 已完成任务。',
     dir === '' ? null : `工作目录：${dir}`,
-    scope === '' ? null : `交给它的指令：${scope}`,
+    scope === '' ? null : `任务要求：${scope}`,
     '',
     '--- CodeBuddy 输出开始 ---',
     reply,
     '--- CodeBuddy 输出结束 ---',
     '',
-    `这一轮它用了 ${String(toolCalls)} 次工具调用（${toolList}），可能已经改动了工作区里的文件。`,
-    '如果这与当前任务有关，就用这些结论继续；如果无关，用一两句话向用户说明即可，不要重复它已经做过的事。',
+    `本次共执行 ${String(toolCalls)} 次工具调用：${toolList}。工作区文件可能已被修改。`,
+    '请结合上述结果继续当前任务，沿用已完成的工作；结果与当前任务无关时，简要说明。',
     NO_LOOP_NOTE,
   ]
   return lines.filter((line): line is string => line !== null).join('\n')
@@ -239,6 +239,6 @@ export function injectOutcome(agent: BridgeAgent | undefined, input: {
 export function formatInjection(outcome: InjectionOutcome): string {
   if (!outcome.ok) return `[未能通知模型继续：${outcome.code} — ${outcome.error}]`
   return outcome.woke
-    ? '[已唤醒会话模型：CodeBuddy 的结论已交给它继续]'
-    : '[结论已排队交给模型，随这一轮的下一个步骤或下一轮生效]'
+    ? '[已将 CodeBuddy 结果发送给会话模型]'
+    : '[结果已排队，将在下一步骤或下次请求时发送给模型]'
 }
