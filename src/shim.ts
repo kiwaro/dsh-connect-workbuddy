@@ -5,9 +5,9 @@
  * It binds 127.0.0.1 only and never serves another interface.
  *
  * 参考：corrinehu/dsh-workbuddy-connect（MIT，Copyright (c) 2026 Corrine Hu）
- *   — 入站加固的四重校验（Host 必须回环、Origin 必须回环、chat POST 必须
+ *   — 接收请求时增加校验的四重校验（Host 必须回环、Origin 必须回环、chat POST 必须
  *     JSON、bearer 必须匹配进程内随机 secret）、常量时间比对、
- *     随机端口绑定、body 上限、上游错误分类到 HTTP 状态码的映射，
+ *     随机端口绑定、body 上限、上游错误分类对应的 HTTP 状态码，
  *     均由该项目设计并验证。
  * 改动：随机端口绑定加了「先确认客户端能用」一步（`listenOnClientReachablePort`）。
  *   绑定方式仍是 `listen(0)` + 仅回环，随机性不变；改的只是抽到 HTTP 客户端

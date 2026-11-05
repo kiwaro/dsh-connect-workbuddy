@@ -22,7 +22,7 @@
  * `docs/PINNED-11128-RETRY.md` §2 记录了两条互相矛盾的事实：插件自己在
  * `perturbChannelFingerprints` 旁的注释说「给定提示词被拒是确定性的」，而现场报告
  * （#87–#98、#113）反复出现「把这条消息再发一次就过了」。二者都能成立，原因是**每
- * 一次新回合都是一份新的请求**：DSH 会把当前 surface 重新组装、注入块的位置与内容
+ * 一次新回合都是一份新的请求**：DSH 会把当前 surface 重新组装、自动添加的提示段的位置与内容
  * 可能变化、插件也可能因为学到偏好而从第一发就带扰动。所以「重发一次」不是把被拒
  * 的字节原样再塞一遍（那才是真正的浪费），而是**开一个新回合**。
  *
@@ -41,16 +41,16 @@
  *   篡改请求才是这条功能不该碰的东西。
  * - 子代理会话一律不碰：子代理由父代理驱动，抢跑会打乱执行树。
  *
- * 它是**最后兜底**，不是 11128 的修复：固定指纹由 `prepareChatBody` 的按句改词处理；
+ * 它是**最后一次恢复尝试**，不是 11128 的修复：固定指纹由 `prepareChatBody` 的按句改词处理；
  * 改词后仍 11128，多半是新的固定指纹，重发同样无效。只有「被拒内容刚好随轮次变化」
  * 的窄情况才可能靠它碰过去，所以默认关闭、默认只发 1 次。
  *
  * 参考：`dsh-client-auto-continue`（MIT，HsiangNianian/dsh-auto-continue）—
- *   「连续失败上限」这套**语义**取自它：`state.consecutive` 在每次发出时自增、
+ *   「连续失败上限」这套**处理规则**取自它：`state.consecutive` 在每次发出时自增、
  *   `consecutive >= maxConsecutive` 就停、只在真正成功的回合清零、子代理会话按
  *   `session.header.origin === 'subagent'` 跳过、发消息用
  *   `agent.followup(createUserMessage(...))`。本模块**没有**照搬它的引擎：那个实现
- *   有 1590 行，覆盖收尾原因矩阵、自适应退避、自主循环、循环守卫与浏览器通知，而
+ *   有 1590 行，覆盖收尾原因矩阵、自适应等待后重试、自主循环、循环检查与浏览器通知，而
  *   这里只需要「一种失败、一条消息、一个上限」。
  * 参考：`dsh-purge`（MIT，YuJunZhiXue/dsh-purge）的 `lib/continue-retry.js` —
  *   三处具体做法：**被排除的失败码清单**（`NO_CONTINUE_CODES`：配额、限流、传输
@@ -59,9 +59,9 @@
  *   自己的回显把上限清零。
  * 改动：本项目相对两者都是**收窄**，不是扩展——（a）只认 `channel_reject` 这一种
  *   失败，两套参考实现都是「除永久码外一律续」；（b）不做原地重试、不做换号、不做
- *   退避，因为这一类失败换谁、隔多久都是同一份请求；（c）计数状态只活在进程里、不
- *   落盘（参考实现有持久化文件），因为「刚刚这一串失败」本来就是即时的事实；（d）把
- *   订阅交给调用方注入（`onSessionEvent`），因为本插件没有 `@deepseek-ai/dsh-session`
+ *   等待后重试，因为这一类失败换谁、隔多久都是同一份请求；（c）计数状态只活在进程里、不
+ *   写入文件（参考实现有持久化文件），因为「刚刚这一串失败」本来就是即时的事实；（d）把
+ *   订阅交给调用方添加（`onSessionEvent`），因为本插件没有 `@deepseek-ai/dsh-session`
  *   这条 peer 依赖，也不该为一条监听引入它。
  *
  * @module dsh-connect-workbuddy/channel-continue
@@ -84,7 +84,7 @@ export const DEFAULT_MAX_CONSECUTIVE = 1
 /** 默认续发的文本。用户要的就是「继续」两个字。 */
 export const DEFAULT_CONTINUE_TEXT = '继续'
 
-/** 上限的硬边界：0 等于关闭，超过 10 次已经不属于「再试一次」的语义。 */
+/** 上限的硬边界：0 等于关闭，超过 10 次已经不属于「再试一次」的处理规则。 */
 const MAX_CONSECUTIVE_CEILING = 10
 
 /**
@@ -96,13 +96,13 @@ const MAX_CONSECUTIVE_CEILING = 10
  */
 const SEND_DELAY_MS = 300
 
-/** 每个进程最多记多少个会话的计数（长开进程的 FIFO 兜底，`dsh-purge` 同一做法）。 */
+/** 每个进程最多记多少个会话的计数（长开进程的 按先进先出顺序清理旧记录，`dsh-purge` 同一做法）。 */
 const SESSION_CAP = 200
 
 /** 超过时一次丢多少个。 */
 const SESSION_EVICT = 50
 
-/** 引擎读到的一份配置（已归一化）。 */
+/** 引擎读到的一份配置（已格式转换）。 */
 export interface ChannelContinueSettings {
   /** 是否启用。只有显式 true 才算开启。 */
   enabled: boolean
@@ -113,7 +113,7 @@ export interface ChannelContinueSettings {
 }
 
 /**
- * 把配置里的两个标量归一化成一个可用的设置对象。
+ * 把配置里的两个标量整理成一个可用的设置对象。
  *
  * 两处「防御」都是有意为之：`enabled` 只认显式 `true`（这条功能会花真实请求，
  * 缺失或畸形必须读成「关」），`maxConsecutive` 与 `text` 越界时退回默认值，
@@ -122,7 +122,7 @@ export interface ChannelContinueSettings {
  * @param enabled - 配置里的开关标量。
  * @param max - 配置里的上限标量。
  * @param text - 配置里的文本。
- * @returns 归一化后的设置。
+ * @returns 转换格式后的设置。
  */
 export function channelContinueSettingsOf(
   enabled: unknown,
@@ -172,7 +172,7 @@ export interface ContinueAgent {
   readonly inbox?: unknown
 }
 
-/** 引擎依赖：全部注入，所以逻辑可以在没有 DSH 的情况下逐条验证。 */
+/** 引擎依赖：全部传入，所以逻辑可以在没有 DSH 的情况下逐条验证。 */
 export interface ChannelContinueHost {
   /** 读**当前**配置（活值，用户拨动开关后下一次失败立刻生效）。 */
   getConfig(): ChannelContinueSettings
@@ -207,7 +207,7 @@ export interface ChannelContinue {
   onSessionEvent(session: unknown, event: unknown): void
   /** 取消所有待发并把状态清空（插件卸载时调用）。 */
   dispose(): void
-  /** 只读快照，给测试与诊断用。 */
+  /** 供测试和诊断使用的只读状态。 */
   stateOf(sessionId: string): { consecutive: number, pending: boolean } | undefined
 }
 
@@ -251,7 +251,7 @@ function inboxBusy(agent: ContinueAgent): boolean {
  * （取消待发）、`user/message`（真人插话就把计数清零）。没有轮询、没有扫描、
  * 没有持久化：计数失效于进程即可，它描述的本来就是「刚刚这一串失败」。
  *
- * @param host - 注入的 DSH 依赖。
+ * @param host - 传入的 DSH 依赖。
  * @returns 引擎句柄。
  */
 export function createChannelContinue(host: ChannelContinueHost): ChannelContinue {
@@ -343,7 +343,7 @@ export function createChannelContinue(host: ChannelContinueHost): ChannelContinu
 
       if (type === 'user/message') {
         const kind = record?.data?.source?.kind
-        // 只有真人文本清零。我们自己发的、其他插件注入的都不算「用户介入」——
+        // 只有真人文本清零。我们自己发的、其他插件添加的都不算「用户介入」——
         // 否则我们发的这条会把计数清掉，上限就永远不会生效。
         if (kind === 'user') {
           cancelPending(state)
@@ -355,7 +355,7 @@ export function createChannelContinue(host: ChannelContinueHost): ChannelContinu
 
       if (type !== 'turn/end') return
 
-      // 同一个 turn/end 只处理一次（事件可能被重放或多处监听转发）。
+      // 同一个 turn/end 只处理一次（事件可能被再次分发或多处监听转发）。
       const seq = typeof record?.seq === 'number' ? record.seq : 0
       if (seq !== 0 && state.lastHandledSeq === seq) return
       state.lastHandledSeq = seq
@@ -440,7 +440,7 @@ export interface ChannelContinueMount extends ChannelContinueHost {
 /**
  * 把引擎挂到 DSH 的事件总线上。
  *
- * 订阅走注入的 `onSessionEvent`，而不是在这里 `ctx.on`：DSH 把 `session/event`
+ * 订阅走添加的 `onSessionEvent`，而不是在这里 `ctx.on`：DSH 把 `session/event`
  * 声明在 `@deepseek-ai/dsh-session` 的类型里，本插件没有也不该有那条 peer 依赖，
  * 由调用方用一行鸭子类型的 cast 提供，才能让这个模块在没装 DSH 包的测试里也能跑。
  *

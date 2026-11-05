@@ -48,8 +48,8 @@ const isolatedEnv = {
    * 加一次联网取数——测试不该发网络请求，那些进程还会把 CPU 垫高，让时序断言
    * （`tests/tps.spec.ts` 那类）偶发失败。
    *
-   * 指到一个不存在的目录：探针立刻答 `missing` 且**不起进程**，预热只是排一次
-   * 五分钟后的复查。SDK 的真实链路由 `tests/turing-sdk.spec.ts` 用临时目录 +
+   * 指到一个不存在的目录：检查请求立刻答 `missing` 且**不起进程**，预热只是排一次
+   * 五分钟后的复查。SDK 的真实处理过程由 `tests/turing-sdk.spec.ts` 用临时目录 +
    * 假 worker 专门覆盖，那里才是它该被验证的地方。
    */
   WORKBUDDY_TURING_SDK_DIR: join(isolatedHome, 'no-bundled-sdk'),

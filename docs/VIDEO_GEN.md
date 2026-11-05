@@ -35,7 +35,7 @@
 
 明确指定的模型需要通过目录校验。已保存的默认模型下架后，插件改用标签组中的第一个模型，设置页显示默认选项。
 
-文生视频使用 `text-to-video` 标签组，图生视频使用 `image-to-video` 标签组。媒体目录缓存 5 分钟，设置页可重新读取。修改默认视频模型后，插件写入并回读校验配置。
+文生视频使用 `text-to-video` 标签组，图生视频使用 `image-to-video` 标签组。媒体目录缓存 5 分钟，设置页可重新读取。修改默认视频模型后，插件写入并重新读取并核对配置。
 
 模型目录可提供 `videoGeneration`：
 
@@ -97,7 +97,7 @@
 
 ## 5. 代码与测试
 
-`src/video-tool.ts` 负责工具参数、模型选择、执行及输出；`src/video-gen.ts` 负责协议参数和响应解析；`src/upstream.ts` 负责传输、查询及下载。凭据由 Host 侧读取，工具结果提供视频路径和业务信息。
+`src/video-tool.ts` 负责工具参数、模型选择、执行及输出；`src/video-gen.ts` 负责协议参数和响应解析；`src/upstream.ts` 负责传输、查询及下载。凭据由 DSH 端读取，工具结果提供视频路径和业务信息。
 
 测试见 `tests/video-gen.spec.ts`、`tests/video-tool.spec.ts`、`tests/video-tool-optin.spec.ts`。测试检查两种生成模式的参数与目录选择，并验证错误处理、执行时限和区域授权。图片输入处理说明见 [IMAGE_GEN.md](IMAGE_GEN.md)。
 

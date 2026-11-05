@@ -13,7 +13,7 @@
    - `src/client/AccountPool.tsx:222` — `const rotationLocked = active.enabled && active.rotateByCredits`
 2. 「关闭自动轮换」按钮只改草稿、不保存：
    - `src/client/AccountPool.tsx:507` — `onUnlock: () => { editDraft(current => ({ ...current, rotateByCredits: false })) }`
-3. 但 Host 侧轮换判定读的是**已保存的配置**：
+3. 但 DSH 端轮换判定读的是**已保存的配置**：
    - `src/index.ts:955-958` — `applyRotation()` 里 `poolPreferencesOf(current(), region)`，`current()` 返回的是已提交 config
 4. 运行时的计费账号优先取轮换覆盖：
    - `src/auth.ts` `current()` 先看 `rotatedAccountId`，命中即返回
@@ -29,7 +29,7 @@
 
 ### 后果
 
-第 2~3 步之间存在一个窗口：界面**已经**允许手动选账号，**已经**撤掉了冲突提示，但 Host 的轮换覆盖仍然生效。用户选完账号后界面显示该账号为当前，实际计费的却是轮换选中的另一个账号——**而且没有任何提示**。保存之后窗口关闭，但用户此前的那次选择已被静默忽略。
+第 2~3 步之间存在一个窗口：界面**已经**允许手动选账号，**已经**撤掉了冲突提示，但 DSH 的轮换覆盖仍然生效。用户选完账号后界面显示该账号为当前，实际计费的却是轮换选中的另一个账号——**而且没有任何提示**。保存之后窗口关闭，但用户此前的那次选择已被静默忽略。
 
 ### 根因
 
@@ -39,7 +39,7 @@
 
 三个方向，各有取舍：
 
-1. **锁定时按已保存值判定**：`rotationLocked` 改读 `saved.enabled && saved.rotateByCredits`。改动最小，且与 Host 语义一致；代价是点了「关闭自动轮换」后下拉要等保存才解锁。保存完成前，Host 按原配置继续轮换。
+1. **锁定时按已保存值判定**：`rotationLocked` 改读 `saved.enabled && saved.rotateByCredits`。改动最小，且与 Host 处理结果一致；代价是点了「关闭自动轮换」后下拉要等保存才解锁。保存完成前，Host 按原配置继续轮换。
 2. **让「关闭自动轮换」立即写入**：该按钮绕过草稿直接保存。与其它偏好「草稿+保存」不一致，但消除了窗口。
 3. **保存前把手动选择也挡住并解释**：保留草稿判定，但在未保存时给出「保存后生效」的明确提示。
 
@@ -50,7 +50,7 @@ Lead 倾向 **方向 1**：它让「界面允许的操作」与「Host 会执行
 L-1 涉及的状态不一致也出现在批量操作中：**任何「草稿优先」的 UI 判定，与「已保存配置」驱动的运行时行为，在有未保存改动时都会背离。** 已核查的其它同类点：
 
 - `siblingBusy` 串行：判定用 `saving` 状态（真实在途），**不涉及草稿**，因此无此问题。已排除。
-- 池开关 `active.enabled` 控制两个批量按钮的禁用：按钮禁用用草稿，而 Host 路由用已保存配置判定 `enabled`。后果与 L-1 同类但**方向相反且更安全**：用户在草稿里关掉池后按钮即禁用（保守），Host 侧仍接受请求但卡片不会发。若在草稿里**打开**池而尚未保存，按钮变为可用，但 Host 会返回 409「pool is disabled」——用户看到的是明确错误而非静默错误。属**低severity**，因为失败是可见的。
+- 池开关 `active.enabled` 控制两个批量按钮的禁用：按钮禁用用草稿，而 DSH 路由用已保存配置判定 `enabled`。后果与 L-1 同类但**方向相反且更安全**：用户在草稿里关掉池后按钮即禁用（保守），DSH 端仍接受请求但卡片不会发。若在草稿里**打开**池而尚未保存，按钮变为可用，但 Host 会返回 409「pool is disabled」——用户看到的是明确错误而非静默错误。属**低severity**，因为失败是可见的。
 
 ## 待验证（Lead 未能确认）
 
@@ -73,7 +73,7 @@ L-1 涉及的状态不一致也出现在批量操作中：**任何「草稿优�
 
 ```
 saved1.memberAccountIds = ["a"]
-Host 上报 saved2.memberAccountIds = ["a","b"]   （六个依赖字段均未变 → 复用旧闭包）
+DSH 返回 saved2.memberAccountIds = ["a","b"]   （六个依赖字段均未变 → 复用旧闭包）
 用户勾选 "c"  → 草稿基准用的是 saved1
 结果: ["a","c"]      期望: ["a","b","c"]
 静默丢失: ["b"]
@@ -104,7 +104,7 @@ Lead 最初写的是「需要另一个标签页」。**审计 C 证明不需要*
 
 ### 背景
 
-前一轮审查发现模型保存与池保存共写 `regions[region]` 槽，而 Host 的 `__save` 是**按区域**合并（`{ ...current, ...incoming }`，见 `src/web-status.ts:840-843`），因此两个并发保存会互相回退。前一轮修复采用让两个保存按钮互相串行（`siblingBusy` / `onBusyChange`）。
+前一轮审查发现模型保存与池保存共写 `regions[region]` 槽，而 DSH 的 `__save` 是**按区域**合并（`{ ...current, ...incoming }`，见 `src/web-status.ts:840-843`），因此两个并发保存会互相回退。前一轮修复采用让两个保存按钮互相串行（`siblingBusy` / `onBusyChange`）。
 
 区域供应商开关也会写入同一配置槽，原有互斥条件未覆盖该入口。
 
@@ -118,25 +118,25 @@ Lead 最初写的是「需要另一个标签页」。**审计 C 证明不需要*
 | 池保存 | `AccountPool.tsx:737` | ✅ `disabled: !dirty \|\| saving \|\| siblingBusy` |
 | **tab 供应商开关** | `WorkBuddyCard.tsx:856` | ❌ 只有 `disabled={togglingRegion === region \|\| !canWrite}` |
 
-`toggleRegion`（`WorkBuddyCard.tsx:498-516`）经 `writeRegionEnabled` 写**整个区域槽**（注释明写 "carries the region's whole slot through"），其合并基准取自 `settingsScope.getSnapshot().value` —— 一个可能落后于在途写入的快照。
+`toggleRegion`（`WorkBuddyCard.tsx:498-516`）经 `writeRegionEnabled` 写**整个区域槽**（注释明写 "carries the region's whole slot through"），其合并基准取自 `settingsScope.getSnapshot().value` —— 一个可能落后于在途写入的读取结果。
 
-### 复现（Lead 实测，模拟 Host 的按区域合并）
+### 复现（Lead 实测，模拟 DSH 的按区域合并）
 
 ```
 初始           cn.pool.memberAccountIds = ['a']
-池保存（快照含 ['a'] → 写 ['a','b']）   → Host: ['a','b']
-tab 开关（快照仍是 ['a'] → 写自己的槽） → Host: ['a']      <-- ['b'] 被回退
+池保存（读取结果含 ['a'] → 写 ['a','b']）   → Host: ['a','b']
+tab 开关（读取结果仍是 ['a'] → 写自己的槽） → Host: ['a']      <-- ['b'] 被回退
 静默丢失: ['b']
 ```
 
 ### 后果
 
-用户勾选成员并保存后，若紧接着切换区域开关（或反之），**后完成的那个写入会带着过期快照覆盖前者**，界面两边都显示成功。这正是 L-1/L-3 的同一类缺陷：**过期基准 + 静默覆盖**。
+用户勾选成员并保存后，若紧接着切换区域开关（或反之），**后完成的那个写入会带着已经过期的数据覆盖前者**，界面两边都显示成功。这正是 L-1/L-3 的同一类缺陷：**过期基准 + 静默覆盖**。
 
 ### 修复方向
 
-把串行门控扩展到第三个写入者：`toggleRegion` 期间禁用两个保存按钮，两个保存期间禁用 tab 开关（即让 `saving` / `poolBusy` / `togglingRegion` 三者互斥）。**更根本的做法**是在 Host 的 `__save` 做**按字段**合并而非按区域替换，那样三个写入者天然安全——但那是 Host 契约变更，影响面更大，需单独评估。
+把串行门控扩展到第三个写入者：`toggleRegion` 期间禁用两个保存按钮，两个保存期间禁用 tab 开关（即让 `saving` / `poolBusy` / `togglingRegion` 三者互斥）。**更根本的做法**是在 DSH 的 `__save` 做**按字段**合并而非按区域替换，那样三个写入者天然安全——但那是 Host 契约变更，影响面更大，需单独评估。
 
-## L-5（中）两次 `refreshUsage` 无请求序护栏
+## L-5（中）两次 `refreshUsage` 无按请求顺序丢弃旧响应的检查
 
-`WorkBuddyCard.tsx:764`（模型保存后）与 `:1241`（池保存后经 `onSaved`）都直接 `setStatusByRegion`（`:357-378`），没有请求序号或 abort 护栏。两个刷新并发时，**先发出的响应可能后到达并覆盖更新的快照**。窗口是一次 loopback 往返。与 L-4 相关但独立：即使写入串行了，读取仍可能乱序。审计 A 的 V-2/V-3 也独立提出同一点。
+`WorkBuddyCard.tsx:764`（模型保存后）与 `:1241`（池保存后经 `onSaved`）都直接 `setStatusByRegion`（`:357-378`），没有请求序号或 取消旧请求的处理。两个刷新并发时，**先发出的响应可能后到达并覆盖更新的读取结果**。窗口是一次 loopback 往返。与 L-4 相关但独立：即使写入串行了，读取仍可能乱序。审计 A 的 V-2/V-3 也独立提出同一点。

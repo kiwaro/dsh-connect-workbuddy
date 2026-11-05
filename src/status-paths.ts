@@ -134,7 +134,7 @@ export const WORKBUDDY_POOL_ACTION_PARAM = 'action'
  *
  * POST + loopback-only：写的是"这台机器对外声称自己是谁"，和凭据写入同级。
  * 之所以不挂在账号池的 `/pool` 下面：那份草稿是"点保存才生效"的偏好，而这里的
- * 两个动作都是即时生效，混在一条路由里会让"保存"按钮的语义变得说不清。
+ * 两个动作都是即时生效，混在一条路由里会让"保存"按钮的处理规则变得说不清。
  */
 export const WORKBUDDY_DEVICE_PROFILE_PATH = '/plugins/dsh-connect-workbuddy/device-profile'
 

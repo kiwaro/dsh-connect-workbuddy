@@ -4,26 +4,26 @@
 
 ## 1. DSH 组件与插件注册
 
-插件通过 DSH 的服务和槽位注册界面。每个组件只读取自身需要的 DSH 参数，使用自身的语言资源和配置。模型标签组件对 WorkBuddy 模型显示负载等信息，对其他供应商的模型显示目录名称。
+插件通过 DSH 的服务和界面扩展位置注册界面。每个组件只读取自身需要的 DSH 参数，使用自身的语言资源和配置。模型标签组件对 WorkBuddy 模型显示负载等信息，对其他供应商的模型显示目录名称。
 
 ### 1.1 模型标签
 
-`conversation.input.model.label` 是 `single` 槽位，每次由一个注册组件渲染。插件使用 `MODEL_LABEL_PRIORITY = -0.5` 注册 `WorkBuddyModelLabel`。这个组件占用槽位时，其他模型标签组件的装饰可能被替换，例如官方模型的临时发布徽标。
+`conversation.input.model.label` 是 `single` 界面扩展位置，每次由一个注册组件渲染。插件使用 `MODEL_LABEL_PRIORITY = -0.5` 注册 `WorkBuddyModelLabel`。这个组件占用界面扩展位置时，其他模型标签组件的装饰可能被替换，例如官方模型的临时发布徽标。
 
-槽位优先级用于确定渲染组件。组件返回 `null` 时，注册仍然存在。需要释放槽位时，调用注册句柄的注销函数。
+界面扩展位置优先级用于确定渲染组件。组件返回 `null` 时，注册仍然存在。需要释放界面扩展位置时，调用注册句柄的注销函数。
 
 插件维护以下注册规则：
 
 1. 组件通过自身的注册参数获取依赖。
 2. 每个组件只渲染自身负责的内容。
-3. 槽位冲突通过 DSH 配置和注册优先级处理。
-4. 合成多个插件的模型标签需要 DSH 提供相应的槽位契约。
+3. 界面扩展位置冲突通过 DSH 配置和注册优先级处理。
+4. 合成多个插件的模型标签需要 DSH 提供相应的界面扩展位置契约。
 
 相关实现见 [WorkBuddyModelLabel.tsx](../src/client/WorkBuddyModelLabel.tsx)。注册规则由 [model-label-slot-coexistence.spec.tsx](../tests/model-label-slot-coexistence.spec.tsx) 检查。issue #138 的历史现象及 DSH 变化见 [rc.3 适配记录](DSH-0.2.1-RC3-FOLLOWUP.md)。
 
-### 1.2 使用的槽位
+### 1.2 使用的界面扩展位置
 
-| 槽位 | 插件提供的内容 |
+| 界面扩展位置 | 插件提供的内容 |
 | --- | --- |
 | `conversation.input.right` | 输入框工具栏的积分入口 |
 | `conversation.input.model.label` | 模型名称及 WorkBuddy 负载标记 |
@@ -34,7 +34,7 @@
 
 `sidebarPanel` 默认关闭。用户开启后，插件注册侧边栏入口和主页面；关闭后，插件注销这两项注册。
 
-新增槽位时，需要同时检查 DSH 参数契约和 [host-slot-surface.spec.ts](../tests/host-slot-surface.spec.ts)。DSH rc.5 将推理正文区分为 `rawText` 和 `text`：读取原始输出应使用 `rawText`，显示已处理文本应使用 `text`。相关记录见 [rc.5 适配说明](DSH-0.2.1-RC5-FOLLOWUP.md)。
+新增界面扩展位置时，需要同时检查 DSH 参数契约和 [host-slot-surface.spec.ts](../tests/host-slot-surface.spec.ts)。DSH rc.5 将推理正文区分为 `rawText` 和 `text`：读取原始输出应使用 `rawText`，显示已处理文本应使用 `text`。相关记录见 [rc.5 适配说明](DSH-0.2.1-RC5-FOLLOWUP.md)。
 
 ## 2. 模块职责与数据流
 
@@ -119,7 +119,7 @@ shim 使用随机回环端口和进程内生成的 bearer secret，并校验 Hos
 | `server` | 服务端或传输异常 | 按错误及重试策略处理 |
 | `client` | 请求参数错误 | 修正请求参数 |
 
-DSH 会根据错误码和消息文本确定最终显示及重试方式。`model_busy` 保留原类别，使 DSH 识别为可重试的限流；`soft_rate` 映射为 `quota_exceeded`，避免在长时间限流期间持续重试。相关检查见 [issue84-model-busy-not-quota.spec.ts](../tests/issue84-model-busy-not-quota.spec.ts)。
+DSH 会根据错误码和消息文本确定最终显示及重试方式。`model_busy` 保留原类别，使 DSH 识别为可重试的限流；`soft_rate` 转换为 `quota_exceeded`，避免在长时间限流期间持续重试。相关检查见 [issue84-model-busy-not-quota.spec.ts](../tests/issue84-model-busy-not-quota.spec.ts)。
 
 11140 的账号限制和内容拒绝由错误文本进一步区分。账号限制记录在账号池状态中，服务端解除限制后需要测试账号，以更新可用状态。重新登录得到相同账号标识时，先前的测试记录继续适用。
 
@@ -135,7 +135,7 @@ DSH 会根据错误码和消息文本确定最终显示及重试方式。`model_
 2. 在适用的文本位置插入稀疏不可见分隔字符。
 3. 使用密集分隔字符处理后重试。
 
-每条变换规则需要保持幂等。请求已经中止时，shim 保留原始失败原因并结束处理。密集字符处理使用一次扫描，算法及耗时比较见第 9.5 节。
+每条变换规则重复执行后的结果应与执行一次相同。请求已经中止时，shim 保留原始失败原因并结束处理。密集字符处理使用一次扫描，算法及耗时比较见第 9.5 节。
 
 `channelPerturbation` 控制预先使用哪种处理方式：
 
@@ -177,7 +177,7 @@ DSH 会根据错误码和消息文本确定最终显示及重试方式。`model_
 
 `keepPromptLast` 默认关闭。开启后，插件把已识别的尾部运行上下文移到用户提问之前，并移除该提问开头的会话消息标记，使提问内容出现在用量页。其他历史消息保留原来的标记。
 
-跨供应商切换时，DSH 可能将其他供应商的无签名思考内容转换为普通文本。插件在对齐消息身份后移除这类思考块。`dropForeignThinking` 控制同一路由内切换模型时是否扩大该处理范围，默认关闭。相关消息变换见 [adapter.ts](../src/adapter.ts) 中的 `alignAssistantIdentities` 和 `dropForeignThinking`。
+跨供应商切换时，DSH 可能将其他供应商的无签名思考内容转换为普通文本。插件在按当前模型检查消息来源后移除这类思考块。`dropForeignThinking` 控制同一路由内切换模型时是否扩大该处理范围，默认关闭。相关消息变换见 [adapter.ts](../src/adapter.ts) 中的 `alignAssistantIdentities` 和 `dropForeignThinking`。
 
 服务端确认上下文超限后，插件还可通过 [context-rescue.ts](../src/context-rescue.ts) 组织分段摘要并重试，以处理摘要请求本身超限的情况。
 
@@ -220,11 +220,11 @@ DSH 会根据错误码和消息文本确定最终显示及重试方式。`model_
 2. 上游声明且该模型支持的默认档位。
 3. 模型支持档位按固定顺序排列后的中间偏高档位，索引为 `Math.floor(length / 2)`。
 
-模型未声明可用思考档位时，适配器按对应接口规则处理 `off`。是否提供关闭思考选项由 `offModelIds` 管理，默认思考强度映射只保存思考档位。
+模型未声明可用思考档位时，适配器按对应接口规则处理 `off`。是否提供关闭思考选项由 `offModelIds` 管理，默认思考档位设置表只保存思考档位。
 
 上游的 `reasoning` 可提供 `supportedEfforts` 数组，也可提供单个 `effort`。解析器将已识别的单值转换为可用档位和默认值。卡片选择器显示该模型支持的档位，原始档位名称保持原样。
 
-保存 `defaultThinkingEfforts` 时，客户端提交完整映射。用户选择跟随默认时，删除该模型的自定义键。适配器发布 `defaultEffort` 后，DSH 用它处理缺少显式档位的请求，包括会话标题及摘要请求。
+保存 `defaultThinkingEfforts` 时，客户端提交完整的模型与档位对应表。用户选择跟随默认时，删除该模型的自定义键。适配器发布 `defaultEffort` 后，DSH 用它处理缺少显式档位的请求，包括会话标题及摘要请求。
 
 ### 4.4 账号池、测试与签到
 
@@ -271,7 +271,7 @@ dsh-connect-workbuddy/
   cordis.patch.yml     DSH bundle 插入配置
 ```
 
-HTTP 路径统一在 [status-paths.ts](../src/status-paths.ts) 定义，包括积分查询、模型刷新、账号刷新、签到、测试、账号池、登录、设备设置、媒体目录和账号导入导出。新增接口时，需要同步类型、Host 路由及客户端调用。
+HTTP 路径统一在 [status-paths.ts](../src/status-paths.ts) 定义，包括积分查询、模型刷新、账号刷新、签到、测试、账号池、登录、设备设置、媒体目录和账号导入导出。新增接口时，需要同步类型、DSH 路由及客户端调用。
 
 ## 6. 来源与许可证
 
@@ -296,7 +296,7 @@ MIT 来源保留版权与许可声明。Apache-2.0 来源按适用要求保留�
 
 ## 7. 凭据保护与使用风险
 
-插件的浏览器接口提供显示名称、账号标识、凭据有效期和积分等业务数据。登录 token 由 Host 侧读取和使用。账号显示名称优先采用昵称等显示字段，缺少名称时使用未命名占位。
+插件的浏览器接口提供显示名称、账号标识、凭据有效期和积分等业务数据。登录 token 由 DSH 端读取和使用。账号显示名称优先采用昵称等显示字段，缺少名称时使用未命名占位。
 
 凭据库及导出的账号文件包含敏感登录信息。保存和迁移时需要控制访问权限，文件权限及 Windows ACL 处理见 [WINDOWS.md](WINDOWS.md)。诊断脚本应对身份信息脱敏，并仅输出排查需要的凭据长度或格式。
 
@@ -389,7 +389,7 @@ DSH 插件管理器从包的 `locale/en.json` 定位语言资源目录，再读�
 
 2026-10-21 的消息位置对照中，已知提示放在 system 或 assistant 消息开头时返回 400；放在消息中间、user 开头及 tool 结果开头时返回 200。后续二分实验还定位过一段 221 字符的 system 文本。请求准备和重试规则随这些测量补充，详见 [渠道匹配研究](CHANNEL-FINGERPRINT-RESEARCH.md)。
 
-身份说明处理的历史测量使用 10818 字符提示，密集处理增加 7742 个 U+200B 字符，字节增量约 70.7%；定向处理增加约 28 个字符，字节增量约 0.26%。相关规则需同时满足幂等及对应测试。
+身份说明处理的历史测量使用 10818 字符提示，密集处理增加 7742 个 U+200B 字符，字节增量约 70.7%；定向处理增加约 28 个字符，字节增量约 0.26%。各规则再次执行后应保留原结果，并通过对应测试。
 
 2026-10-28 对密集处理算法的比较记录如下：
 

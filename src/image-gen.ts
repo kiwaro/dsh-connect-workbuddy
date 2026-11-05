@@ -75,7 +75,7 @@ export interface WorkBuddyMediaModel {
   readonly tags: readonly string[]
   /**
    * 模型级视频生成配置（上游 `models[].videoGeneration`），只对视频模型出现，
-   * 图像链路从不读它。透传它是因为**同一份目录**同时喂生图与生视频两条链路：
+   * 图像处理过程从不读它。原样传递它是因为**同一份目录**同时喂生图与生视频两条处理过程：
    * 视频工具要靠这里的 `minSeconds`/`maxSeconds` 在本地拦下越界时长，
    * 而不是发上去等一个「unsupported video duration」的 400。
    *
@@ -102,7 +102,7 @@ export interface WorkBuddyImageRequest {
   readonly n?: number
 }
 
-/** 上游成功响应的归一化结果。`url` 与 `b64` 至少有一个。 */
+/** 上游成功响应的格式转换结果。`url` 与 `b64` 至少有一个。 */
 export interface WorkBuddyImageOutcome {
   readonly url?: string
   readonly b64?: string
@@ -110,7 +110,7 @@ export interface WorkBuddyImageOutcome {
   readonly credit?: number
 }
 
-/** 生图链路的错误码。调用方据此决定是提示登录、提示换模型还是原样透传。 */
+/** 生图处理过程的错误码。调用方据此决定是提示登录、提示换模型还是原样转发。 */
 export type WorkBuddyImageErrorCode =
   | 'INVALID_ARGS'
   | 'NOT_LOGGED_IN'
@@ -122,7 +122,7 @@ export type WorkBuddyImageErrorCode =
   | 'EMPTY_RESULT'
   | 'COOLDOWN'
 
-/** 生图链路的错误。带一个稳定的 `code`，避免调用方去匹配文案。 */
+/** 生图处理过程的错误。带一个稳定的 `code`，避免调用方去匹配文案。 */
 export class WorkBuddyImageError extends Error {
   readonly code: WorkBuddyImageErrorCode
 
@@ -152,7 +152,7 @@ function asFiniteNumber(value: unknown): number | undefined {
 }
 
 /**
- * 把目录条目上的 `videoGeneration` 读成已知字段的配置对象（图像链路只是搬运，
+ * 把目录条目上的 `videoGeneration` 读成已知字段的配置对象（图像处理过程只是搬运，
  * 不解释它）。与 `video-gen.ts` 的 `readVideoGeneration` 必须同形——同一份上游
  * 数据，两个入口不能读出两个答案。缺字段即 undefined，不补默认值。
  */
@@ -331,7 +331,7 @@ export function imageMimeForPath(path: string): string | undefined {
 /**
  * 按魔数嗅探图片 MIME，照抄官方 CLI 的 `detectMimeTypeFromBase64`。
  *
- * 认不出来时兜底 `image/png`（CLI 也是这么兜的）：宁可让上游按 png 试一次，
+ * 无法识别格式时按 `image/png` 处理（CLI 也是这么兜的）：宁可让上游按 png 试一次，
  * 也不要因为一个我们没见过的头就拒掉用户给的图。
  */
 export function sniffImageMime(bytes: Uint8Array): string {

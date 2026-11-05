@@ -2,7 +2,7 @@
 
 原测量日期为2026-09-22，版本2.0.4，并在2.0.5复核。2026-10-01的3.3.0复核补充了DSML响应处理后的usage保留规则。测量使用国内版账号。
 
-## 1. 统计链路
+## 1. 统计处理过程
 
 WorkBuddy将缓存读取数放在 `prompt_tokens_details.cached_tokens`，也提供 `prompt_cache_hit_tokens`。所测pi-ai解析器按顺序读取这些字段，并计算未缓存输入：
 

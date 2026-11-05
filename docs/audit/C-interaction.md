@@ -1,13 +1,13 @@
 # 审计 C：活动记录 / 冲突提示 / 轮换上报（只读）
 
 > 审计员：`audit-interaction`（共享任务 board `task-3`）
-> 范围：`src/client/AccountPool.tsx`（日志 / 冲突提示 / 轮换上报）、`src/client/WorkBuddyCard.tsx` 池相关部分（`poolRotationLocked`、`poolBusy`、`siblingBusy`、`AccountPool` 调用点）、`src/client/locales.ts` 池文案。为判定行为是否与文案一致，只读延伸核查了 Host 侧 `src/index.ts`、`src/web-status.ts`、`src/auth.ts`、`src/account-pool.ts`、`src/account-pool-run.ts`、`src/client/account-selection.ts`。
+> 范围：`src/client/AccountPool.tsx`（日志 / 冲突提示 / 轮换上报）、`src/client/WorkBuddyCard.tsx` 池相关部分（`poolRotationLocked`、`poolBusy`、`siblingBusy`、`AccountPool` 调用点）、`src/client/locales.ts` 池文案。为判定行为是否与文案一致，只读延伸核查了 DSH 端 `src/index.ts`、`src/web-status.ts`、`src/auth.ts`、`src/account-pool.ts`、`src/account-pool-run.ts`、`src/client/account-selection.ts`。
 > **本报告未修改 `src/` 下任何文件**（唯一写入：本文件）。
 > 基线：`git HEAD = b209af2`（工作区含未提交改动）。sha256 前 12 位：
 > `AccountPool.tsx b5a8117521d1`、`WorkBuddyCard.tsx 755dcc61160d`、`locales.ts db8689927a3f`、`auth.ts 57ea87317f3c`、`index.ts 9f470926f0cb`、`web-status.ts 034c4a327dd0`、`account-pool.ts e61029559513`、`account-pool-run.ts ca93f2e2cfe3`、`status-paths.ts bfa7467eb433`、`account-selection.ts 825878bc073e`。
-> 上述 10 个文件在审计读数期间（文件 mtime 均 ≤ 05:51:36，本次读数 ≥ 05:58）未再变动，行号已对齐该基线；审计结束后复查哈希仍一致。
+> 上述 10 个文件在审计读数期间（文件 mtime 均 ≤ 05:51:36，本次读数 ≥ 05:58）未再变动，行号对应该版本；审计结束后复查哈希仍一致。
 >
-> 方法与限制：环境无 `react-dom`/jsdom，**不做真实渲染**。结论来自逐行静态精读 + 一处纯逻辑复现（`/tmp/audit-interaction-model.mjs`，只复现 `useCallback` 记忆化规则与 effect 的 ref 守卫，**已删除**）。凡涉及真实渲染像素、上游网络分叉时序的，标为「待验证」。
+> 方法与限制：环境无 `react-dom`/jsdom，**不做组件渲染**。结论来自逐行静态精读 + 一处纯逻辑复现（`/tmp/audit-interaction-model.mjs`，只复现 `useCallback` 记忆化规则与 effect 的 ref 检查，**已删除**）。凡涉及组件渲染像素、上游网络分叉时序的，标为「待验证」。
 > 计数：**确认缺陷 23 条（高 2 / 中 9 / 低 12）**，另 **待验证 3 条**。
 
 ---
@@ -28,7 +28,7 @@
 | 4 | `WorkBuddyCard.tsx:916` | `disabled={switchingAccount \| !canWrite \| poolRotationLocked}` —— 下拉的禁用只由这个 boolean 决定 |
 | 5 | `AccountPool.tsx:507` | `onUnlock: () => { editDraft(current => ({ ...current, rotateByCredits: false })) }` —— **只改草稿，不保存** |
 | 6 | `AccountPool.tsx:758-771` | 冲突提示的渲染条件是 `active.enabled && active.rotateByCredits` —— 点完这一条提示**立即消失** |
-| 7 | `index.ts:955-968` | Host 的 `applyRotation()` 读 `poolPreferencesOf(current(), region)`（**已保存配置**）决定是否 `setRotatedAccount(...)` |
+| 7 | `index.ts:955-968` | DSH 的 `applyRotation()` 读 `poolPreferencesOf(current(), region)`（**已保存配置**）决定是否 `setRotatedAccount(...)` |
 | 8 | `auth.ts:964-969` | `current()` **优先**返回 `rotatedAccountId` 命中的凭证 —— 只要 override 还在，计费就走它 |
 
 点击后的状态迁移（同一渲染周期内完成，无需保存）：
@@ -62,10 +62,10 @@ Lead 的 L-1 修复方向 1（`rotationLocked` 改读 `saved`）确实会让「�
 | # | 级别 | 结论 | 证据 |
 | --- | --- | --- | --- |
 | C1-1 | 中 | **批量失败只留「开始」，不留失败行**：`catch` 只 `setActionError`，不写日志；错误渲染在日志**之外**（`501-502`），日志读者只看到悬空的「开始签到 N 个账号」 | `AccountPool.tsx:329-334`（开始）← `374-377`（catch 只设 actionError） |
-| C1-2 | 低 | **签到成功后签到列最长 60 秒仍与日志矛盾**：`runAction` 成功路径不触发任何刷新/`onSaved`，而 Host 的 `checkedInToday` 由 60 秒轮询重算 | `AccountPool.tsx:323-381`（无刷新调用）；`WorkBuddyCard.tsx:1234-1243`（只传 `onSaved`，仅保存路径用）、`401-409`（60 秒轮询）；`index.ts:866-883` |
+| C1-2 | 低 | **签到成功后签到列最长 60 秒仍与日志矛盾**：`runAction` 成功路径不触发任何刷新/`onSaved`，而 DSH 的 `checkedInToday` 由 60 秒轮询重算 | `AccountPool.tsx:323-381`（无刷新调用）；`WorkBuddyCard.tsx:1234-1243`（只传 `onSaved`，仅保存路径用）、`401-409`（60 秒轮询）；`index.ts:866-883` |
 | C1-3 | 低 | **「清空」在批处理进行中不禁用**：清空后仍在途的 `runAction` 会继续 `appendLog`，新行随即出现，看起来「清空没生效」 | `AccountPool.tsx:787-791`（清空按钮无 disabled）vs `329-372`（批次内多次 appendLog） |
 | C1-4 | 低 | **日志 key 不稳定（但不会冲突）**：`key={`${entry.atMs}-${index}`}`，新增行插在头部使既有行 index 全部 +1 → 每次追加都重挂载整个列表（无动画/无状态保留的成本）。**同一渲染内 index 唯一，确认不会出现重复 key**；同一批次多行 `Date.now()` 常为同一毫秒，而显示精度只到秒（`formatClock`），故同批行的时刻不可区分 —— 但这是显示精度问题，不是 key 冲突 | `AccountPool.tsx:796-798`、`147-151` |
-| C1-5 | 低 | **Host 的权威模型字段被丢弃**：响应体类型声明了 `modelId?`（Host 在 `web-status.ts:826` 确实返回它），客户端从未读取；「开始测试 N 个账号 × 模型」用的是**上一次轮询**的 `pool.targetModelId`，可能在日志里报出不是本次实际被测的模型 | `AccountPool.tsx:332`（用 pool 值）、`341-344`（声明后未使用）；`web-status.ts:826` |
+| C1-5 | 低 | **DSH 的权威模型字段被丢弃**：响应体类型声明了 `modelId?`（Host 在 `web-status.ts:826` 确实返回它），客户端从未读取；「开始测试 N 个账号 × 模型」用的是**上一次轮询**的 `pool.targetModelId`，可能在日志里报出不是本次实际被测的模型 | `AccountPool.tsx:332`（用 pool 值）、`341-344`（声明后未使用）；`web-status.ts:826` |
 
 **已核对为「与实际响应形状一致」（无缺陷）**：
 
@@ -104,7 +104,7 @@ useEffect(() => {
 
 **已核对为非缺陷**：
 
-- effect 依赖 `[appendLog, pool, rotatedTo, t]` 中的 `pool` 每次轮询都是新对象，effect 体因此每轮都跑，但 `258` 的 ref 守卫使其不重复记录（模型步骤 2 已验证）。
+- effect 依赖 `[appendLog, pool, rotatedTo, t]` 中的 `pool` 每次轮询都是新对象，effect 体因此每轮都跑，但 `258` 的 ref 检查使其不重复记录（模型步骤 2 已验证）。
 - StrictMode 双调用不会重复记录（ref 在首次执行时已被赋值）。
 - `nameOf(from, pool)` 用**当前**池列表解析 `from` 名，是本模块能做到的最好选择；失败时退化为 id（`263`）。
 
@@ -119,7 +119,7 @@ useEffect(() => {
 | C3-3 | 高 | **rotation 的生效时机只有"测试"一条路，关闭池后 override 永不清理**：`applyRotation` 的两个调用点都在测试路径（`index.ts:913` 手动测试、`1224` 定时测试）；而池一旦禁用，手动测试路由直接 409（`web-status.ts:791-793`）、定时器也不再调度（`index.ts:1180-1183`，且 `duePoolRegions` 删除其时钟，`account-pool.ts:350-355`）→ `store.rotatedAccountId`（`auth.ts:687`，进程内字段）**在本次插件生命周期内保持不变**，`current()` 继续优先返回它（`auth.ts:964-969`）。这与两条界面承诺冲突：`poolEnabledHint`「关闭时插件行为与从前完全一致：跟随你选择的账号」（`locales.ts:141/316`）与 `applyRotation` 注释「Clearing on every non-rotating path」（`index.ts:944-953`）。**开启方向同样滞后**：保存开启后到真正开始轮换之间，要多等一个完整间隔（首次见到只是"上弦"，`account-pool.ts:333-339`、`352-355`；tick 周期 `284`，默认间隔 30 分钟 `AccountPool.tsx:204`），而界面上已有「自动轮换中」徽标（`400-402`）与已置灰的下拉（`916`） |
 | C3-4 | 中 | **锁定期间下拉显示的账号 ≠ 实际计费账号**：下拉的 value 取自 `accounts().selected`（`WorkBuddyCard.tsx:915`），而 `store.accounts()` 的 `selected` 只看**持久化的显式选择/默认选择**（`auth.ts:929-933`），**完全不看 `rotatedAccountId`**；`current()` 却优先返回轮换账号（`auth.ts:964-969`）。于是轮换生效时：下拉显示用户保存的 A（禁用），池表当前行高亮 B（`AccountPool.tsx:548` + `index.ts:891-897`）。`row.poolManualLockedHint`（`locales.ts:158/333`）声称置灰是为了"避免出现显示 A 却计费 B"——锁定态本身就处于该状态，置灰只是让用户无法纠正显示。`auth.ts:895-907` 的注释声称"两者绝不能不一致"，与其实现相矛盾 |
 
-**已核查为非缺陷（Lead 特别问到的 unmount 清理）**：`AccountPool.tsx:230-233` 的清理在卸载时上报 `false`，且在 `rotationLocked` 真值翻转时先 `false` 再新值，净结果正确；`onRotationChange={setPoolRotationLocked}`（`WorkBuddyCard.tsx:1242`）是稳定的 state setter，不会因父组件重渲染而抖动。**真正的卸载副作用不在锁上，而在日志上**（见 C2-1）。
+**已核查为非缺陷（Lead 特别问到的 unmount 清理）**：`AccountPool.tsx:230-233` 的清理在卸载时上报 `false`，且在 `rotationLocked` 实际值改变时先 `false` 再新值，净结果正确；`onRotationChange={setPoolRotationLocked}`（`WorkBuddyCard.tsx:1242`）是稳定的 state setter，不会因父组件重渲染而发生变化。**真正的卸载副作用不在锁上，而在日志上**（见 C2-1）。
 
 `onBusyChange`（`238-241`）同理正确；`siblingBusy`（`WorkBuddyCard.tsx:1239` / `AccountPool.tsx:737/743`）用真实的在途布尔量，不涉及草稿，无明显问题。
 
@@ -133,24 +133,24 @@ useEffect(() => {
 | --- | --- | --- | --- | --- |
 | C4-1 | 中 | `poolRotateHint`：「开启后下方的手动选择会被停用，**每次切换都会留下记录**」（`locales.ts:143/318`）；`poolLogEmpty`：「签到、测试与**账号切换**都会记录在这里」（`162/337`） | 日志的 `appendLog` 调用点只有 4 处：轮换上报（`262`）、批次开始/逐行/完成（`329`、`349-372`）。**手动下拉切换**（`WorkBuddyCard.tsx:438-453`）从不写日志；**解锁动作本身**（rotation on→off，`507`）也不写；轮换回退（C2-2）不写；两次轮询之间的多次切换只留最后一次 | 「说了但没做」×3 种情形 |
 | C4-2 | 中 | `poolTargetFree`「自动选中的免费模型：{model}」/`poolTargetPreferred`「你指定的模型：{model}」（`117-118/292-293`） | `targetLabel` 在 `AccountPool.tsx:385-389` 被算出后**从未使用**（全文件仅此一处出现）；这两个 key 在 `src/`、`tests/` 内无第二个引用位置。卡片只读取 `'none'` 分支（`496-499`），因此**从不说明目标模型从何而来**，而这正是 `targetModelSource` 存在的唯一理由（`status-paths.ts:558-563`） | 死代码 +「该说没说」 |
-| C4-3 | 中 | `poolNoCandidate`「账号池里目前没有可用的账号。」+ hint「每个账号要么被限流、要么积分耗尽、要么被上游拒绝」（`108-109/283-284`） | 触发条件是 `rotationLocked && usable.length === 0`，而 `usable` 是**整张账号表**（含未入池账号，`221`）；未入池行由 Host 从 `others` 生成，**永远不带 `excludedBy`**（`web-status.ts:578-586`、`604`）。于是只要本机存在任一**未入池**登录，`usable.length` 就 ≥1，这条警告**永不出现**——恰恰是"成员全被限流但还有别的本机账号"这一最需要解释的场景。反向（全部本机账号都已入池且全部被排除）才显示 | 该说没说；条件与文案语义不符（"池里的账号" vs 整表） |
+| C4-3 | 中 | `poolNoCandidate`「账号池里目前没有可用的账号。」+ hint「每个账号要么被限流、要么积分耗尽、要么被上游拒绝」（`108-109/283-284`） | 触发条件是 `rotationLocked && usable.length === 0`，而 `usable` 是**整张账号表**（含未入池账号，`221`）；未入池行由 Host 从 `others` 生成，**永远不带 `excludedBy`**（`web-status.ts:578-586`、`604`）。于是只要本机存在任一**未入池**登录，`usable.length` 就 ≥1，这条警告**永不出现**——恰恰是"成员全被限流但还有别的本机账号"这一最需要解释的场景。反向（全部本机账号都已入池且全部被排除）才显示 | 该说没说；条件与文案处理规则不符（"池里的账号" vs 整表） |
 | C4-4 | 低 | `poolCheckinUnknown`：显示 `—`，`title` 用 `row.poolNeverTested`「尚未测试」（`129/304`、`598`） | 三态实现本身正确（`undefined`→未知、`true`→已签到、`false`→未签到，`593-603`，与 `status-paths.ts:546-553`"ABSENT 表示未读取"的契约一致），但未知态的 tooltip 说的是**测试**而不是**签到未读取** | 文案张冠李戴（「说了个别的」） |
 | C4-5 | 低 | `poolSummary`「本区域 {count} 个账号 · 目标模型 {model}」，`model` 回退到 `poolTargetAuto`「自动」（`107/282`、`395-398`） | 当 `targetModelSource === 'none'`（无免费模型）时，`targetModelId` 缺失 → 头部显示「目标模型 **自动**」，同一屏下方却显示「本区域暂时没有倍率为 0 的免费模型」 | 同屏自相矛盾（"自动"≠"没有"） |
-| C4-6 | 低 | `poolNoneSelectedHint`「请在上方勾选至少一个账号并保存。在此之前两个按钮都不可用 —— 空池没有可执行的对象」（`179/354`） | 按钮禁用读**草稿**成员数（`413`、`419-422`），批处理读**已保存**成员数（`328`；Host 侧 `index.ts:1034`）。于是：①已保存 3 个成员、草稿里全不勾（未保存）→ 按钮禁用，禁用条件为"草稿为空"；②草稿里新勾一个未保存 → 按钮**可用**，而文案例说"保存前都不可用" | 禁用理由与实际判定源不符（两方向都错） |
+| C4-6 | 低 | `poolNoneSelectedHint`「请在上方勾选至少一个账号并保存。在此之前两个按钮都不可用 —— 空池没有可执行的对象」（`179/354`） | 按钮禁用读**草稿**成员数（`413`、`419-422`），批处理读**已保存**成员数（`328`；DSH 端 `index.ts:1034`）。于是：①已保存 3 个成员、草稿里全不勾（未保存）→ 按钮禁用，禁用条件为"草稿为空"；②草稿里新勾一个未保存 → 按钮**可用**，而文案例说"保存前都不可用" | 禁用理由与实际判定源不符（两方向都错） |
 | C4-7 | 低 | `poolIntervalHint`「仅在账号池启用时运行」（`145/320`） | Host 还要求**区域开关**也开：`enabledOf: region => poolPref.enabled && regionEnabled(...)`（`index.ts:1180-1183`） | 「做了但没说」（卡片他处有区域关闭提示 `WorkBuddyCard.tsx:866-868`，故只算低） |
 | C4-8 | 低 | `poolNoCandidateHint` 只列"限流 / 积分耗尽 / 被上游拒绝"（`109/284`） | 排除原因有第四种 `unusable`（`AccountPool.tsx:167-175`、`account-pool.ts:103`） | 「做了但没说」 |
 | C4-9 | 低 | `poolRotateHint` / `poolManualLockedHint` 描述排序为「可用性 → 积分 → 可用时间」（`143/318`、`158/333`） | 实际排序是 可用性 → 积分 → 最近过期 → **token 过期** → id（`account-pool.ts:194-215`，`pickAccount` `236-238`） | 「做了但没说」（token 过期这一并列键） |
 | C4-10 | 低 | `poolManualLockedHint`「上面的下拉已置灰，避免出现显示 A 却计费 B」（`158/333`） | 该保护在两种情形下失效：①点「关闭自动轮换」后提示消失、下拉解禁而轮换仍在（C3-1）；②锁定态本身下拉就显示 A 而计费 B（C3-4） | 声明与实际不符 |
 | C4-11 | 低 | `poolBusyHint`「正在逐个账号执行…」（`115/290`） | 与 Host 顺序执行 + 400ms 间隔一致（`account-pool-run.ts:81`、`100-104`、`159-163`） | ✅ 一致 |
 | C4-12 | 低 | `poolTargetHint`「挑一个倍率为 0 的免费模型，多个候选取上下文窗口最大的」「手动指定优先于自动」（`148/323`） | `pickFreeModel`：`creditMultiplier !== 0` 跳过、取 `contextWindow` 最大（`account-pool.ts:265-274`）；`resolveTargetModel`：preferred 直接返回（`379-388`，注释明确"即使收费也返回"） | ✅ 一致（唯一未说的是"手动可指定收费模型，测试会花积分"，但选项标签已带倍率 `AccountPool.tsx:722-727`） |
-| C4-13 | 低 | `poolMembersHint`「只有勾选的账号才会被签到、测试和轮换」（`174/349`） | Host 的成员解析只取已保存勾选（`index.ts:1033-1040`、`1043-1049`），未勾选行不参与 | ✅ 一致 |
-| C4-14 | 低 | `poolSettingsHint`「测试结果与轮换记录由插件自动写入，不受这个保存按钮影响」（`139/314`） | 探针结果由 Host 写入、不进 settings 草稿（`account-selection.ts:332-334`），保存不会回滚测量值 | ✅ 一致（但"轮换记录"指运行时事实；真正的问题在文案"每次切换都会留下记录"，见 C4-1） |
+| C4-13 | 低 | `poolMembersHint`「只有勾选的账号才会被签到、测试和轮换」（`174/349`） | DSH 的成员解析只取已保存勾选（`index.ts:1033-1040`、`1043-1049`），未勾选行不参与 | ✅ 一致 |
+| C4-14 | 低 | `poolSettingsHint`「测试结果与轮换记录由插件自动写入，不受这个保存按钮影响」（`139/314`） | 测试结果由 Host 写入、不进 settings 草稿（`account-selection.ts:332-334`），保存不会回滚测量值 | ✅ 一致（但"轮换记录"指运行时事实；真正的问题在文案"每次切换都会留下记录"，见 C4-1） |
 
 ---
 
 ## 待验证（未确认，不下结论）
 
-1. **`from` 为空串时的实际渲染**（C2-4）：逻辑缺口确认（`??` 不拦 `''`），但 DSH locale `ctx.locale.bind()` 对空参数是渲染成空还是保留 `{from}` 字面量，未能在本机确认（DSH checkout 路径不可读）。需要一次真实渲染或对 locale 服务的单测。
+1. **`from` 为空串时的实际渲染**（C2-4）：逻辑缺口确认（`??` 不拦 `''`），但 DSH locale `ctx.locale.bind()` 对空参数是渲染成空还是保留 `{from}` 字面量，未能在本机确认（DSH checkout 路径不可读）。需要一次组件渲染或对 locale 服务的单测。
 2. **`body.modelId` 与 `pool.targetModelId` 在实际使用中是否会分叉**（C1-5）：分叉需要"轮询与批次之间目录/偏好发生变化"（例如用户刚刷新目录、或保存后 `onSaved` 的重读尚未实现）。静态可确认的是权威字段被丢弃，分叉频率未验证。
 3. **手动选择在锁定窗口内写入后，卡片的渲染结果**（C3-4 的渲染面）：`writeAccountSlot` 成功后下拉 value 来自 `accounts().selected`，而 `current()` 会被 override 覆盖——代码上可推出"下拉显示 A、池表高亮 B"，但真实浏览器下的重渲染时序（`refreshUsage` 完成与 60 秒轮询交错）未实测。Lead 的 L-2 也把同一点列为待验证。
 
@@ -166,11 +166,11 @@ useEffect(() => {
 
 - **A**：按 `useCallback` 的记忆化规则复现 `editDraft`（`AccountPool.tsx:268-271`）的 `saved` 捕获，逐次渲染推进状态。输出（关键行）：
   `after check B (unsaved): active ["A","B"] / saved ["A"]` → `saved state now: ["A","B"]` → `after checking C: active ["A","C"] / saved ["A","B"]` → `=> saving here drops B: true`。
-- **B**：复现轮换日志 effect（`255-266`）的 ref 守卫，覆盖首挂载 / 轮询 / 回退 / 同账号再轮换 / 卸载重挂 / 跨 tab 六种序列，输出与 C2-1~C2-3 三条结论一一对应。
+- **B**：复现轮换日志 effect（`255-266`）的 ref 检查，覆盖首挂载 / 轮询 / 回退 / 同账号再轮换 / 卸载重挂 / 跨 tab 六种序列，输出与 C2-1~C2-3 三条结论一一对应。
 
 ### 对 Lead L-3 的补充（触发条件比"另一个标签页"更常见）
 
-Lead 的 L-3 把触发条件描述为"另一个浏览器标签页保存了勾选 / Host 侧変化"，并注明"不是每次都会触发"。**实测（模型 A）表明本池自己的保存路径就能稳定触发，且它就在主流程上**：
+Lead 的 L-3 把触发条件描述为"另一个浏览器标签页保存了勾选 / DSH 端変化"，并注明"不是每次都会触发"。**实测（模型 A）表明本池自己的保存路径就能稳定触发，且它就在主流程上**：
 
 1. 已保存成员 `[A]`，勾选 B → 保存。`save()` 内先 `discard()`（清 draft 与 draftRegion，`289`）再 `onSaved()` 触发重读（`294`；`WorkBuddyCard.tsx:1241`）。
 2. `discard()` 导致的这次重渲染里 `draftRegion` 由 `cn` 变回 `undefined` → **依赖数组变化 → `editDraft` 重建，捕获此刻仍是旧值的 `saved`（`[A]`）**。

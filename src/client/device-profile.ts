@@ -1,15 +1,15 @@
 /**
  * 设备头设置在浏览器侧的读写（「虚拟值 / 真实值」+ 每账号覆盖参数）。
  *
- * 这一层只做三件事：把 Host 的文档取回来、把改动写回去、以及给弹窗的
+ * 这一层只做三件事：把 DSH 的文档取回来、把改动写回去、以及给弹窗的
  * 「一键随机」造一个形状正确的 id。**它不做任何本地持久化**——设置的真源在
- * Host 的 `$DSH_HOME/.workbuddy-device-profiles.json`，浏览器内存里存一份副本
+ * DSH 的 `$DSH_HOME/.workbuddy-device-profiles.json`，浏览器内存里存一份副本
  * 只为了让弹窗有内容可编辑。
  *
  * @module dsh-connect-workbuddy/client/device-profile
  */
 
-/** 设备头档位。「真实值」目前只是占位（P3），不改变出站字节。 */
+/** 设备头档位。「真实值」目前只是占位（P3），不改变发出的请求字节。 */
 export type WorkBuddyDeviceMode = 'virtual' | 'real'
 
 /** 一个账号的覆盖值；空字段表示"这一项仍然派生"。 */
@@ -58,7 +58,7 @@ export const EMPTY_DEVICE_SETTINGS: WorkBuddyDeviceSettings = {
   sdkFallbackToVirtual: true,
 }
 
-/** 与 Host 侧同一条规则：36 个小写十六进制字符。 */
+/** 与 DSH 端同一条规则：36 个小写十六进制字符。 */
 const DEVICE_ID_PATTERN = /^[0-9a-f]{36}$/u
 
 /** Whether `value` is a well-formed device id (as the Host will accept it). */
@@ -83,7 +83,7 @@ export function randomDeviceId(): string {
  * coercion is how the two answers start disagreeing.
  *
  * 派生值逐条校验形状：它是画在输入框正下方的 36 位串，混进一个 undefined 会
- * 直接渲染成 "undefined"，比不显示更糟。Host 与本页面同源，这里不做安全意义上的
+ * 直接渲染成 "undefined"，比不显示更糟。DSH 与本页面同源，这里不做安全意义上的
  * 校验，只是不让半截数据变成可见的胡说。
  */
 function normalizeSettings(body: Partial<WorkBuddyDeviceSettings>): WorkBuddyDeviceSettings {
@@ -106,7 +106,7 @@ function normalizeSettings(body: Partial<WorkBuddyDeviceSettings>): WorkBuddyDev
     accounts,
     ...body.derived === undefined ? {} : { derived },
     sdkDir: typeof body.sdkDir === 'string' ? body.sdkDir : '',
-    // 缺字段 = 回退开：与 Host 的默认值一致，也与「这个 Host 还不认识这一项」一致。
+    // 缺字段 = 回退开：与 DSH 的默认值一致，也与「这个 Host 还不认识这一项」一致。
     sdkFallbackToVirtual: body.sdkFallbackToVirtual !== false,
     // 老 Host 没有这一项时不带：界面据此**不禁用**任何东西，而不是替用户决定。
     ...realTier === undefined ? {} : { realTier },

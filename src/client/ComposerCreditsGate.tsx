@@ -4,7 +4,7 @@
  * per-region `showCreditsInMainUi` switch.
  *
  * 参考：dingminhua/dsh-connect-trae（MIT，Copyright (c) 2026 LaoDing）
- *   — 该项目的 `client/ComposerPointsGate.tsx`：从 `modelSelection` 投影读
+ *   — 该项目的 `client/ComposerPointsGate.tsx`：从 `modelSelection` 提供的模型选择状态读
  *     「本会话当前用哪个 provider」来决定要不要渲染，以及 `next` 优先于
  *     `lastUsed` 的判定。这是本项目从侧边栏迁到输入框的核心机制。
  *

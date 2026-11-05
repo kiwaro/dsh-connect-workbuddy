@@ -21,7 +21,7 @@
 
 ## 3. DSML 解析器移植
 
-`src/dsml-recovery.ts` 将 Mayer 的 `src/codebuddy_proxy/dsml_parser.py` 移植为 TypeScript。移植内容包括标签状态机、忽略区域判断、缺少包裹标签的处理、参数递归解析和流式缓冲。
+`src/dsml-recovery.ts` 将 Mayer 的 `src/codebuddy_proxy/dsml_parser.py` 移植为 TypeScript。移植内容包括标签状态变化规则、忽略区域判断、缺少包裹标签的处理、参数递归解析和流式缓冲。
 
 项目在该实现上增加请求工具名校验，并依据本次请求声明的工具决定是否进行恢复。其他调整涉及参考实现中的重复函数定义及流式输出与解析结构的一致性。具体差异保存在源文件头部，保留 MIT 版权和许可声明。
 

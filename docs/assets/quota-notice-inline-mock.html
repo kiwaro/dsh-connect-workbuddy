@@ -29,7 +29,7 @@
   .turnErrorMessage{color:var(--label-secondary)}
   .turnErrorCode{color:var(--label-tertiary);font-family:var(--mono);font-size:11px}
 
-  /* ---- 本插件现在真实渲染的样式（与 src/client/styles.ts 一致） ---- */
+  /* ---- 本插件现在组件渲染的样式（与 src/client/styles.ts 一致） ---- */
   .dsm-workbuddy-quota-notice{display:inline}
   .dsm-workbuddy-quota-notice-body{color:var(--dsw-alias-label-tertiary,var(--label-tertiary));font-size:12px}
 
@@ -67,7 +67,7 @@
     <span class="dsm-workbuddy-quota-notice" role="status"><span class="dsm-workbuddy-quota-notice-head">当前请求的额度已用尽</span><span class="dsm-workbuddy-quota-notice-body">（模型每日额度与账号积分分别计算）</span></span>
     <span class="seatLabel">shell.overlay（absolute, inset:0）</span>
   </div>
-  <p class="sub" style="margin:10px 0 0">旧方案占用了 DSH 的 overlay 槽位。提示元素随容器定位在左上角，并持续显示；该区域同时影响了 DSH 的 Toast。</p>
+  <p class="sub" style="margin:10px 0 0">旧方案占用了 DSH 的 overlay 界面扩展位置。提示元素随容器定位在左上角，并持续显示；该区域同时影响了 DSH 的 Toast。</p>
 </div>
 
 <div class="block">

@@ -939,7 +939,7 @@ export const WORKBUDDY_CARD_CSS = `
 /* ---- 设备头档位与逐账号参数弹窗 ------------------------------------------
    档位那一行贴着账号表：它同时决定"这台机器对外声称自己是谁"和"每行的齿轮能
    不能用"，埋进「更多设置」会让齿轮看起来时好时坏。
-   弹窗用 fixed 遮罩而不是行内展开：每行已经有两个按钮和一段探针文本，再展开
+   弹窗用 fixed 遮罩而不是行内展开：每行已经有两个按钮和一段测试结果说明，再展开
    两块输入框会把表格挤成表单；而且这些值必须显式确认，误点不该直接生效。 */
 .dsm-workbuddy-device-mode{
   display:flex;flex-wrap:wrap;align-items:center;gap:8px;
@@ -971,7 +971,7 @@ export const WORKBUDDY_CARD_CSS = `
   color:var(--dsw-alias-bg-base,#181818);
   font-weight:600;
 }
-/* 兜底：万一 DSH 没注入 bg-base，回落值也得跟着主题走，否则亮色主题下会变成
+/* 缺少主题值时的处理：如果 DSH 没有提供 bg-base，回落值也得跟着主题走，否则亮色主题下会变成
    "深底 + 深字"。变量在的时候这一段不生效。 */
 @media (prefers-color-scheme: light){
   .dsm-workbuddy-device-seg-on{background:var(--dsw-alias-label-primary,#202020);color:var(--dsw-alias-bg-base,#fff)}
@@ -1029,10 +1029,10 @@ export const WORKBUDDY_CARD_CSS = `
 .dsm-workbuddy-device-input-bad{border-color:var(--dsw-alias-label-error,#e5534b)}
 .dsm-workbuddy-device-error{color:var(--dsw-alias-label-error,#e5534b);font-size:12px;margin:4px 0 0}
 .dsm-workbuddy-device-random-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:6px 0 12px}
-/* P3 的占位行：虚线边框 + 降低对比度，读起来是"位置已经留好，还没接线"。
+/* P3 的占位行：虚线边框 + 降低对比度，读起来是"位置已经留好，还没调用关系"。
    标题用 label-primary 而不是 label-dimmed：它是这一段的主语（"真实设备
    Token"），dimmed 在亮色主题下几乎和背景同色，在暗色主题下又只剩一层灰雾。
-   虚线边框已经表达了"占位"，不需要再靠文字颜色降级。 */
+   虚线边框已经表达了"占位"，不需要再靠降低文字亮度。 */
 .dsm-workbuddy-device-p3{
   display:flex;flex-direction:column;gap:2px;margin:0 0 12px;padding:8px 10px;
   border:1px dashed var(--dsw-alias-border-l2,#3a3d45);border-radius:8px;

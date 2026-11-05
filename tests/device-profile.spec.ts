@@ -199,7 +199,7 @@ describe('describeDerivedDevices', () => {
     expect(first?.machineId).toMatch(/^[0-9a-f]{36}$/u)
     expect(first?.sessionId).toMatch(/^[0-9a-f]{36}$/u)
     expect(first?.machineId).not.toBe(first?.sessionId)
-    // 这一条就是"每个账号的值要不同"的守卫：只要派生退回 sha256(purpose) 或
+    // 这一条就是"每个账号的值要不同"的检查：只要派生退回 sha256(purpose) 或
     // 用错了输入（比如拿 accountId 之外的常量），这里立刻变红。
     expect(second?.machineId).not.toBe(first?.machineId)
     expect(second?.sessionId).not.toBe(first?.sessionId)

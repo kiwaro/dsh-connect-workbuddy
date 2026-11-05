@@ -4,9 +4,9 @@
  *
  * 为什么手写 ToolDefinition 而不 import `@deepseek-ai/dsh-tools` 的 `defineTool`：
  * DSH `Tools.register` 只校验两件事——`output.render` 是函数、`output.schema` 是
- * 受支持的 JSON Schema；`schemaOf()` 把 `parameters` **原样**投影给模型。也就是说
+ * 受支持的 JSON Schema；`schemaOf()` 把 `parameters` **原样**传给给模型。也就是说
  * raw JSON Schema 完全够用，而 `defineTool` 额外提供的只有「按 spec 编译 schema +
- * 代校验参数」这一层包装。手写换来的是：零新 peer 依赖、不需要动态 import 兜底、
+ * 代校验参数」这一层包装。手写换来的是：零新 peer 依赖、无需处理动态 import 失败后的兼容分支、
  * 不会碰到 tests/host-peers.spec.ts 对 `lib/bin.js` 可达图的断言（那里禁止除
  * `node:` 外的任何裸说明符）。
  *
@@ -78,7 +78,7 @@ export interface ImageToolExec {
   readonly signal?: AbortSignal
 }
 
-/** 工具运行所需的外部能力，全部由 `src/index.ts` 注入，便于单测替换。 */
+/** 工具运行所需的外部能力，全部由 `src/index.ts` 添加，便于单测替换。 */
 export interface ImageToolDeps {
   /** 解析生图所用区的凭据；该区未登录/未授权则返回 undefined（不要抛异常）。 */
   readonly resolveCredential: () => Promise<WorkBuddyCredential | undefined>
@@ -233,7 +233,7 @@ const INLINE_BASE64_LABEL = '（内联 base64）'
 const INLINE_DATA_URL_LABEL = '（内联 data URL）'
 
 /**
- * 体积与空文件闸门——四种输入形态都从这里过，所以「空文件」和「超过 8 MB」的
+ * 文件大小与空文件检查——四种输入形态都从这里过，所以「空文件」和「超过 8 MB」的
  * 文案只有一份。
  *
  * `byteLength` 必须是**解码后**的字节数：base64 比原始字节长约 4/3，拿字符串长度
@@ -264,7 +264,7 @@ async function resolveImageInput(value: string, signal?: AbortSignal): Promise<s
         'workbuddy image: image 格式无效，请使用 data:image/*;base64,...。',
       )
     }
-    // 这一支以前直接 return，于是绕过了 encodeInputImage 里的空文件与 8 MB 闸门：
+    // 这一支以前直接 return，于是绕过了 encodeInputImage 里的空文件与 8 MB 大小检查：
     // 一个超限的 data URL 会原样发给上游，失败后还会按「请求已发出」进 30 秒冷却
     // ——正是「输入图的毛病都该在请求发出前报 INVALID_ARGS」要避免的那种情形。
     // 体积要按**解码后**的字节数算（base64 比原始字节长约 4/3），不能拿字符串长度比。

@@ -8,8 +8,8 @@
 
 | # | 缺口 | 上游来源 | 本项目证据 | 影响 |
 |---|------|---------|-----------|------|
-| 1 | 未接 `resolveImageAccess` | `a3fb1ba`（issue #52） | `src/adapter.ts:105` 只有 `resolveAttachments`；`src/index.ts:1397` 只传它；全仓 `resolveImageAccess` 零命中 | 图片句柄文本不含本地归一化路径，模型 `read_image` 只能瞎猜 sha256 路径 |
-| 2 | web 状态路由缺 Host 头回环校验 | `bd6a77d`（PR #11 review） | `src/web-status.ts:279` `loopbackOrigin()` 只查 Origin，且 `origin === undefined` 时返回 `true`；Host 校验只存在于 `src/shim.ts:190`（已于 5.8.5 修复：`src/loopback.ts` 的 `requireLoopback` 对 13 条路由同时校验 Host 与 Origin） | 状态文档（昵称、剩余积分、模型费率）可被 DNS-rebinding 页面读取 |
+| 1 | 未接 `resolveImageAccess` | `a3fb1ba`（issue #52） | `src/adapter.ts:105` 只有 `resolveAttachments`；`src/index.ts:1397` 只传它；全仓 `resolveImageAccess` 零命中 | 图片句柄文本不含本地格式转换路径，模型 `read_image` 只能瞎猜 sha256 路径 |
+| 2 | web 状态路由缺 Host 头回环校验 | `bd6a77d`（PR #11 review） | `src/web-status.ts:279` `loopbackOrigin()` 只查 Origin，且 `origin === undefined` 时返回 `true`；Host 校验只存在于 `src/shim.ts:190`（已于 5.8.5 修复：`src/loopback.ts` 的 `requireLoopback` 对 13 条路由同时校验 DSH 与 Origin） | 状态文档（昵称、剩余积分、模型费率）可被 DNS-rebinding 页面读取 |
 | 3 | Linux 桌面凭据只探 XDG config home | `38c1e5a`（issue #43） | `src/auth.ts:273` Linux 分支只有 `XDG_CONFIG_HOME ?? ~/.config`，无 `~/.local/share` | UOS/deepin 版把登录写成「未登录」 |
 
 平台程序发现还存在以下差异：
@@ -40,6 +40,6 @@
 
 原建议先核对 `resolveImageAccess`，随后统一Host回环校验，再补Linux和WSL候选，最后检查macOS及Windows自定义安装位置。
 
-图片访问需要按请求取得 DSH 文件路径映射。Windows候选要考虑Electron将 `app.asar` 报告为目录的行为。路径变更需在对应系统和注入平台测试中分别核对。
+图片访问需要按请求取得 DSH 文件路径对应关系。Windows候选要考虑Electron将 `app.asar` 报告为目录的行为。路径变更需在对应系统和传入平台测试中分别核对。
 
 调查材料包括两项目的源码、DSH0.2.0-rc.1、已安装的0.1.7-rc.1依赖及pi-ai构建文件。表中的源码位置属于当时版本，可通过提交记录定位。

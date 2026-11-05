@@ -17,7 +17,7 @@
  *
  * ## 「真实值（P3）」在这里只是被记住
  *
- * `mode` 会落盘、会被读出来、会决定界面上齿轮是否可用，但**不改变任何出站字节**：
+ * `mode` 会写入文件、会被读出来、会决定界面上齿轮是否可用，但**不改变任何发出的请求字节**：
  * 真 token 的取法与档位互斥规则都在 P3。写在这里而不是留一个前端 state，是因为
  * 一个只在浏览器内存里的切档，刷新一次就回到默认值——那不叫预留入口，那叫没做。
  *
@@ -30,7 +30,7 @@ import { deriveDeviceId, isDeviceId } from './device-id.ts'
 import { readDeviceSalt } from './device-salt.ts'
 import { resolveDshHome, withFileLock, writeFileAtomic } from './host-peers.ts'
 
-/** 设备头档位。「真实值」目前只是占位，不改变出站字节（P3）。 */
+/** 设备头档位。「真实值」目前只是占位，不改变发出的请求字节（P3）。 */
 export type WorkBuddyDeviceMode = 'virtual' | 'real'
 
 /** 本 build 能读的文件版本；读到别的版本按"没有设置"处理。 */
@@ -75,8 +75,8 @@ export interface WorkBuddyDeviceSettings {
    * 「真实值」档在这台机器上到底能不能用（由 Host 判定，界面不猜平台）。
    *
    * 见 `index.ts` 的 `REAL_TIER_AVAILABILITY`：macOS 上 SDK 能被发现、`probe` 也答
-   * `ready`，但取 token 那一环会 `dispatch_sync` 死锁，所以那一档永远只能降级。
-   * 界面据此禁用档位按钮并说明原因——一个"能点、点了没用、只能靠降级兜底"的选项
+   * `ready`，但取 token 那一环会 `dispatch_sync` 死锁，所以该档位始终无法取得设备凭据。
+   * 界面据此禁用档位按钮并说明原因——一个"能点、点了没用、取值失败后只能使用预设设备参数"的选项
    * 比不提供更差。
    */
   realTier?: {
@@ -87,7 +87,7 @@ export interface WorkBuddyDeviceSettings {
    * 用户在「SDK」分区手填的 SDK 目录；空串 = 走自动发现链。
    *
    * 优先级：`WORKBUDDY_TURING_SDK_DIR` > 这一项 > 自动发现。环境变量压过它，因为
-   * 那个变量是「配置项够不着的场景」的旁路（`doctor` 与插件读同一个值），反过来
+   * 那个变量是「配置项够不着的场景」的补充设置方法（`doctor` 与插件读同一个值），反过来
    * 会让一个排障时设的变量在下一次点「保存」后静默失效，而那正是排障的人最不希望
    * 发生的事。
    */
@@ -119,7 +119,7 @@ function emptyDocument(): StoredDocument {
   }
 }
 
-/** 落盘形状。`uid` 只在磁盘上存在，用于把浏览器发来的 accountId 映射回请求。 */
+/** 写入文件形状。`uid` 只在磁盘上存在，用于把浏览器发来的 accountId 关联回请求。 */
 interface StoredAccount {
   uid?: string
   machineId?: string
@@ -254,7 +254,7 @@ export async function readDeviceSettings(options: { dir?: string } = {}): Promis
  * 结果，也无法判断两个账号是否被算成了同一台设备。把派生值摆出来，"留空"就从
  * 一句承诺变成了一个可核对的事实。
  *
- * `uid` 由调用方（Host 的凭据库）提供——浏览器只知道 accountId，而**派生必须
+ * `uid` 由调用方（DSH 的凭据库）提供——浏览器只知道 accountId，而**派生必须
  * 用 uid**，因为构头时 `deviceHeaders()` 手上只有 credential.uid。两边用同一种
  * 输入，界面显示的值才等于真正发出去的值。
  *
@@ -303,7 +303,7 @@ async function writeStored(document: StoredDocument, dir?: string): Promise<void
 /**
  * Switch the device-head tier.
  *
- * 「真实值」目前只被记住，不改任何出站字节——P3 才接真 token 与互斥规则。
+ * 「真实值」目前只被记住，不改任何发出的请求字节——P3 才接真 token 与互斥规则。
  * 界面上必须把这件事说清楚（`row.deviceModeRealNote`），否则用户会以为切过去
  * 就换成了真实设备。
  */
@@ -392,7 +392,7 @@ export async function saveDeviceProfile(
 }
 
 /**
- * Host 侧给卡片路由用的接口。
+ * DSH 端给卡片路由用的接口。
  *
  * `saveAccount` 只要 accountId：uid 由 Host 自己从凭据库解出来——**浏览器端永远
  * 不该把 uid 传上来**，那是账号在网关侧的身份，不是它需要知道的东西。

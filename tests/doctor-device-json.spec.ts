@@ -3,7 +3,7 @@
  *
  * `effd45c` 承诺 `deviceIdentity.tierSent` / `deviceIdentity.fallbackToVirtual`
  * 「只在分岔时出现」，但首版只把它们接进了人类可读行——`--json` 的组装处漏了
- * 这两个字段的展开，消费者永远读不到。本文件就是在那条承诺上钉的钉子：跑真实的
+ * 这两个字段的展开，读取者永远读不到。本文件就是在那条承诺上钉的钉子：跑真实的
  * `run(['doctor','--json'])`，解析 stdout，两种设置各验一次。
  *
  * 环境由 vitest 的 isolated env 保证：`DSH_HOME` 指向临时目录（设置文件写在那里）、
@@ -67,7 +67,7 @@ describe('doctor --json 的档位分岔（schemaVersion 10 的承诺）', () => 
     const report = await doctorJson()
     const device = report['deviceIdentity'] as Record<string, unknown>
     expect(device['tier']).toBe('real')
-    // 这三条就是"报告与出站字节一致"的形状：请求的是 real、线上发的是 virtual、
+    // 这三条就是"报告与发出的请求字节一致"的形状：请求的是 real、线上发的是 virtual、
     // 且报告明说这是退回而不是用户的选择。
     expect(device['tierSent']).toBe('virtual')
     expect(device['fallbackToVirtual']).toBe(true)
@@ -80,7 +80,7 @@ describe('doctor --json 的档位分岔（schemaVersion 10 的承诺）', () => 
     expect(device['tier']).toBe('real')
     expect(device['tierSent']).toBeUndefined()
     expect(device['fallbackToVirtual']).toBeUndefined()
-    // 关掉退回的真实值档取不到 token：一个设备头都不发（P3 原始语义）。
+    // 关掉退回的真实值档取不到 token：一个设备头都不发（P3 原始处理规则）。
     expect(device['onWire']).toEqual([])
   })
 

@@ -2,7 +2,7 @@
  * Plugin-card copy registered under the settings.workbuddy locale namespace.
  *
  * 参考：dingminhua/dsh-connect-trae（MIT，Copyright (c) 2026 LaoDing）
- *   — `row.*` 的文案键约定与中英 1:1 键对齐（`zh: Record<Key, string>`
+ *   — `row.*` 的文案键约定与中英 1:1 键一一对应（`zh: Record<Key, string>`
  *     强制双语同步）来自该项目，其又继承自
  *     dingminhua/dsh-subagent-default-model（MIT）。
  * 改动：文案按 WorkBuddy 的实际情况改写（积分套餐、模型倍率、多账号）。
@@ -902,7 +902,7 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   'row.oauthStart': '扫码登录',
   'row.oauthStarting': '正在打开…',
   // 弹窗内点击后自动在浏览器打开授权页（手势内占位窗口导航）；复制/重开按钮是
-  // 打开被拦时的兜底。
+  // 浏览器阻止自动打开时，显示手动打开链接。
   'row.oauthOpenHint': "请打开登录页并完成授权，账号随后会自动加入列表。",
   'row.oauthOpened': "登录页已打开，等待授权…",
   'row.oauthWaiting': '正在等待登录完成…（{seconds} 秒）',

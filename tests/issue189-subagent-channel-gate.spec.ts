@@ -13,7 +13,7 @@
  * "为什么 5.12.1 不行"变成可执行的断言。如果哪天这些断言变红，说明救援阶梯
  * 回退了。
  *
- * 子智能体的套话长这样（DSH 框架注入，不是插件产生的）：
+ * 子智能体的套话长这样（DSH 框架添加，不是插件产生的）：
  *
  *   You are an AI agent powered by DeepSeek Harness.
  *   This is a message from a subagent…
@@ -54,7 +54,7 @@ function contentOf(json: string): string {
 
 describe('issue #189: subagent assistant messages and the channel gate', () => {
   it('forceNeutralHead moves a subagent assistant opening off offset 0', () => {
-    // 这是"不知道指纹是什么"时的通用兜底：把整段挪到中性头之后，前缀匹配失效。
+    // 这是"不知道指纹是什么"时的最后一次恢复尝试：把整段挪到中性头之后，前缀匹配失效。
     const forced = forceNeutralHead(body('assistant', SUBAGENT_ASSISTANT_TEXT))
     expect(forced).toBeDefined()
     const content = contentOf(forced!)
@@ -76,7 +76,7 @@ describe('issue #189: subagent assistant messages and the channel gate', () => {
    * **子句本身不再连续存在**。下面用 `powered by` 这个必现片段来钉：
    * 子句完好时它在；被子句中断后，那里会插进不可见字符。
    *
-   * 变异验证：把 `breakIdentityClauses` 从 `neutralizeScannedText` 里拿掉
+   * 恢复缺陷后的测试：把 `breakIdentityClauses` 从 `neutralizeScannedText` 里拿掉
    * （≈ 退化成 5.12.x 的行为），这条会红——而"原文不再匹配"那条不会红。
    */
   it('the proactive path breaks the identity clause INTERNALLY, not just in front', () => {
@@ -145,7 +145,7 @@ describe('issue #189: subagent assistant messages and the channel gate', () => {
   })
 
   it('the phrase rewrite is idempotent, so a retry ladder cannot double-edit', () => {
-    // 阶梯会在同一份 body 上跑多轮；非幂等会让第二轮的"改动"是假的。
+    // 阶梯会在同一份 body 上跑多轮；重复执行会继续改变内容会让第二轮的"改动"是假的。
     const once = rewriteChannelFingerprintPhrases(SUBAGENT_ASSISTANT_TEXT)
     const twice = rewriteChannelFingerprintPhrases(once)
     expect(twice).toBe(once)

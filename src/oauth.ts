@@ -17,7 +17,7 @@
  *   登录结果不落独立账号库，而是由插件写入统一凭据库（`src/auth.ts` 的
  *   vault），与桌面端扫描到的账号共用一套发现/选择/刷新机制。
  *
- * 会话状态只在进程内（`LoginSession`）：PKCE 类 state 与登录进度不落盘，
+ * 会话状态只在进程内（`LoginSession`）：PKCE 类 state 与登录进度只保存在内存中，
  * 拿到凭据即终结。刷新凭据仍走 `refreshToken`（上游 refresh 端点），此处
  * 只负责首次取凭据。
  *

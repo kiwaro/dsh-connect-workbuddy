@@ -9,13 +9,13 @@
  *
  *   1. **一种状态、两套写入。** 偏好（启用、目标模型、成员）走草稿 + 保存
  *      （保存成功才丢弃草稿）；**测试结果**是运行时事实，由 Host 在批量测试后
- *      自动落盘，绝不经这个保存按钮。把它们混在一起，一次「保存」就会用旧草稿
+ *      自动写入文件，绝不经这个保存按钮。把它们混在一起，一次「保存」就会用旧草稿
  *      覆盖刚测出的结果。
  *   2. **免费模型可能不存在。** 国内版静态目录不带倍率，所以「自动挑免费模型」
  *      在国内版首次刷新前会挑到空。此时**不回退到收费模型**，而是如实说明并
  *      停用测试按钮。
  *   3. **签到只在有它的区域出现。** 海外区域没有签到，按钮与那一列都不渲染；
- *      Host 侧同样拒绝该动作，免得留下一个界面看不见、接口却还能打的死角。
+ *      DSH 端同样拒绝该动作，免得留下一个界面看不见、接口却还能打的死角。
  *
  * @module dsh-connect-workbuddy/client/AccountPool
  */
@@ -1563,7 +1563,7 @@ export function AccountPool(props: AccountPoolProps): ReturnType<typeof h> | nul
       // 用，所以必须贴着账号表——埋进「更多设置」会让齿轮看起来时好时坏。
       //
       // 「真实值」在已知取不到 token 的平台上**禁用**：一个能点、点了没用、只能靠
-      // 降级兜底的选项比不提供更差——用户以为切过去了，状态行却一直空着。判定由
+      // 无法取值、只能改用预设设备参数的选项比不提供更差——用户以为切过去了，状态行却一直空着。判定由
       // Host 给（`realTier`），界面不猜平台：mac 上 SDK 能发现、probe 也答 ready，
       // 坏的是取 token 那一环，光看平台名判断不出"装了没装"。
       deviceMode === undefined || onDeviceModeChange === undefined
@@ -1644,7 +1644,7 @@ export function AccountPool(props: AccountPoolProps): ReturnType<typeof h> | nul
               poolModelId: pool.targetModelId ?? '',
               onTest: () => { void runRowTest(account.accountId) },
               onRemove: () => { void runRowRemove(account.accountId, account.accountName) },
-              // 齿轮只在 Host 真的能保存时才出现；「真实值」档下置灰但仍可点，
+              // 齿轮只在 DSH 实际能保存时才出现；「真实值」档下置灰但仍可点，
               // 点了弹出"为什么"。两条路都通向一次说明，而不是一个死按钮。
               ...onSaveDeviceProfile === undefined ? {} : {
                 onEditDevice: () => {

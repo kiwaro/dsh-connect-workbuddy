@@ -36,7 +36,7 @@ npm 将授权 URL 及其中的 `authId` 记录为 `***`。对应核对运行记�
 
 构建器可以提升正则或重命名变量。检查发布包时，应结合运行时导出值、行为测试和 tarball 校验值。源码字面字符串适合定位实现，运行结果用于判断包的行为。
 
-本项目的 `WORKBUDDY_CONNECT_VERSION` 通过 `tsdown.config.ts` 注入。修改版本后需要重新构建，发布前的 `prepack` 会执行相应步骤。
+本项目的 `WORKBUDDY_CONNECT_VERSION` 通过 `tsdown.config.ts` 添加。修改版本后需要重新构建，发布前的 `prepack` 会执行相应步骤。
 
 ## 5. 发布协作
 

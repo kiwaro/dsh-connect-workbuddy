@@ -241,7 +241,7 @@ body{
 .log-ok{color:var(--dsw-alias-state-success-primary)}
 .log-warn{color:var(--dsw-alias-state-warn-primary)}
 .log-err{color:var(--dsw-alias-state-error-primary)}
-/* 品牌蓝：既用于「换号重试」这条运行时事实，也用于插件的自动落盘行 */
+/* 品牌蓝：既用于「换号重试」这条运行时事实，也用于插件的自动写入文件行 */
 .log-swap{color:var(--dsw-alias-brand-primary)}
 
 /* ---- 结算/确认条 ---- */
@@ -478,7 +478,7 @@ body{
             </div>
           </div>
 
-          <!-- 【新增】保存 / 放弃（与「模型管理」同一套草稿语义） -->
+          <!-- 【新增】保存 / 放弃（与「模型管理」同一套草稿处理规则） -->
           <div class="pool-save-bar">
             <button class="dsm-btn dsm-btn-primary" type="button" id="btnSavePool" disabled>保存</button>
             <button class="dsm-btn dsm-btn-outline" type="button" id="btnDiscardPool" disabled>放弃修改</button>
@@ -660,7 +660,7 @@ async function runCheckin(){
   addLog(`开始一键签到，共 ${accounts.length} 个账号（串行）`, 'log-swap');
   for (const a of accounts){
     await sleep(520);
-    if (a.checkedIn){ addLog(`${a.name}：今日已签到，跳过（幂等，不重复领取）`); continue; }
+    if (a.checkedIn){ addLog(`${a.name}：今日已签到，奖励已领取`); continue; }
     if (a.probe === 'out-of-credit' && a.credits === 0){
       a.checkedIn = true; a.note = '签到成功 +60（仍在耗尽状态）';
       addLog(`${a.name}：签到成功 +60 积分`, 'log-ok');
@@ -710,13 +710,13 @@ function setBusy(on){
 }
 
 /* ============================================================================
-   两种状态，两套写入语义（与真实插件一致）：
-   - savedPrefs：偏好设置，改动进草稿，点「保存」才落盘
-   - runtime    ：探测结果，插件自动落盘，不经过保存按钮
+   两种状态，两套写入处理规则（与项目插件一致）：
+   - savedPrefs：偏好设置，改动进草稿，点「保存」才写入文件
+   - runtime    ：探测结果，插件自动写入文件，不经过保存按钮
    ========================================================================== */
 const savedPrefs = { enabled:true, targetModel:'auto' };
 let draftPrefs = null;          // null = 无未保存修改
-let runtimeSnap = {};           // 模拟 Host 侧自动落盘的运行时事实
+let runtimeSnap = {};           // 模拟 DSH 端自动写入文件的运行时事实
 
 const prefsOf = () => draftPrefs ?? savedPrefs;
 const isDirty = () => draftPrefs !== null;
@@ -767,10 +767,10 @@ function discardPrefs(){
   renderPrefs(); render();
 }
 
-/* 运行时事实的"自动落盘"：只记录，不参与草稿 */
+/* 运行时事实的"自动写入文件"：只记录，不参与草稿 */
 function persistRuntime(note){
   runtimeSnap.updatedAt = clock();
-  addLog(`（自动落盘）${note}`, 'log-swap');
+  addLog(`（自动写入文件）${note}`, 'log-swap');
 }
 
 /* ---- 目标测试模型：按区域 catalog 自动挑倍率为 0 的 ---- */

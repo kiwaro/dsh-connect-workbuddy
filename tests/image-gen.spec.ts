@@ -251,7 +251,7 @@ describe('输入图归一（mime / sniff / data URL）', () => {
     expect(imageMimeForPath('/tmp/noext')).toBeUndefined()
   })
 
-  it('按魔数嗅探五种格式，认不出来兜底 png', () => {
+  it('按魔数嗅探五种格式，无法识别时按 png 处理', () => {
     expect(sniffImageMime(new Uint8Array([0x89, 0x50, 0x4e, 0x47]))).toBe('image/png')
     expect(sniffImageMime(new Uint8Array([0xff, 0xd8, 0xff]))).toBe('image/jpeg')
     expect(sniffImageMime(new Uint8Array([0x47, 0x49, 0x46, 0x38]))).toBe('image/gif')
@@ -296,7 +296,7 @@ describe('buildImageBody', () => {
     })
   })
 
-  it('hunyuan 分支透传 n，且不带 response_format', () => {
+  it('hunyuan 分支原样传递 n，且不带 response_format', () => {
     const body = buildImageBody({ model: 'hunyuan-image-alpha', prompt: '猫', size: '512x512', n: 3 })
     expect(body).toEqual({ model: 'hunyuan-image-alpha', prompt: '猫', size: '512x512', n: 3 })
     expect(body).not.toHaveProperty('response_format')
@@ -764,7 +764,7 @@ describe('createImageTool', () => {
     expect(listMediaModels).toHaveBeenCalledTimes(1)
   })
 
-  it('上游只给 b64 时落盘并返回 file:// 地址', async () => {
+  it('上游只给 b64 时写入文件并返回 file:// 地址', async () => {
     const tool = createImageTool(deps({
       generateImage: async () => ({ b64: Buffer.from('hello').toString('base64') }),
     }))

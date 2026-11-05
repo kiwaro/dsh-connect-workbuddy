@@ -3,10 +3,10 @@
  * configuration.
  *
  * 参考：dingminhua/dsh-connect-trae（MIT，Copyright (c) 2026 LaoDing）
- *   — 浏览器插件的注册形态（`slots` / `locale` / `settingsScope` 三项注入、
- *     `LocaleNamespaceMap` 的模块增强、`settings.plugin.item` 槽位与
+ *   — 浏览器插件的注册形态（`slots` / `locale` / `settingsScope` 三项传入、
+ *     `LocaleNamespaceMap` 的模块增强、`settings.plugin.item` 界面扩展位置与
  *     `key` / `priority` 的 rc.7 写法、以及整个 apply 体包 try/catch
- *     以便槽位 API 变更时降级为 console.error 而不触发
+ *     以便界面扩展位置 API 变更时用 console.error 记录错误 而不触发
  *     "Failed to load plugins" 红色横幅）来自该项目，
  *     其亦注明沿用 corrinehu/dsh-workbuddy-connect 的同一模式。
  * 改动：无实质改动，仅改为本插件的命名空间与组件名。
@@ -175,7 +175,7 @@ export function apply(ctx: WorkBuddyClientContext): void {
      *
      * 参考：dingminhua/dsh-connect-trae（MIT，Copyright (c) 2026 LaoDing）
      *   — 该项目的 `registerComposerPoints`：无条件注册插槽、由 gate 读
-     *     `modelSelection` 投影自行决定是否渲染。本项目原先放在侧边栏底部
+     *     `modelSelection` 提供的模型选择状态自行决定是否渲染。本项目原先放在侧边栏底部
      *     （`sidebar.footer.action`），那里是**单个 root 级共享行**，两个连接器
      *     插件各占一行会互相挤压；输入框这行是 per-session 且按 provider 归属，
      *     天然只有一个插件的积分相关。

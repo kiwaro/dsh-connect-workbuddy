@@ -7,7 +7,7 @@
  * compaction, and permissions stay Harness-owned.
  *
  * 参考：corrinehu/dsh-workbuddy-connect（MIT，Copyright (c) 2026 Corrine Hu）
- *   — DSH 的装配顺序（先起 shim，拿到端口后才构造 provider，
+ *   — DSH 的组件加载顺序（先起 shim，拿到端口后才构造 provider，
  *     再注册 adapter 与可配置 provider，最后异步刷新目录）由其设计并验证；
  *     `installSettingsSection` 的用法、webServer 为可选服务（无头 profile
  *     下 DSH 仍工作）的处理，亦沿用其做法。
@@ -655,9 +655,9 @@ export interface Config {
    */
   channelPerturbation?: 'off' | 'failure' | 'always'
   /**
-   * 出站身份档位（`docs/DEVICE-IDENTITY-AUDIT.md` 的 P1）。
+   * 请求头中的客户端标识档位（`docs/DEVICE-IDENTITY-AUDIT.md` 的 P1）。
    *
-   * `balanced`（默认）让每一条出站请求说同一种话：`X-Product` / `X-IDE-Name` /
+   * `balanced`（默认）让每一条发出的请求说同一种话：`X-Product` / `X-IDE-Name` /
    * `X-IDE-Type` 同值 `WorkBuddy`，加 `X-Agent-Purpose`、`X-CodeBuddy-Request`、
    * `Accept-Language`、`X-Root-Request-ID`，以及按账号派生的一对
    * `X-Machine-ID` / `X-Session-ID`；billing 域补齐 UA / Origin / Referer。
@@ -785,7 +785,7 @@ export interface Config {
    * 这条失败**不换号也不重试**（`isFailoverWorthy` 刻意把它排除在外：网关匹配的
    * 是消息开头，换账号只会每个账号白烧一次请求），所以这一轮就此结束，用户看到的
    * 是「本轮运行失败400: … 被网关的渠道校验拦截 …」。固定指纹由 `prepareChatBody`
-   * 的按句改词处理；这条开关只是**最后兜底**：只有被拒内容刚好随轮次变化的窄情况
+   * 的按句改词处理；这条开关只是**最后一次恢复尝试**：只有被拒内容刚好随轮次变化的窄情况
    * 才可能靠新回合碰过去。固定 system 指纹每轮相同，重发也救不了（#163 实测）。
    *
    * 默认关闭的理由与 {@link Config.usageIdentity} 相同：它会在用户没有发消息的
@@ -1283,9 +1283,9 @@ const REGION_KEYS: readonly WorkBuddyRegion[] = ['cn', 'global']
  *
  * `state`：
  *   - `available` —— 能取到 token，切成「真实值」就能用；
- *   - `broken` —— 这套 SDK 在本平台取不到 token，切过去只会降级，界面上应禁用
+ *   - `broken` —— 这套 SDK 在本平台取不到 token，选择后也无法取得设备凭据，界面上应禁用
  *     并说明原因；
- *   - `unavailable` —— 本平台没有这条取链（不预期出现，留作兜底）。
+ *   - `unavailable` —— 本平台没有这条取链（不预期出现，用于报告暂不支持的情况）。
  */
 export function realTierAvailabilityFor(platform: string): {
   state: 'available' | 'broken' | 'unavailable'
@@ -2443,7 +2443,7 @@ export function apply(ctx: Context, config: Config): void {
         listMediaModels: (credential, signal) => client.fetchMediaModels(credential, signal),
         submitVideo: (credential, request, signal) => client.submitVideo(credential, request, signal),
         pollVideoTask: (credential, taskId, signal) => client.pollVideoTask(credential, taskId, signal),
-        // 卡片上按模式钉住的模型。读 CURRENT 配置而不是注册时的快照，和上面
+        // 卡片上按模式钉住的模型。读 CURRENT 配置而不是注册组件时读取的数据，和上面
         // resolveCredential 读活值同一个理由：用户可能在两次调用之间改偏好。
         // 区域由凭据自己的登录域决定，所以「国内区钉了 kling、国际区没钉」
         // 这种组合能各按各的来。

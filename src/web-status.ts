@@ -6,7 +6,7 @@
  * 参考：dingminhua/dsh-connect-trae（MIT，Copyright (c) 2026 LaoDing）
  *   — 路由的注册方式（`ctx.webServer.register({kind:'exact', path, handler})`）、
  *     回环来源校验、`safeMessage` 的脱敏规则（JWT 与 token 查询参数截断至
- *     500 字符）、以及「积分查询失败降级为 creditsError 而非让整个文档失败」
+ *     500 字符）、以及「积分查询失败在 creditsError 中记录查询错误 而非让整个文档失败」
  *     的处理，均来自该项目。
  *   单条 status 路由的原始形态来自
  *     corrinehu/dsh-workbuddy-connect（MIT）。
@@ -2401,7 +2401,7 @@ export function registerWorkBuddyStatusRoute(ctx: Context, deps: WorkBuddyStatus
       kind: 'exact',
       path: WORKBUDDY_DEVICE_PROFILE_PATH,
       handler: async (req: IncomingMessage, res: ServerResponse) => {
-        // 闸门先于一切：包括"这条路由有没有接线"。503 会顺带告诉一个外部来源
+        // 先检查请求来源：包括"这条路由有没有调用关系"。503 会顺带告诉一个外部来源
         // "此路由存在但未接"——那不是它该知道的事；403 对任何来源都是同一句话。
         if (!requireLoopback(req, res)) return
         const port = deps.deviceSettings
@@ -2504,7 +2504,7 @@ export function registerWorkBuddyStatusRoute(ctx: Context, deps: WorkBuddyStatus
       kind: 'exact',
       path: WORKBUDDY_DEVICE_SDK_PATH,
       handler: async (req: IncomingMessage, res: ServerResponse) => {
-        // 同上：闸门先于"是否接线"，否则 503 会把这条路由的存在性告诉外部来源。
+        // 同上：请求来源检查先于"是否调用关系"，否则 503 会把这条路由的存在性告诉外部来源。
         if (!requireLoopback(req, res)) return
         const port = deps.deviceSdk
         if (port === undefined) {
@@ -2512,7 +2512,7 @@ export function registerWorkBuddyStatusRoute(ctx: Context, deps: WorkBuddyStatus
         }
         if (req.method === 'GET') {
           try {
-            // 快照里带上总开关的**当前值**：卡片要能画出那个勾选框，而开关住在
+            // 返回的数据中带上总开关的**当前值**：卡片要能画出那个勾选框，而开关住在
             // 插件配置里、不在设备设置文件里——多一次往返只为读一个布尔不值当，
             // 也容易让两处答案短暂不一致。
             const report = await port.read()

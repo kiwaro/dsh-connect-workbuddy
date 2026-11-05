@@ -14,7 +14,7 @@
  *
  * 为什么手写 ToolDefinition（不 import `@deepseek-ai/dsh-tools` 的 `defineTool`）：
  * 同 image-tool.ts 的注释——DSH `Tools.register` 只校验 `output.render` 是函数、
- * `output.schema` 是受支持的 JSON Schema，`schemaOf()` 把 `parameters` 原样投影，
+ * `output.schema` 是受支持的 JSON Schema，`schemaOf()` 把 `parameters` 原样传递，
  * 手写换来零新 peer 依赖、不会触发 tests/host-peers.spec.ts 对可达图的断言。
  *
  * @module dsh-connect-workbuddy/video-tool
@@ -111,7 +111,7 @@ export interface VideoToolExec {
   readonly signal?: AbortSignal
 }
 
-/** 工具运行所需的外部能力，全部由 `src/index.ts` 注入，便于单测替换。 */
+/** 工具运行所需的外部能力，全部由 `src/index.ts` 添加，便于单测替换。 */
 export interface VideoToolDeps {
   /** 解析生视频所用区的凭据；该区未登录/未授权则返回 undefined（不要抛异常）。 */
   readonly resolveCredential: () => Promise<WorkBuddyCredential | undefined>
@@ -295,7 +295,7 @@ function isBillableFailure(error: unknown, sent: boolean): boolean {
  *
  * ## 为什么 http(s) 也要下载下来（issue #187）
  *
- * 这里以前只发一个 `HEAD` 做可达性校验，然后把 URL **原样**交给上游。两个问题：
+ * 这里以前只发一个 `HEAD` 做触发条件校验，然后把 URL **原样**交给上游。两个问题：
  *
  * 1. **`HEAD` 会被 COS 拒绝。** 插件自己出图返回的是腾讯 COS 签名 URL
  *    （`ai-corpus-backup-*.cos.ap-beijing.myqcloud.com`），签名只覆盖 `GET`。
@@ -307,7 +307,7 @@ function isBillableFailure(error: unknown, sent: boolean): boolean {
  *    URL → invoke model error"）。原样传 URL 只是把失败推迟到上游，并且那时已经
  *    建了 task、扣了积分。
  *
- * 所以这里与 `image-tool.ts` 的 `resolveImageInput` 完全对齐：**下载并编码成
+ * 所以这里与 `image-tool.ts` 的 `resolveImageInput` 采用相同处理方式：**下载并编码成
  * data URL**。这也顺带让签名过期、上游改域名的场景在本地就报出可读的错，而不是
  * 变成一个花了钱才发现的 `TASK_FAILED`。
  *
@@ -382,7 +382,7 @@ async function resolveVideoImageInput(value: string, signal?: AbortSignal): Prom
 }
 
 /**
- * 体积与空文件闸门——所有输入图都从这里过，所以「空文件」和「超过 8 MB」
+ * 文件大小与空文件检查——所有输入图都从这里过，所以「空文件」和「超过 8 MB」
  * 的文案只有一份。与 `image-tool.ts` 的 `assertInputImageBytes` 同逻辑。
  *
  * `byteLength` 必须是解码后的字节数：base64 比原始字节长约 4/3。

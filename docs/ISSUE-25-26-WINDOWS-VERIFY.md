@@ -11,7 +11,7 @@
 | 0.87+（modern） | `{ messages: [ {role:'system', content, toolsAdded}, … ] }` | 0.87 的 api 只从首条 system 消息取 prompt 与 tools；不读顶层 `systemPrompt`/`tools` |
 | 0.85（legacy） | `{ systemPrompt, tools, messages }` | 0.85 的 api 只读顶层字段；`messages` 里的 system 条目会让它的 token 估算崩溃，记录见 issue #24 |
 
-修复按实际解析到的 pi-ai 版本选择适配方式，并在 legacy 分支中恢复工具状态。本文记录的 modern 透传规则属于当时实现；pi-ai 1.1.0 的后续上下文整理见 [rc.1 调查](DSH-0.2.1-RC1-FOLLOWUP.md)。
+修复按实际解析到的 pi-ai 版本选择适配方式，并在 legacy 分支中恢复工具状态。本文记录的 modern 原样传递规则属于当时实现；pi-ai 1.1.0 的后续上下文整理见 [rc.1 调查](DSH-0.2.1-RC1-FOLLOWUP.md)。
 
 ## 2. 验证环境
 

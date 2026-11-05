@@ -5,7 +5,7 @@
  *   `.workbuddy-auth.<region>.json`，`withFileLock` + `writeFileAtomic`，
  *   `mode: 0o600`）。本模块沿用同一套写入方式与同一份隐私标准。
  * 改动：存的是**观测结果**而非凭据 —— 因此文件里不含任何 token，
- *   并且它与用户设置**分开落盘**，原因见下。
+ *   并且它与用户设置**分开写入文件**，原因见下。
  *
  * 为什么这些事实不放 settings（`regions[region].pool`）：
  *

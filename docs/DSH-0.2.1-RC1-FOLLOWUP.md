@@ -16,8 +16,8 @@ DSH 使用 includePrerelease: true 检查插件版本范围，0.2.1-rc.1 可以�
 |---|---|---|---|
 | 0.85.1 | `["system","user"]` | `SYS-PROMPT-MARKER` | `1` ✅ |
 | 1.1.0（现状） | `["user"]` | `null`（prompt 丢了） | `0`（工具全丢） |
-| 1.1.0（归一化后） | `["system","user"]` | `SYS-PROMPT-MARKER` | `1` ✅ |
-| 1.1.0（已归一化再归一化） | `["system","user"]` | `SYS-PROMPT-MARKER` | `1` ✅（幂等） |
+| 1.1.0（格式转换后） | `["system","user"]` | `SYS-PROMPT-MARKER` | `1` ✅ |
+| 1.1.0（再次转换已处理的格式） | `["system","user"]` | `SYS-PROMPT-MARKER` | `1` ✅（再次执行时保留原结果） |
 
 0.85.1 读取顶层字段；1.1.0 从消息序列中读取系统提示和工具。原来的 modern 分支直接转交输入，因此即使识别为 modern，输出请求仍会丢失字段。
 
@@ -48,6 +48,6 @@ adapter-outgoing-body.spec.ts 按 pi-ai 代际与上下文形状组成对照矩�
 
 ## 5. 后续问题
 
-issue #83 涉及压缩请求携带 off 推理档位，后续通过模型限制、请求体检查及配置默认值修复。issue #84 涉及错误分类：保留 model_busy，将短时限流映射为 quota_exceeded，以便 DSH 选择对应的重试行为。
+issue #83 涉及压缩请求携带 off 推理档位，后续通过模型限制、请求体检查及配置默认值修复。issue #84 涉及错误分类：保留 model_busy，将短时限流转换为 quota_exceeded，以便 DSH 选择对应的重试行为。
 
 当前适配说明见[设计文档](DESIGN.md)，后续 DSH 复核见 [rc.3 记录](DSH-0.2.1-RC3-FOLLOWUP.md)和 [rc.5 记录](DSH-0.2.1-RC5-FOLLOWUP.md)。

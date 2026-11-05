@@ -3,8 +3,8 @@
  *
  * ## 为什么用一个假 worker
  *
- * 真实链路要连 SDK、要发网络请求、要等 DNS。这三件事都不该进单元测试。这个模块
- * 的**可测部分**恰好全在"拿到答案之后"：缓存、TTL、宽限期、失败兜底、掩码——它们
+ * 真实处理过程要连 SDK、要发网络请求、要等 DNS。这三件事都不该进单元测试。这个模块
+ * 的**可测部分**恰好全在"拿到答案之后"：缓存、TTL、宽限期、取值失败后的处理、掩码——它们
  * 才是会悄悄出错的地方（一个每次都重取的实现看起来也"能用"）。
  *
  * 所以 `createTuringSdk({ worker })` 允许换掉子进程脚本，测试用一个只读写 JSON 的
@@ -77,11 +77,11 @@ afterEach(async () => {
   await rm(root, { recursive: true, force: true })
 })
 
-// `platform`/`arch` 注入与假 worker 的 probe 输出（win32/x64）保持一致：`bundle`
+// `platform`/`arch` 传入与假 worker 的 probe 输出（win32/x64）保持一致：`bundle`
 // 在生产路径取真实主机，但断言不能钉住跑测试的机器（RELEASING.md §2.5）。
-// 不注入时这条套件在 Linux/macOS CI 上会因为 `darwin-arm64 !== win32-x64` 而红。
+// 不添加时这条套件在 Linux/macOS CI 上会因为 `darwin-arm64 !== win32-x64` 而红。
 // 总开关默认是关的（与档位默认「虚拟值」一致），而这一整个文件测的是 SDK 本身
-// 的行为——发现、缓存、TTL、退避、预热——不是开关语义。不在这里显式打开，每次
+// 的行为——发现、缓存、TTL、等待后重试、预热——不是开关处理规则。不在这里显式打开，每次
 // `make()` 都会落到 `disabled`，几十条与该开关无关的用例会一起红。
 // 开关自己的用例在 `describe('the master switch')` 里直接构造。
 const make = (overrides: { ttlMs?: number } = {}) => createTuringSdk({
@@ -117,7 +117,7 @@ describe('bundledSdkBundleId', () => {
 })
 
 describe('discoverInstalledSdkDir', () => {
-  // 平台、家目录、环境、exists 全部注入：这套断言在三种 CI 主机上必须给出
+  // 平台、家目录、环境、exists 全部添加：这套断言在三种 CI 主机上必须给出
   // 同样的答案（RELEASING.md §2.5），而真实的主机——比如装着 WorkBuddy 的
   // 开发 mac——恰恰是最不该参与的路径。
   const winExe = 'C:\\Users\\dev\\AppData\\Local\\Programs\\WorkBuddy\\WorkBuddy.exe'
@@ -200,8 +200,8 @@ describe('discoverInstalledSdkDir', () => {
   })
 
   it('exposes the binding gate as a platform-aware helper', () => {
-    // 数据平台优先（win32 → `\` 拼法），再兜底**另一种**拼法——Windows API 两种
-    // 分隔符都吃，而注入 platform 的测试喂的可能是运行平台形状的目录。
+    // 数据平台优先（win32 → `\` 拼法），失败后再试**另一种**路径写法——Windows API 两种
+    // 分隔符都吃，而传入 platform 的测试喂的可能是运行平台形状的目录。
     const parts = ['build', 'Release', 'turing_sdk.node'] as const
     expect(hasTuringSdkBinding('C:\\x', path => path === win32.join('C:\\x', ...parts), 'win32')).toBe(true)
     expect(hasTuringSdkBinding('C:\\x', path => path === posix.join('C:\\x', ...parts), 'win32')).toBe(true)
@@ -209,10 +209,10 @@ describe('discoverInstalledSdkDir', () => {
     expect(hasTuringSdkBinding('/x', () => true, 'win32')).toBe(true)
   })
 
-  // 两个方向都断言，不是凑数：兜底曾经写成「运行平台的 join」而不是「另一种拼法」，
+  // 两个方向都断言，不是凑数：尝试另一种路径的代码曾经写成「运行平台的 join」而不是「另一种拼法」，
   // 而这两种写法**只在运行平台与数据同平台时**才分岔。于是只测 win32 一个方向时，
-  // 它在 macOS 上是绿的（运行平台 posix ≠ 数据 win32，兜底真跑起来了）、在 Windows 上
-  // 却是红的（运行平台 win32 = 数据 win32，兜底被短路）。两个方向一起测，这个分岔
+  // 它在 macOS 上是绿的（运行平台 posix ≠ 数据 win32，另一种路径写法确实被执行）、在 Windows 上
+  // 却是红的（运行平台 win32 = 数据 win32，另一种路径写法被跳过）。两个方向一起测，这个分岔
   // 在任意运行平台上都会红——这正是 RELEASING.md §2.5 要的形态。
   it('answers the same way whichever platform the test host runs on', () => {
     const parts = ['build', 'Release', 'turing_sdk.node'] as const
@@ -265,7 +265,7 @@ describe('createTuringSdk — a directory the user can change (作者意见 #1)'
       exists: path => sdkShape('D:\\typed').includes(path),
       dirSource: async () => typed,
     })
-    // 还没填：发现链在注入的 exists 下什么也找不到 → missing。
+    // 还没填：发现链在添加的 exists 下什么也找不到 → missing。
     expect((await sdk.info()).state).toBe('missing')
 
     // 用户填了目录并保存 —— 句柄没变，只是那个函数开始返回新值。
@@ -299,7 +299,7 @@ describe('createTuringSdk — a directory the user can change (作者意见 #1)'
   })
 
   it('lets WORKBUDDY_TURING_SDK_DIR win over what the card holds', async () => {
-    // 环境变量是排障旁路（doctor 只能读它），所以它压过卡片。反过来会让一个
+    // 环境变量是用于排查问题的环境变量（doctor 只能读它），所以它压过卡片。反过来会让一个
     // 排障时设的变量在下一次点保存后静默失效。
     const sdk = createTuringSdk({
       enabled: true,
@@ -378,7 +378,7 @@ describe('probe', () => {
       //
       // 必须在**同一个句柄**上切开关：新建一个 `enabled: false` 的实例再断言它没有
       // token 是空的（它的缓存本来就是空的），那样连"current 忘了检查开关"都测不
-      // 出来——第一版就是这么写的，变异体存活。
+      // 出来——第一版就是这么写的，恢复缺陷的代码副本存活。
       let on = true
       const sdk = createTuringSdk({ dir: sdkDir, worker, now: () => clock, get enabled() { return on } })
       expect(await sdk.tokens.current()).toBe('v3:real-token-value')
@@ -420,7 +420,7 @@ describe('probe', () => {
 
   it('reports missing when there is no dir at all (discovery found nothing)', async () => {
     // `env: {}` 不是笔误：不传就会读真实 process.env，而这台机器上**可能**真的
-    // 装着桌面端——那条安装链属于发现测试，不属于兜底行为测试。
+    // 装着桌面端——那条安装链属于发现测试，不属于SDK 不可用时的处理测试。
     const sdk = createTuringSdk({ worker, now: () => clock, env: {}, home: root, platform: 'linux', enabled: true })
     const info = await sdk.info()
     expect(info.state).toBe('missing')
@@ -499,7 +499,7 @@ describe('token source', () => {
     await sdk.tokens.current()
     await setState({ ok: false, message: 'network down' })
     clock += 61_000
-    // 过期了但取不到新的：宽限期内仍然返回旧值，否则一次网络抖动就等于"设备消失"。
+    // 过期了但取不到新的：宽限期内仍然返回旧值，否则一次临时网络故障就等于"设备消失"。
     expect(await sdk.tokens.current()).toBe('v3:real-token-value')
     expect(sdk.tokens.readout().state).toBe('stale')
     expect(sdk.tokens.readout().reason).toBe('network down')
@@ -533,7 +533,7 @@ describe('token source', () => {
   })
 
   it('stops spawning for a while after a failure', async () => {
-    // 一轮对话会并发打出十几条请求。没有退避，一次 SDK 故障就是十几个子进程加
+    // 一轮对话会并发打出十几条请求。没有等待后重试，一次 SDK 故障就是十几个子进程加
     // 十几个超时——那不是"取不到 token"，那是把插件拖垮。
     await setState({ ok: false, message: 'boom' })
     const sdk = make()
@@ -563,7 +563,7 @@ describe('token source', () => {
  * `current()` 只在**请求要发出去**时才被调用，而一个空闲的进程从来不发请求。
  * 于是"SDK 正常工作"和"SDK 根本没跑"在界面上长得一模一样。
  *
- * 调度本身是纯函数，先把它钉死；再看真实链路是否真的会自己动手。
+ * 调度本身是纯函数，先把它钉死；再看真实处理过程是否真的会自己动手。
  */
 describe('nextAutoRefreshDelayMs', () => {
   const ttlMs = 600_000

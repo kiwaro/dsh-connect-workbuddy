@@ -81,7 +81,7 @@ COS 签名 URL 的历史测量有效期约为 24 小时。长期保留图片时�
 
 ## 5. 凭据与验证
 
-工具在 Host 侧取得账号凭据并发送请求，输出返回图片及业务结果。相关实现为 `src/image-tool.ts`、`src/image-gen.ts` 和 `src/upstream.ts`。
+工具在 DSH 端取得账号凭据并发送请求，输出返回图片及业务结果。相关实现为 `src/image-tool.ts`、`src/image-gen.ts` 和 `src/upstream.ts`。
 
 测试检查模型选择、请求体、图片读取和大小校验，以及错误分类、冷却、输出格式和区域授权。测试文件为 `tests/image-gen.spec.ts` 和 `tests/image-tool-optin.spec.ts`。
 
