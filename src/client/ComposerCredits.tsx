@@ -534,16 +534,22 @@ export function ComposerCredits(props: ComposerCreditsProps) {
    * write landed, and a refused write must report failure instead of showing a
    * marker on an account that was never selected.
    */
+  const [switchNotice, setSwitchNotice] = useState<string | undefined>(undefined)
+
   const switchTo = async (accountId: string): Promise<void> => {
     if (settingsScope === undefined || settingsScope.getSnapshot().writable !== true) return
     if (activeRegion === undefined || switchingId !== undefined) return
-    const currentId = accountCredits?.find(account => account.selected)?.id
+    const currentId = (usage?.status === 'signed-in' ? usage.pool?.accounts.find(account => account.current)?.accountId : undefined)
+      ?? accountCredits?.find(account => account.selected)?.id
       ?? (usage?.status === 'signed-in' ? usage.accountId : undefined)
     if (accountId === currentId) return
     setSwitchingId(accountId)
+    setSwitchNotice(undefined)
     setFailed(false)
     try {
       await writeAccountSlot(settingsScope, activeRegion, accountId)
+      const accountName = accountCredits?.find(account => account.id === accountId)?.accountName || t('row.accountUnnamed')
+      if (mounted.current) setSwitchNotice(t('composer.switchedNotice', { account: accountName }))
       await fetchUsage()
       // `true`: the row this user clicked must come back re-read. Skipping this
       // because a tick was in flight would leave the marker (and the balance)
@@ -914,6 +920,7 @@ export function ComposerCredits(props: ComposerCreditsProps) {
                     <tr>
                       <th scope="col">{t('composer.account')}</th>
                       <th scope="col" className="dsm-workbuddy-composer-panel-num">{t('composer.credits')}</th>
+                      <th scope="col" className="dsm-workbuddy-composer-panel-action">{t('composer.action')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1029,12 +1036,19 @@ export function ComposerCredits(props: ComposerCreditsProps) {
                           <td className="dsm-workbuddy-composer-panel-num">
                             {row.credits === undefined ? '—' : formatCredits(row.credits)}
                           </td>
+                          <td className="dsm-workbuddy-composer-panel-action">
+                            <button type="button" data-current={live ? 'true' : undefined} disabled={!canSwitch || switchingId !== undefined || live}
+                              onClick={() => { void switchTo(row.id) }}>
+                              {live ? t('composer.inUse') : switchingId === row.id ? t('composer.switching') : t('composer.switch')}
+                            </button>
+                          </td>
                         </tr>
                       )
                     })}
                   </tbody>
                 </table>
               )}
+          {switchNotice === undefined ? null : <blockquote className="dsm-workbuddy-composer-switch-notice" role="status">[dsh-connect-workbuddy] {switchNotice}</blockquote>}
           <div className="dsm-workbuddy-composer-panel-foot">
             <span>
               {t('composer.lastRefresh')} {lastRefresh === undefined ? '—' : formatClock(lastRefresh)}

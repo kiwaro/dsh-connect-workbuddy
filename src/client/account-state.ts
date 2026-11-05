@@ -169,11 +169,6 @@ export function availabilityLine(
     // bare outcome would leave the user unable to tell "the upstream gave no
     // time" apart from "this plugin forgot to show it" — and the honest
     // absence is the same contract `cooldownOf()` already keeps.
-    if (probe.outcome === 'rate-limited'
-      || probe.outcome === 'model-busy'
-      || probe.outcome === 'out-of-credit') {
-      return `${outcomeText(t, probe.outcome)} · ${t('row.poolRetryUnknown')}`
-    }
     // Any other measured outcome keeps its own label. This branch is what makes
     // the function a faithful move of the card's logic: without it a probed
     // account fell through to the exclusion lookup below and rendered as
@@ -224,11 +219,6 @@ export function availabilityMark(
       return left === ''
         ? outcomeMarkText(t, probe.outcome)
         : `${outcomeMarkText(t, probe.outcome)} · ${left}`
-    }
-    if (probe.outcome === 'rate-limited'
-      || probe.outcome === 'model-busy'
-      || probe.outcome === 'out-of-credit') {
-      return `${outcomeMarkText(t, probe.outcome)} · ${t('row.poolRetryUnknown')}`
     }
     return outcomeMarkText(t, probe.outcome)
   }

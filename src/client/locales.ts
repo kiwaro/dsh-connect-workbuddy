@@ -329,7 +329,6 @@ export const en = {
   'row.poolExcludedAccountRestricted': 'Account restricted upstream',
   'row.poolExcludedUnusable': 'Unusable',
   'row.poolRetryAt': 'Back after {at}',
-  'row.poolRetryUnknown': 'The upstream gave no time for when this frees up',
   // Relative form of a stated recovery time. Always shown NEXT TO the absolute
   // instant, never instead of it: the instant is the upstream's own answer and
   // stays authoritative, while these save the reader the subtraction.
@@ -657,6 +656,11 @@ export const en = {
   'composer.credits': 'Credits',
   'composer.switchTo': 'Switch to {account}',
   'composer.current': 'In use',
+  'composer.action': 'Action',
+  'composer.switch': 'Switch',
+  'composer.switching': 'Switching…',
+  'composer.inUse': 'In use',
+  'composer.switchedNotice': 'Switched to “{account}”. Subsequent requests will use this account.',
   'composer.noAccounts': 'No account in this region',
   'composer.signedOut': 'Not signed in',
   // The panel's link to this plugin's OWN settings. Kept SHORT ("Settings", not
@@ -688,10 +692,10 @@ export const en = {
   // gateway added a model would be fabricating an upstream fact. The segment
   // and its row render only when the count is non-zero.
   'composer.newModels': 'new models',
-  'composer.newModelsRow': 'Models first seen by this machine',
-  'composer.newModelsTitle': 'Models first seen by this machine: ',
+  'composer.newModelsRow': 'Models discovered in the last 7 days',
+  'composer.newModelsTitle': 'Models discovered in the last 7 days: ',
   'composer.newModelsSep': ', ',
-  'composer.newModelsNote': '"New" means this machine recorded the model id for the first time; it says nothing about when the upstream listed it. Only models first seen within the last 7 days are shown.',
+  'composer.newModelsNote': '"New" means this machine recorded the model id for the first time; it says nothing about when the upstream listed it. Only active models first seen within the last 7 days are shown. Returning models keep their original timestamp.',
   'sidebar.creditsCn': 'WB CN credits',
   'sidebar.creditsGlobal': 'WB AI credits',
   'sidebar.refresh': 'Refresh',
@@ -1002,7 +1006,6 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   'row.poolExcludedAccountRestricted': '账号被上游限制使用',
   'row.poolExcludedUnusable': '不可用',
   'row.poolRetryAt': '{at} 之后可再用',
-  'row.poolRetryUnknown': "恢复时间未知",
   // 上游给出的恢复时间的「相对说法」。总是与绝对时刻**并列**显示，而不是取代它：
   // 绝对时刻是上游的原话、始终权威，这几个键只是替读者省掉一次心算。
   'row.remainingImminent': '即将恢复',
@@ -1298,6 +1301,11 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   'composer.credits': '积分',
   'composer.switchTo': '切换到 {account}',
   'composer.current': '当前使用',
+  'composer.action': '操作',
+  'composer.switch': '切 换',
+  'composer.switching': '切换中…',
+  'composer.inUse': '使用中',
+  'composer.switchedNotice': '已切换至「{account}」，后续请求使用此账号。',
   'composer.noAccounts': '该区域暂无账号',
   'composer.signedOut': '未登录',
   // 面板里通往本插件自身设置的入口。措辞取短（「设置」而不是「WorkBuddy 设置」）：
@@ -1323,10 +1331,10 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   // 的「上架时间」字段，说「网关新增」就是在替上游编一个事实。段与面板行只在
   // 数量非零时渲染。
   'composer.newModels': '新模型',
-  'composer.newModelsRow': "最近首次检测到的模型",
-  'composer.newModelsTitle': "最近首次检测到的模型：",
+  'composer.newModelsRow': "近 7 天发现的模型",
+  'composer.newModelsTitle': "近 7 天发现的模型：",
   'composer.newModelsSep': '、',
-  'composer.newModelsNote': "插件显示最近 7 天首次记录的模型。这里的时间表示插件首次发现该模型的时间。",
+  'composer.newModelsNote': "按本机首次记录时间统计，模型暂时离开目录后再次出现不会重新计时。",
   'sidebar.creditsCn': 'WB CN 积分',
   'sidebar.creditsGlobal': 'WB AI 积分',
   'sidebar.refresh': '刷新',

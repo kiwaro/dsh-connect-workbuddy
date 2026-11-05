@@ -412,3 +412,45 @@ DSH 插件管理器从包的 `locale/en.json` 定位语言资源目录，再读�
 ## 渠道错误诊断补充（5.18.1）
 
 错误摘要展示首次请求的消息开头与结尾。首行标记只说明已知客户端标识的匹配情况，排查原因还需核对正文。若重试已为所有相关消息添加中性提示，报错会列出这一步的执行情况。测试见 tests/issue213-channel-evidence.spec.ts。
+
+## 核心职责模块拆分
+
+拆分批次与验收记录见 [模块拆分方案](MODULE-SPLIT-PLAN.md)。原有入口继续导出公开接口，调用方可继续从原路径导入。
+
+| 模块 | 当前职责 |
+| --- | --- |
+| src/shim.ts | 请求与账号重试协调、上游失败处理、服务装配 |
+| src/shim-http.ts | 请求体大小限制、HTTP 错误映射与响应头 |
+| src/shim-listener.ts | 回环端口监听、客户端拒绝检测与取消处理 |
+| src/shim-recovery-stream.ts | SSE 帧处理、工具调用恢复、积分与用量记录 |
+| src/adapter.ts | 适配器注册、上下文超限救援与流调用装配 |
+| src/adapter-identity.ts | 区域路由、共享模型身份与注册键 |
+| src/adapter-model.ts | 模型输入能力、显示名称与推理档位映射 |
+| src/adapter-transcript.ts | 新旧上下文转换、消息身份对齐与外来思考块处理 |
+| src/auth.ts | 账号扫描、选择、刷新与缓存协调 |
+| src/auth-types.ts | 凭据及账号状态类型、加密凭据错误 |
+| src/auth-paths.ts | 平台路径、凭据文件名和凭据库目录 |
+| src/auth-parse.ts | 凭据字段解析、到期时间换算、账号标识与显示名称 |
+| src/auth-files.ts | 凭据文件读取和失败原因诊断 |
+| src/auth-vault.ts | 凭据副本与隐藏名单的读写、版本及新旧记录比较 |
+| src/plugin-config.ts | 配置类型、默认值与 schema |
+| src/plugin-regions.ts | 区域状态、功能开关与旧版账号配置归属 |
+| src/plugin-status-routes.ts | 设置界面的状态查询及操作接口注册 |
+| src/client/WorkBuddyCard.tsx | 卡片与页面结构、区域选择、分区组合及渲染错误处理 |
+| src/client/use-workbuddy-card-state.tsx | 设置草稿、轮询、保存、账号操作与异步状态 |
+| src/client/workbuddy-card-view.tsx | 展示格式、诊断结果、路径列表与界面公共类型 |
+| src/client/workbuddy-capability-preferences.tsx | 图片、视频、CLI、侧边栏与上游开关设置分区 |
+
+历史消息处理依次执行上下文转换、消息身份对齐和思考块处理。渠道拒绝、模型繁忙和排队时的换号规则继续由请求协调层管理，模块提取保持既有处理顺序。
+
+### 换号提醒中的账号名称
+
+请求失败并成功切换账号后，插件在回答前显示原账号的名称与切换原因，并以“已切换账号[目标账号名]继续请求”写明实际接替请求的账号。名称与账号列表使用相同顺序：displayName、enterpriseUserName、nickname；字段为空或仅包含空白时跳过。三个字段均缺失时显示“未命名账号”。限流、积分耗尽和登录失效等换号提醒共用此规则。
+
+本段已按 src/shim.ts 的 describeAccount 与 src/auth-parse.ts 的 preferredAccountName 核对并通读。相关范围扫描覆盖 src 和 docs 中的换号提醒及账号名称回退表达；账号稳定标识的生成规则继续用于数据关联。
+
+### 近七天发现的模型
+
+插件保留各区域模型的本机首次记录时间，并另存当前目录中的模型标识。模型离开目录后不显示，再次出现时沿用原时间；七天后自动退出提示。已有记录直接兼容，旧版已经删除的历史无法还原。首次建立记录时用现有目录作为基线，不将整份目录标为新模型。
+
+本段依据 roster-seen-store.ts 和模型提示组件核对并通读。

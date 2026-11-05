@@ -131,14 +131,24 @@ describe('note', () => {
     expect(await store.note(['alpha', 'beta'], T0)).toEqual({ newIds: ['beta'] })
   })
 
-  it('treats an id that left the roster and came back as newly-seen again', async () => {
+  it('keeps an id original timestamp when it leaves and returns', async () => {
     const store = storeOf('cn')
     await store.note(['alpha', 'beta'], T0)
-    // beta delisted: dropped from the table.
+    // beta leaves the active roster; its history must survive.
     await store.note(['alpha'], T0 + DAY)
-    // beta is back. Because its stamp was dropped when it left, it counts as a
-    // fresh first sighting — exactly the "it came back" case a reader cares about.
-    expect(await store.note(['alpha', 'beta'], T0 + 2 * DAY)).toEqual({ newIds: ['beta'] })
+    // Returning beta keeps the original timestamp.
+    expect(await store.note(['alpha', 'beta'], T0 + 2 * DAY)).toEqual({ newIds: [] })
+    expect((await readPayloadOf('cn')).seen['beta']).toBe(T0 - ROSTER_SEEN_NEW_WINDOW_MS)
+  })
+
+  it('hides absent recent ids and does not reset them after the window expires', async () => {
+    const store = storeOf('cn')
+    await store.note(['alpha'], T0)
+    await store.note(['alpha', 'beta'], T0 + DAY)
+    await store.note(['alpha'], T0 + 2 * DAY)
+    expect(await store.fresh(T0 + 2 * DAY)).toEqual([])
+    expect(await store.note(['alpha', 'beta'], T0 + 9 * DAY)).toEqual({ newIds: [] })
+    expect((await readPayloadOf('cn')).seen['beta']).toBe(T0 + DAY)
   })
 
   it('clamps a future stamp to now so it cannot stay new forever', async () => {

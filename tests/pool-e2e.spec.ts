@@ -861,7 +861,7 @@ describe('the pool section and the card share one refresh path (M-4 / L-5)', () 
     // The defect: two overlapping refreshes (poll + save + batch) are plain
     // fetches with no ordering guarantee, so the slower response wins and a
     // pre-check-in snapshot can overwrite a newer one.
-    const card = await sourceOf('client/WorkBuddyCard.tsx')
+    const card = await sourceOf('client/use-workbuddy-card-state.tsx')
     const at = card.indexOf('const refreshUsage = useCallback')
     expect(at, 'refreshUsage moved — update this guard').toBeGreaterThan(-1)
     const end = card.indexOf('}, [t])', at)
@@ -1089,7 +1089,7 @@ describe('the pool section and the card share one refresh path (M-4 / L-5)', () 
 
   it('imports the tested latest-wins rule instead of re-implementing it', async () => {
     // One definition, one set of tests. A second inline counter would drift.
-    const card = await sourceOf('client/WorkBuddyCard.tsx')
+    const card = await sourceOf('client/use-workbuddy-card-state.tsx')
     expect(card).toContain("import { createLatestWins } from '../account-pool.ts'")
   })
 
@@ -1182,8 +1182,8 @@ describe('the pool section and the card share one refresh path (M-4 / L-5)', () 
       .toContain('localPoolMembers')
     // And the card must report the same decision the router makes, or the panel
     // and the traffic disagree.
-    expect(host, 'the card does not share the routing decision')
-      .toContain('await applyPoolSelection(region).catch(() => undefined)')
+    expect(stripLiterals(await sourceOf('plugin-status-routes.ts')), 'the card does not share the routing decision')
+      .toContain('await dependencies.applyPoolSelection(region).catch(() => undefined)')
   })
 
   it('wires the shortfall explanation into the shim', async () => {

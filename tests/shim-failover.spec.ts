@@ -32,12 +32,13 @@ function credentialFor(uin: string): WorkBuddyCredential {
     domain: 'www.codebuddy.cn',
     uid: `uid-${uin}`,
     uin,
+    nickname: `账号-${uin}`,
     source: 'desktop',
     filePath: `/tmp/auth-${uin}.info`,
   }
 }
 
-const SELECTED = credentialFor('selected')
+const SELECTED = { ...credentialFor('selected'), displayName: '显示名称 selected', enterpriseUserName: '企业名称' }
 const SELECTED_ID = workbuddyAccountId(SELECTED)
 
 /** A store whose selection never moves, which is the whole point. */
@@ -768,11 +769,13 @@ describe('a failover says so in the answer', () => {
     const response = await chat(shim)
     expect(response.status).toBe(200)
     const text = contentOf(response.body)
-    // The notice is there, names the account left behind (by `uin`, which is what
-    // the pool table shows) and gives the reason a person can act on.
+    // 提醒与账号列表使用同一显示名称，不将账号标识作为名称。
     expect(text).toContain('dsh-connect-workbuddy')
-    expect(text).toContain('selected')
+    expect(text).toContain('「显示名称 selected」')
+    expect(text).not.toContain('「selected」')
+    expect(text).not.toContain('「账号-selected」')
     expect(text).toContain('被限流')
+    expect(text).toContain('已切换账号[账号-other]继续请求')
     // And it comes FIRST: an answer that opened with the model's prose and then
     // mentioned the switch would read as the model talking about itself.
     expect(text.indexOf('dsh-connect-workbuddy')).toBeLessThan(text.indexOf('Hello from the fallback.'))
@@ -823,7 +826,7 @@ describe('a failover says so in the answer', () => {
     const response = await chat(shim)
     const text = contentOf(response.body)
     expect(text).toContain('Straight answer.')
-    expect(text).not.toContain('已切换账号继续请求')
+    expect(text).not.toContain('已切换账号[')
     expect(attemptsOf()).toEqual([SELECTED_ID])
   })
 
@@ -840,7 +843,7 @@ describe('a failover says so in the answer', () => {
 
     const response = await chat(shim)
     expect(response.status).toBe(429)
-    expect(response.body).not.toContain('已切换账号继续请求')
+    expect(response.body).not.toContain('已切换账号[')
   })
 
   it('reports ONE reason even when several accounts fail before one answers', async () => {
@@ -869,7 +872,7 @@ describe('a failover says so in the answer', () => {
     const text = contentOf(response.body)
     expect(text).toContain('Third time lucky.')
     // Exactly one notice, naming the account the request STARTED on.
-    expect(text.split('已切换账号继续请求').length - 1).toBe(1)
+    expect(text.split('已切换账号[').length - 1).toBe(1)
     expect(text).toContain('selected')
   })
 

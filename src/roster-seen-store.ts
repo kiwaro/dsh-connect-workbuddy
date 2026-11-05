@@ -31,8 +31,7 @@
  * them are new. Announcing the whole catalog as "just added" is exactly the lie
  * this file exists to avoid, so the seeding round stamps every id with an
  * already-expired timestamp (`now - window`) and `newIds` answers empty. That
- * self-healing is deliberate: an id must leave the roster and come back before
- * it earns a real first-seen stamp.
+ * Existing ids retain their seed timestamps, including after they leave and return.
  *
  * ## More than 200 ids is SHAPE DRIFT, not "keep the newest 200"
  *
@@ -47,9 +46,8 @@
  *
  * ## Delisting, and where the file lives
  *
- * Ids that left the roster are dropped from the table, so a model that comes
- * back later counts as newly-seen again — exactly the "it came back" case a
- * reader cares about.
+ * History survives a model leaving the roster. Only active ids are displayed;
+ * returning ids retain their original first-seen timestamp.
  *
  * REGION-SCOPED like every other plugin-owned file in this repo: the CN and
  * international catalogs are separate, so a first-seen in one region says
@@ -112,6 +110,7 @@ export type RosterSeen = Record<string, number>
 
 /** The on-disk payload. `version: null` appears only on a missing/corrupt read. */
 interface RosterSeenPayload {
+  activeIds?: readonly string[]
   seen: RosterSeen
   version: number | null
 }
@@ -178,7 +177,9 @@ function parseRosterSeenPayload(raw: unknown): RosterSeenPayload {
   const source = raw as Record<string, unknown>
   const version = typeof source['version'] === 'number' ? source['version'] : null
   if (!isKnownRosterSeenVersion(version)) return { seen: {}, version }
-  return { seen: normalizeRosterSeen(source['seen']), version }
+  const seen = normalizeRosterSeen(source['seen'])
+  const activeIds = Array.isArray(source['activeIds']) ? source['activeIds'].filter((id): id is string => typeof id === 'string' && id in seen) : Object.keys(seen)
+  return { seen, version, activeIds }
 }
 
 /** Store construction options. */
@@ -262,24 +263,23 @@ export function createFileRosterSeenStore(
         // table plus `seeded = false` would announce the whole catalog as newly
         // added. `doctor` says why the history is being ignored.
         if (current.version !== null && !isKnownRosterSeenVersion(current.version)) return { newIds: [] }
-        // Keep only the ids STILL in this round's catalog: a delisted id is
-        // dropped, so a return counts as a fresh first sighting (that is the
-        // "it came back" case the reader cares about).
+        // Retain historical timestamps; activeIds controls the visible roster.
         const previous = current.seen
         const seeded = current.version === null
-        const next: RosterSeen = {}
+        const next: RosterSeen = { ...previous }
         for (const id of unique) {
           const first = previous[id]
           // A future stamp (clock rollback, a hand-edited file) is clamped to
           // now: otherwise `now - stamp` is negative and the marker stays lit.
           next[id] = typeof first === 'number' && first > 0 ? Math.min(first, now) : seeded ? now - ROSTER_SEEN_NEW_WINDOW_MS : now
         }
-        if (Object.keys(next).length > ROSTER_SEEN_MAX_IDS) {
+        if (unique.length > ROSTER_SEEN_MAX_IDS) {
           // Shape drift: neither write nor announce, keep the old map (module note).
           return { newIds: [] }
         }
         const changed =
           seeded
+          || JSON.stringify(current.activeIds) !== JSON.stringify(unique)
           || Object.keys(previous).length !== Object.keys(next).length
           || Object.keys(next).some((id) => previous[id] !== next[id])
         if (changed) {
@@ -289,14 +289,15 @@ export function createFileRosterSeenStore(
           await writeFileAtomic(filePath, `${JSON.stringify({
             version: ROSTER_SEEN_VERSION,
             seen: next,
+            activeIds: unique,
             updatedAt: new Date().toISOString(),
           }, null, 2)}\n`, {
             mode: 0o600,
             dirMode: 0o700,
           })
-          cached = { payload: { seen: next, version: ROSTER_SEEN_VERSION }, at: Date.now() }
+          cached = { payload: { seen: next, version: ROSTER_SEEN_VERSION, activeIds: unique }, at: Date.now() }
         }
-        return { newIds: seeded ? [] : freshIdsOf(next, now) }
+        return { newIds: seeded ? [] : freshIdsOf(next, now).filter(id => unique.includes(id)) }
       }))
     },
     /**
@@ -308,7 +309,7 @@ export function createFileRosterSeenStore(
      */
     async fresh(nowMs: number = Date.now()): Promise<string[]> {
       const payload = await readPayload()
-      return freshIdsOf(payload.seen, Number.isFinite(nowMs) ? nowMs : Date.now())
+      return freshIdsOf(payload.seen, Number.isFinite(nowMs) ? nowMs : Date.now()).filter(id => payload.activeIds?.includes(id) ?? true)
     },
     /** Whether this table has ever been written (seeded vs "really none new"). */
     async isSet(): Promise<boolean> {
@@ -322,7 +323,7 @@ export function createFileRosterSeenStore(
       const payload = await readPayload()
       const version = payload.version
       if (version === null || isKnownRosterSeenVersion(version)) {
-        return { newModelIds: freshIdsOf(payload.seen, Number.isFinite(nowMs) ? nowMs : Date.now()) }
+        return { newModelIds: freshIdsOf(payload.seen, Number.isFinite(nowMs) ? nowMs : Date.now()).filter(id => payload.activeIds?.includes(id) ?? true) }
       }
       return {
         newModelIds: [],
@@ -352,6 +353,6 @@ export function describeRosterSeenPayload(raw: unknown): { versionKnown: boolean
   return {
     versionKnown: isKnownRosterSeenVersion(version),
     ids: Object.keys(seen).length,
-    fresh: freshIdsOf(seen, Date.now()).length,
+    fresh: freshIdsOf(seen, Date.now()).filter(id => parseRosterSeenPayload(raw).activeIds?.includes(id) ?? true).length,
   }
 }

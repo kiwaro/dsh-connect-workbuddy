@@ -71,7 +71,7 @@ function manifest(): { dsh?: { client?: { inject?: string[] } } } {
  * pays for and never uses.
  */
 function clientReferencedPackages(): string[] {
-  const files = ['index.tsx', 'WorkBuddyCard.tsx', 'account-selection.ts', 'searched-paths.ts', 'styles.ts', 'icon.ts', 'locales.ts']
+  const files = ['index.tsx', 'WorkBuddyCard.tsx', 'workbuddy-card-view.tsx', 'use-workbuddy-card-state.tsx', 'workbuddy-capability-preferences.tsx', 'account-selection.ts', 'searched-paths.ts', 'styles.ts', 'icon.ts', 'locales.ts']
   const found = new Set<string>()
   for (const file of files) {
     const source = readFileSync(fileURLToPath(new URL(`src/client/${file}`, repoRoot)), 'utf8')
@@ -274,7 +274,7 @@ describe('card class names are styled', () => {
     'OAuthSignIn.tsx',
     'AccountTransfer.tsx',
     'BusyOverlay.tsx',
-    'WorkBuddyCard.tsx',
+    'WorkBuddyCard.tsx', 'workbuddy-card-view.tsx', 'use-workbuddy-card-state.tsx', 'workbuddy-capability-preferences.tsx',
     'AccountPool.tsx',
     'DeviceProfileDialog.tsx',
     'DeviceSdkPanel.tsx',

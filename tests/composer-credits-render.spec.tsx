@@ -232,7 +232,9 @@ describe('ComposerCredits panel', () => {
     await m.settle()
 
     // Click the row for the account that is NOT selected.
-    const rowButton = panelButtons().find(button => button.textContent?.includes('A Two'))
+    const inUse = panelButtons().find(button => button.textContent === 'composer.inUse')
+    expect(inUse?.disabled).toBe(true)
+    const rowButton = panelButtons().find(button => button.textContent === 'composer.switch')
     expect(rowButton, 'switch button for A Two').toBeDefined()
     await m.click(rowButton as Element)
     await m.settle()
@@ -241,6 +243,7 @@ describe('ComposerCredits panel', () => {
     expect(save, 'account write').toBeDefined()
     // The save endpoint takes `{ field, value: { [region]: slot } }`.
     expect(save.value.cn).toBe('a-2')
+    expect(panelText()).toContain('[dsh-connect-workbuddy] composer.switchedNotice|account=A Two')
   })
 
   it('marks a rate-limited account in the table', async () => {

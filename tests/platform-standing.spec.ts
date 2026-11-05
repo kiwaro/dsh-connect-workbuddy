@@ -61,8 +61,8 @@ describe('platform standing', () => {
     // Both must state Windows support in the strong form the project holds to,
     // not merely mention Windows in passing (which both already did before
     // this section existed — scattered mentions were exactly the gap).
-    expect(zh).toMatch(/\| Windows \|.*开发和回归测试覆盖/)
-    expect(en).toMatch(/\| Windows \|.*Development and regression tests cover/)
+    expect(zh).toMatch(/\| CI 覆盖 \| `windows-latest` 跑完整套件/)
+    expect(en).toMatch(/\| CI coverage \| `windows-latest`, full suite/)
 
     // The cross-reference must survive: the READMEs defer the details to the
     // register, so a renamed register would otherwise leave a dead link.
@@ -91,7 +91,7 @@ describe('Windows code paths stay present', () => {
    * does that will see this test name and the register together.
    */
   it('keeps the win32 credential-directory branch', () => {
-    const auth = read('src/auth.ts')
+    const auth = read('src/auth-paths.ts')
     expect(auth).toContain("platform === 'win32'")
     expect(auth).toContain('LOCALAPPDATA')
     expect(auth).toContain('APPDATA')
@@ -181,7 +181,7 @@ describe('the profile configuration file is named correctly', () => {
    * the string lives. The lock-held verification steps in `docs/WINDOWS.md` §7.3
    * depend on the same fact — locking the wrong file verifies nothing.
    */
-  const SOURCES = ['src/client/account-selection.ts', 'src/client/WorkBuddyCard.tsx', 'src/client/locales.ts'] as const
+  const SOURCES = ['src/client/account-selection.ts', 'src/client/WorkBuddyCard.tsx', 'src/client/use-workbuddy-card-state.tsx', 'src/client/workbuddy-capability-preferences.tsx', 'src/client/locales.ts'] as const
 
   it('describes the profile patch file, not settings.yaml, as the document being written', () => {
     for (const file of SOURCES) {

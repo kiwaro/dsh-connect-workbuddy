@@ -117,7 +117,7 @@ describe('the card shows the opt-in on BOTH tabs', () => {
     // Host that reports no pool state still renders it — the same reason the
     // credit switch sits there.
     const { readFileSync } = await import('node:fs')
-    const source = readFileSync(new URL('../src/client/WorkBuddyCard.tsx', import.meta.url), 'utf8')
+    const source = readFileSync(new URL('../src/client/workbuddy-capability-preferences.tsx', import.meta.url), 'utf8')
     // Both gateways publish a `text-to-image` model now (CN hunyuan-image-alpha,
     // international hy-image-3.5; measured 2026-10-25), so the box is no longer
     // gated on the CN tab: it writes the flag of whichever tab is open.

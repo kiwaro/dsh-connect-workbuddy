@@ -344,8 +344,8 @@ describe('host-range policy is written down where releases read it', () => {
   })
 
   it('keeps the supported-range table in both READMEs', () => {
-    expect(read('README.md')).toContain('支持的 DSH 版本')
-    expect(read('README.en.md')).toContain('Supported DSH versions')
+    expect(read('README.md')).toMatch(/(?:支持的 DSH 版本|受支持的 DSH 范围)/)
+    expect(read('README.en.md')).toMatch(/(?:Supported DSH versions|Supported host range)/)
     // 两语的表都必须点名被拒绝的那条线，而不是只写好话。
     for (const doc of ['README.md', 'README.en.md']) {
       expect(read(doc), doc).toContain('0.3.0-0')

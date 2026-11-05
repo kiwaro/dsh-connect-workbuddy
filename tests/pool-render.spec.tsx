@@ -962,7 +962,7 @@ describe('the pool table says WHY a member is out, not just THAT it is', () => {
       }),
     }))
     const text = m.text()
-    expect(text).toContain('row.poolRetryUnknown')
+    expect(text).not.toContain('row.poolRetryUnknown')
     expect(text).not.toContain('row.remaining')
     await m.unmount()
   })

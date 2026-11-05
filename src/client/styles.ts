@@ -1127,7 +1127,7 @@ export const WORKBUDDY_COMPOSER_CSS = `
    document flow. All material comes from shell tokens so it follows the theme. */
 .dsm-workbuddy-composer-panel{
   position:fixed;z-index:1100;box-sizing:border-box;
-  width:min(248px,calc(100vw - 24px));padding:12px;
+  width:min(360px,calc(100vw - 24px));padding:12px;
   border:1px solid var(--dsw-alias-border-l1,rgba(127,127,127,.28));
   border-radius:var(--dsw-radius-lg,14px);
   background:var(--dsw-specific-menu,Canvas);
@@ -1135,6 +1135,14 @@ export const WORKBUDDY_COMPOSER_CSS = `
   backdrop-filter:var(--dsw-menu-backdrop-filter,none);
   font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary,#444);
 }
+.dsm-workbuddy-composer-panel-table th.dsm-workbuddy-composer-panel-action,
+.dsm-workbuddy-composer-panel-table td.dsm-workbuddy-composer-panel-action{width:76px;box-sizing:border-box;padding-left:16px;padding-right:0;white-space:nowrap;text-align:center}
+.dsm-workbuddy-composer-panel-action button{appearance:none;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;width:60px;min-width:60px;height:28px;padding:0 6px;font:inherit;font-weight:500;white-space:nowrap;border:1px solid var(--dsw-alias-border-l1,rgba(127,127,127,.28));border-radius:6px;background:var(--dsw-alias-interactive-bg-hover,rgba(127,127,127,.10));color:var(--dsw-alias-label-primary,CanvasText);cursor:pointer}
+.dsm-workbuddy-composer-panel-action button:hover:not(:disabled){filter:brightness(.92)}
+.dsm-workbuddy-composer-panel-action button:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#5686fe);outline-offset:2px}
+.dsm-workbuddy-composer-panel-action button:disabled{cursor:default;opacity:.6}
+.dsm-workbuddy-composer-panel-action button[data-current="true"]{background:rgba(34,160,107,.14);border-color:rgba(34,160,107,.35);color:var(--dsw-alias-state-success-primary,#178250);opacity:1}
+.dsm-workbuddy-composer-switch-notice{margin:8px 0;padding:6px 8px;border-left:2px solid var(--dsw-alias-border-l1,#aaa);background:rgba(127,127,127,.07);overflow-wrap:anywhere}
 .dsm-workbuddy-composer-panel-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
 /* nowrap: the header is a title plus an 11px control in a ~250px popover, and
    without it the TITLE broke across two lines ("WB AI" / "积分") the moment the

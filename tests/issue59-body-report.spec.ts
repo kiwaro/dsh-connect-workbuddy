@@ -289,6 +289,7 @@ describe('what the upstream counted, read from the stream', () => {
     second({ promptTokens: 222 })
     await vi.waitFor(async () => {
       const lines = (await readFile(join(directory, 'cn.jsonl'), 'utf8')).trim().split('\n')
+      expect(JSON.parse(lines[0] as string).promptTokens).toBe(111)
       expect(JSON.parse(lines[1] as string).promptTokens).toBe(222)
     })
 

@@ -99,7 +99,7 @@ describe('the card shows the video opt-in on BOTH tabs', () => {
     // Same as the image tool: it writes the flag of whichever tab is open, so a
     // Host reporting no pool state still renders it.
     const { readFileSync } = await import('node:fs')
-    const source = readFileSync(new URL('../src/client/WorkBuddyCard.tsx', import.meta.url), 'utf8')
+    const source = readFileSync(new URL('../src/client/workbuddy-capability-preferences.tsx', import.meta.url), 'utf8')
     expect(source).toContain('toggleVideoTool(activeRegion')
     expect(source).toContain('videoToolOn(activeRegion)')
     // Its own class: not the shared .dsm-workbuddy-pref-check (contract the
@@ -110,15 +110,16 @@ describe('the card shows the video opt-in on BOTH tabs', () => {
 
   it('offers a per-mode model picker once the video tool is on', async () => {
     const { readFileSync } = await import('node:fs')
-    const source = readFileSync(new URL('../src/client/WorkBuddyCard.tsx', import.meta.url), 'utf8')
+    const source = readFileSync(new URL('../src/client/workbuddy-capability-preferences.tsx', import.meta.url), 'utf8')
     // The picker is a property of the switch: it is gated on the tool being
     // authorized for the open tab, and on the roster having been read.
     expect(source).toContain('activeRegionOn && videoToolOn(activeRegion)')
     expect(source).toContain("'text-to-video', 'image-to-video'")
     // The pin round-trips through the same landed-checked write path as the
     // switches, not through a bare scope.set.
-    expect(source).toContain('writeRegionPreferredVideoModels(')
-    expect(source).toContain('nextRegionPreferredVideoModels(')
+    const state = readFileSync(new URL('../src/client/use-workbuddy-card-state.tsx', import.meta.url), 'utf8')
+    expect(state).toContain('writeRegionPreferredVideoModels(')
+    expect(state).toContain('nextRegionPreferredVideoModels(')
   })
 })
 

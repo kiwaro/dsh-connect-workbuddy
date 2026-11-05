@@ -762,6 +762,12 @@ Copyright in each project above belongs to its respective author. This project f
 
 The open-source projects referenced here, together with their licenses and compliance notes, are recorded in full in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). When introducing new WorkBuddy-related external dependencies or reusing code from other projects, update that file and honor the upstream licenses.
 
+## Local integration updates
+
+The credit panel provides a Switch button for each account and marks the active account as In use. Successful manual switching shows the target account in the panel; automatic failover identifies the original account, reason, and serving account before the answer. Recovery time is shown only when available.
+
+Model discovery keeps the original local first-seen timestamp when a model leaves and returns. Only active models first recorded within seven days are displayed. See the [module split and verification record](docs/MODULE-SPLIT-PLAN.md) for implementation and validation details.
+
 ## License
 
 This project is licensed under the [MIT License](LICENSE). Copyright: **Copyright (c) 2026 LaoDing**.

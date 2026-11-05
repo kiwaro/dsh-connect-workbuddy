@@ -144,7 +144,7 @@ describe('the panel keeps its account rows current while it is open', () => {
     // let the panel contradict the card for up to four minutes at a time.
     expect(COMPOSER_ACCOUNT_REFRESH_INTERVAL_MS).toBe(60_000)
     const card = readFileSync(
-      join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'client', 'WorkBuddyCard.tsx'),
+      join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'client', 'workbuddy-card-view.tsx'),
       'utf8',
     )
     expect(card).toContain('const POLL_INTERVAL_MS = 60_000')

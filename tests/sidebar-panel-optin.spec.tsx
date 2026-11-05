@@ -90,7 +90,7 @@ describe('the switch reads OFF unless explicitly on', () => {
   it('is OFF by default in the Host schema', () => {
     // The description string is long; the DEFAULT is what matters, and it must
     // be `false` — an absent field has to render no row.
-    const schema = source('index.ts')
+    const schema = source('plugin-config.ts')
     const declaration = /sidebarPanel:\s*asVolatile\(([\s\S]*?)\n\s*\)\s*as unknown as z<boolean>/.exec(schema)
     expect(declaration, 'sidebarPanel must be declared as a volatile boolean in Config').not.toBeNull()
     expect(declaration?.[1]).toContain('.default(false)')
