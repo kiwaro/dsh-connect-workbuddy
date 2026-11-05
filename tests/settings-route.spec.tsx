@@ -313,7 +313,7 @@ describe('ComposerCredits settings control', () => {
     // translation that drops it fails here rather than shipping.
     expect(en['composer.refreshHint']).toMatch(/probe/i)
     expect(en['composer.refreshHint']).toMatch(/credit/i)
-    expect(zh['composer.refreshHint']).toMatch(/探测/)
+    expect(zh['composer.refreshHint']).toMatch(/测试/)
     expect(zh['composer.refreshHint']).toMatch(/积分/)
   })
 })

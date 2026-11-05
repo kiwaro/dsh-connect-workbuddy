@@ -137,7 +137,7 @@ function asImageList(value: unknown): string[] | undefined {
       if (typeof item !== 'string' || item.trim() === '') {
         throw inputImageError(
           'workbuddy image: image 数组的每个元素都必须是非空字符串'
-          + '（本地路径 / file:// / http(s) / data URL / 裸 base64）。',
+          + '（本地路径 / file:// / http(s) / data URL / base64 编码）。',
         )
       }
       items.push(item.trim())
@@ -146,7 +146,7 @@ function asImageList(value: unknown): string[] | undefined {
   }
   throw inputImageError(
     'workbuddy image: image 必须是字符串或字符串数组'
-    + '（本地路径 / file:// / http(s) / data URL / 裸 base64）。',
+    + '（本地路径 / file:// / http(s) / data URL / base64 编码）。',
   )
 }
 
@@ -261,7 +261,7 @@ async function resolveImageInput(value: string, signal?: AbortSignal): Promise<s
     const parsed = parseImageDataUrl(text)
     if (parsed === undefined) {
       throw inputImageError(
-        'workbuddy image: image 看起来是 data URL，但格式不对（需要 data:image/*;base64,...）。',
+        'workbuddy image: image 格式无效，请使用 data:image/*;base64,...。',
       )
     }
     // 这一支以前直接 return，于是绕过了 encodeInputImage 里的空文件与 8 MB 闸门：
@@ -303,7 +303,7 @@ async function resolveImageInput(value: string, signal?: AbortSignal): Promise<s
     bytes = await readFile(path)
   } catch (error: unknown) {
     throw inputImageError(
-      `workbuddy image: 读不到输入图「${path}」：`
+      `workbuddy image: 读取输入图失败「${path}」：`
       + (error instanceof Error ? error.message : String(error)),
     )
   }
@@ -343,17 +343,17 @@ export function createImageTool(deps: ImageToolDeps): ImageToolDefinition {
   return {
     name: WORKBUDDY_IMAGE_TOOL_NAME,
     description:
-      '用当前账号的 WorkBuddy 生图能力画一张图。'
+      '使用当前区域的 WorkBuddy 账号生成图片。'
       + '不填 image 是文生图（用该区带 text-to-image 标签的模型）；'
       + '填了 image 是改图（用带 image-to-image 标签的模型）。'
       + '改图支持多图参考：image 传字符串数组（如 [模板图, 服装图]），按顺序全部生效。'
       + '可选参数要么不填、要么类型正确（size/model 是字符串，image 是字符串或字符串数组）；'
-      + '填错类型直接 INVALID_ARGS 且不发请求，不会静默切模式或回落默认值。'
+      + '参数类型错误时返回 INVALID_ARGS，请修改参数后重试。'
       + '国内区与国际区都可用，模型取自该区产品配置'
       + '（国内区文生图 hunyuan-image-alpha、改图 hunyuan-image-alpha-edit；'
       + '国际区 hy-image-3.5 同时带这两个标签，以该区目录为准）。'
-      + '每张图会真实消耗 WorkBuddy 积分，单价随区域与模型不同，以返回结果里的 credit 为准；'
-      + '不要在没必要时调用，也不要为了试错连续调用。返回的是 COS 签名 URL，'
+      + '每张图消耗 WorkBuddy 积分，单价随区域与模型不同，以返回结果里的 credit 为准；'
+      + '每次调用均会计费，请按用户授权生成。结果返回 COS 签名 URL，'
       + '约 24 小时后失效；需要展示给用户时，用 markdown 图片语法引用该 URL。',
     parameters: {
       type: 'object',
@@ -367,20 +367,20 @@ export function createImageTool(deps: ImageToolDeps): ImageToolDefinition {
           description:
             '图片尺寸，写成「宽x高」（像素）。比例由宽高决定，不限于方图。'
             + '常用三档：方图 1024x1024、竖图 1024x1536、横图 1536x1024。'
-            + '要大图就按「总像素 419 万以内」放，出的是真实像素不是插值放大：'
+            + '总像素上限约 419 万，可使用以下尺寸：'
             + '2048x2048（4.19MP，方形上限）、2048x1536、2560x1440（16:9 桌面壁纸）、'
             + '2560x1600。竖版同理，把长边放到 2048–2560 那一档。'
-            + '超过这个量级会被上游直接拒绝、不会悄悄降级（2560x2560、3072x3072、4096x4096 都失败），'
-            + '所以不要填 4K 尺寸，也不要指望传大数字能拿到更多细节。'
+            + '2560x2560、3072x3072 和 4096x4096 超过此尺寸上限，服务端会拒绝，'
+            + '请按上述像素上限选择尺寸。'
             + `不填默认 ${DEFAULT_IMAGE_SIZE}（方图）。`
-            + '用户要竖版 / 横版 / 手机壁纸 / 封面 / 高清大图时，改这里的宽高，不要只在 prompt 里说。',
+            + '请通过 size 设置横版、竖版及所需分辨率。',
         },
         image: {
           type: ['string', 'array'],
           items: { type: 'string' },
           description:
             '输入图，可选。填了就是改图（image-to-image）；不填就是文生图。'
-            + '接受本地绝对路径、file:// URL、http(s) URL、data URL 或裸 base64；'
+            + '接受本地绝对路径、file:// URL、http(s) URL、data URL 或base64 编码；'
             + '也接受字符串数组（多张参考图，如 [模板图, 服装图]，按顺序当参考）。'
             + '上限 8 MB/张，不做缩放或格式转换。',
         },
@@ -389,7 +389,7 @@ export function createImageTool(deps: ImageToolDeps): ImageToolDefinition {
           description:
             '模型 id，可选。不填就用该区目录里第一个带当前模式标签的模型'
             + '（文生图看 text-to-image，改图看 image-to-image）。'
-            + '填了但该 tag 组里没有会直接报错，不会盲发。',
+            + '指定模型需属于当前模式对应的模型列表。',
         },
       },
       required: ['prompt'],
@@ -405,7 +405,7 @@ export function createImageTool(deps: ImageToolDeps): ImageToolDefinition {
           prompt: { type: 'string', description: '实际提交的画面描述。' },
           hint: { type: 'string', description: '给模型的后续提示（如何展示、链接时效）。' },
           credit: { type: 'number', description: '本次实际消耗的 WorkBuddy 积分。' },
-          path: { type: 'string', description: '上游返回 base64 时，落盘的本地绝对路径。' },
+          path: { type: 'string', description: '服务端返回 base64 图片时的本地保存路径。' },
         },
         required: ['url', 'mode', 'model', 'prompt', 'hint'],
         additionalProperties: false,
@@ -448,8 +448,8 @@ export function createImageTool(deps: ImageToolDeps): ImageToolDefinition {
       if (now < cooldownUntil) {
         const seconds = Math.ceil((cooldownUntil - now) / 1000)
         throw new WorkBuddyImageError(
-          `workbuddy image: 上一次生图刚失败过，请 ${seconds} 秒后再试`
-          + '（失败冷却是为了避免连续重试白白烧积分）。',
+          `workbuddy image: 图片生成失败后需等待，请 ${seconds} 秒后再试`
+          + '，以减少重复计费。',
           'COOLDOWN',
         )
       }
@@ -457,9 +457,9 @@ export function createImageTool(deps: ImageToolDeps): ImageToolDefinition {
       const credential = await deps.resolveCredential()
       if (credential === undefined) {
         throw new WorkBuddyImageError(
-          'workbuddy image: 没有可用的 WorkBuddy 账号——要么两个区都没登录，'
-          + '要么已登录的那个区没有打开「允许模型自主生图」。'
-          + '请先在插件设置里登录该区账号，并打开那个开关。',
+          'workbuddy image: 当前没有已授权的图片生成账号。'
+          + '请登录需要使用的区域，'
+          + '并在设置中开启「允许模型调用图片生成工具」。',
           'NOT_LOGGED_IN',
         )
       }
@@ -508,7 +508,7 @@ export function createImageTool(deps: ImageToolDeps): ImageToolDefinition {
           const path = await writeTempImage(outcome.b64, model.id)
           value['url'] = pathToFileURL(path).href
           value['path'] = path
-          value['hint'] = `${value['hint'] as string} 上游返回的是内联 base64，已落盘到本地。`
+          value['hint'] = `${value['hint'] as string} 服务端返回 base64 图片，已保存为本地文件。`
         } else {
           throw new WorkBuddyImageError(
             'workbuddy image: 上游既没有返回 url 也没有返回 b64_json。',

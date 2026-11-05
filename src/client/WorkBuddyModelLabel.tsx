@@ -245,7 +245,7 @@ function NewModelMark(): ReactElement {
   return (
     <span
       className="dsm-workbuddy-model-label-new"
-      title={language === 'zh' ? '本机首次见到的模型' : 'First seen by this machine'}
+      title={language === 'zh' ? '本机首次检测到的模型' : 'First seen by this machine'}
     >
       {language === 'zh' ? '新' : 'NEW'}
     </span>

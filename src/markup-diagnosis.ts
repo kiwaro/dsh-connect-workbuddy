@@ -390,12 +390,12 @@ export function analyzeSessionEvents(messages: RecordedMessage[]): SessionMarkup
 export function explainShape(verdict: StreamVerdict): string {
   switch (verdict.shape) {
     case 'markup-in-content':
-      return `模型把工具调用写进了正文（${verdict.markup?.count ?? 0} 处标记），没有走结构化调用通道 —— 这就是正文里出现那段文字的原因。`
+      return `模型把工具调用写进了正文（${verdict.markup?.count ?? 0} 处标记），工具调用未按结构化格式返回。`
     case 'native-tool-call':
-      return `模型返回了结构化的 tool_calls（${verdict.toolCallFrames} 个分片），路径正常，本次没有复现。`
+      return `模型返回了结构化的 tool_calls（${verdict.toolCallFrames} 个分片），本次工具调用格式正常。`
     case 'text-only':
-      return '模型只回了普通文字，没有尝试调用工具，本次不能作为证据。'
+      return '模型返回了文本，未调用工具。'
     case 'empty':
-      return '响应里没有可用的助手内容（可能是错误帧或被截断），本次不能作为证据。'
+      return '响应中缺少助手内容。'
   }
 }

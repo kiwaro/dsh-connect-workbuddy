@@ -244,9 +244,9 @@ export function pickMediaModel(
   const first = group[0]
   if (first === undefined) {
     throw new WorkBuddyImageError(
-      `workbuddy image: 该区账号的产品配置里没有任何带 ${tag} 标签的模型（${tagLabel(tag)}）。`
-      + '国内区文生图应是 hunyuan-image-alpha、改图是 hunyuan-image-alpha-edit；'
-      + '国际区 hy-image-3.5 同时带这两个标签；一个都没有说明该区目录暂时没有这类模型。',
+      `workbuddy image: 当前区域模型目录中缺少 ${tag} 标签的模型（${tagLabel(tag)}）。`
+      + '请刷新当前区域模型目录后重试。'
+      + '',
       'NO_IMAGE_MODEL',
     )
   }
@@ -464,7 +464,7 @@ export function describeImageFailure(status: number, bodyText: string): WorkBudd
   }
   if (status === 404) {
     return new WorkBuddyImageError(
-      `workbuddy image: 上游没有这条生图路由（HTTP 404）——该区网关没有开放生图接口。${detail === '' ? '' : ` ${detail}`}`,
+      `workbuddy image: 上游没有这条生图路由（HTTP 404）——当前区域暂未提供图片生成接口。${detail === '' ? '' : ` ${detail}`}`,
       'NO_ROUTE',
     )
   }

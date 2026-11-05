@@ -113,7 +113,7 @@ export class TurnGate {
       return {
         ok: false,
         code: 'busy',
-        error: '这个会话已有一个 CodeBuddy 回合在跑，等它结束再发一次。',
+        error: '当前会话已有 CodeBuddy 任务，请等待完成后重试。',
       }
     }
 
@@ -121,13 +121,13 @@ export class TurnGate {
     if (perSessionPerHour > 0) {
       const spent = this.perSession.get(sessionKey)?.length ?? 0
       if (spent >= perSessionPerHour) {
-        const message = `本会话最近一小时已经跑了 ${String(spent)} 次 CodeBuddy（上限 ${String(perSessionPerHour)} 次/小时）。等窗口过去，或调高插件配置 cliBridge.maxTurnsPerSessionHour。`
+        const message = `本会话最近一小时已调用 ${String(spent)} 次 CodeBuddy（上限 ${String(perSessionPerHour)} 次/小时）。请等待额度周期恢复，或调整配置 cliBridge.maxTurnsPerSessionHour。`
         onRefused(message)
         return { ok: false, code: 'session-quota', error: message }
       }
     }
     if (globalPerHour > 0 && this.global.length >= globalPerHour) {
-      const message = `最近一小时全场已经跑了 ${String(this.global.length)} 次 CodeBuddy（上限 ${String(globalPerHour)} 次/小时）。等窗口过去，或调高插件配置 cliBridge.maxTurnsPerHour。`
+      const message = `最近一小时全局已调用 ${String(this.global.length)} 次 CodeBuddy（上限 ${String(globalPerHour)} 次/小时）。请等待额度周期恢复，或调整配置 cliBridge.maxTurnsPerHour。`
       onRefused(message)
       return { ok: false, code: 'global-quota', error: message }
     }

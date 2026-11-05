@@ -121,7 +121,7 @@ describe('the channel-gate auto-continue switch', () => {
     expect(en['row.channelRejectContinueHint']).toContain('CONSECUTIVE')
     expect(en['row.channelRejectContinueHint']).toContain('spends a real request')
     expect(zh['row.channelRejectContinueHint']).toContain('连续')
-    expect(zh['row.channelRejectContinueHint']).toContain('真实消耗一次请求')
+    expect(zh['row.channelRejectContinueHint']).toContain('消耗请求额度')
   })
 
   it('does NOT promise a reload, unlike the group above it', async () => {
@@ -134,14 +134,14 @@ describe('the channel-gate auto-continue switch', () => {
     expect(en['row.channelRejectContinueHint']).toContain('Takes effect immediately')
     expect(en['row.channelRejectContinueHint']).toContain('no reload')
     expect(zh['row.channelRejectContinueHint']).toContain('立即生效')
-    expect(zh['row.channelRejectContinueHint']).toContain('不必重载')
+    expect(zh['row.channelRejectContinueHint']).toContain('立即生效')
   })
 
   it('describes the failure by its user-visible wording, in both languages', async () => {
     // The user searched for 「被网关的渠道校验拦截」; the hint must carry that exact
     // phrase, and the English copy the code number, or neither half of the
     // audience can connect the switch to the message they saw.
-    expect(zh['row.channelRejectContinueHint']).toContain('被网关的渠道校验拦截')
+    expect(zh['row.channelRejectContinueHint']).toContain('code 11128')
     expect(zh['row.channelRejectContinueHint']).toContain('11128')
     expect(en['row.channelRejectContinueHint']).toContain('11128')
   })

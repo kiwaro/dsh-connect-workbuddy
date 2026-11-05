@@ -4723,7 +4723,7 @@ export class WorkBuddyUpstreamClient {
           `workbuddy video: 生视频任务失败（task ${taskId}）。`
           + (result.detail === undefined
             ? '上游没有给出任何原因字段。'
-            : ` 上游返回的额外字段：${result.detail}`),
+            : ` 服务端返回字段：${result.detail}`),
           'TASK_FAILED',
         )
       }

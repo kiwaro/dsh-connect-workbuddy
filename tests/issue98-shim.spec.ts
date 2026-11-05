@@ -272,8 +272,8 @@ describe('the self-healing retry (issue #98)', () => {
     // The sparse rung still ADDS breaks on top of the ones the request path put
     // there — that is what makes spending this request worth it at all.
     expect(breaksIn(second)).toBeGreaterThan(breaksIn(first))
-    expect(reply.message).toContain('并已用一次不可见扰动与一次密集不可见扰动重试过')
-    expect(reply.message).not.toContain('并已用强制中性头')
+    expect(reply.message).toContain('重试处理：一次不可见字符处理、一次密集不可见字符处理')
+    expect(reply.message).not.toContain('重试处理：添加中性提示')
   })
 })
 
@@ -292,17 +292,17 @@ describe('the reply reads the HOST body, per role (issue #98)', () => {
     expect(reply.status).toBe(400)
     expect(reply.type).toBe('channel_reject')
     // The opening is quoted with its role and with the reason it matters.
-    expect(reply.message).toContain(`「assistant：${DSH_FINGERPRINT}，首尾为「here is my prompt」，共 67 字」（插件已加中性头）`)
+    expect(reply.message).toContain(`「assistant：${DSH_FINGERPRINT}，结尾为「here is my prompt」，共 67 字」（已添加中性提示）`)
     // The system message is quoted too — the reader must not be left guessing
     // which of their messages the gateway looked at.
-    expect(reply.message).toContain(`「system：${NOVEL_OPENING}，共 59 字」（不在插件已知名单里`)
+    expect(reply.message).toContain(`「system：${NOVEL_OPENING}，共 59 字」（其他消息开头`)
     // Support's handles survive.
     expect(reply.message).toContain('code 11128')
     expect(reply.message).toContain('requestId 26d17b97-c53b-461a-bd21-34c61c86f15b')
     // The retry really happened, and the reply says so.
     // The ladder spent both rungs (the head retry could not help by itself),
     // and the reply says so.
-    expect(reply.message).toContain('并已用强制中性头与一次不可见扰动与一次密集不可见扰动重试过')
+    expect(reply.message).toContain('重试处理：添加中性提示、一次不可见字符处理、一次密集不可见字符处理')
     // The old, misleading claim is gone: the plugin cannot know which line the
     // gateway matched, and pretending otherwise is what misdirected the reports.
     expect(reply.message).not.toContain('命中的 system 提示开头')
@@ -315,7 +315,7 @@ describe('the reply reads the HOST body, per role (issue #98)', () => {
 
     const reply = await chat(shim, [{ role: 'system', content: NOVEL_OPENING }, { role: 'user', content: 'hi' }])
 
-    expect(reply.message).toContain(`「system：${NOVEL_OPENING}，共 59 字」（不在插件已知名单里，网关可能新增了词条）`)
+    expect(reply.message).toContain(`「system：${NOVEL_OPENING}，共 59 字」（其他消息开头）`)
     // The gateway's shared tips sentence is NOT relayed as if it were a finding.
     expect(reply.message).not.toContain('可能不是官方客户端发出的。请用官方版本重新发送')
   })
@@ -329,7 +329,7 @@ describe('the reply reads the HOST body, per role (issue #98)', () => {
 
     const reply = await chat(shim, [{ role: 'system', content: DSH_FINGERPRINT }, { role: 'user', content: 'hi' }])
 
-    expect(reply.message).toContain(`「system：${DSH_FINGERPRINT}，共 48 字」（插件已加中性头）`)
+    expect(reply.message).toContain(`「system：${DSH_FINGERPRINT}，共 48 字」（已添加中性提示）`)
     expect(reply.message).not.toContain(`「system：${WORKBUDDY_FALLBACK_SYSTEM_PROMPT}」`)
   })
 
@@ -341,7 +341,7 @@ describe('the reply reads the HOST body, per role (issue #98)', () => {
     // body that the evidence is read from has no system/assistant message.
     const reply = await chat(shim, [{ role: 'user', content: 'hi' }])
 
-    expect(reply.message).toContain('（请求里没有可读的 system 或 assistant 消息开头。）')
+    expect(reply.message).toContain('请求中未找到可读取的 system 或 assistant 消息。')
   })
 })
 
@@ -370,10 +370,10 @@ describe('the whole `11128` family answers as ONE gate, with the member named (i
     // it cannot be believed: the plugin sends the triple on every chat request.
     expect(reply.message).toContain('「conversation id missing」')
     expect(reply.message).toContain('X-Conversation-ID')
-    expect(reply.message).toContain('上游误报')
+    expect(reply.message).toContain('请求已包含')
     // It also names the real cause, so the reader is not left with a header
     // theory that no action of theirs can satisfy.
-    expect(reply.message).toContain('实际被拒的是请求内容')
+    expect(reply.message).toContain('当前按请求内容拦截处理')
     // The family's own diagnosis is the actionable part, so it IS present —
     // that is the whole point of running the ladder.
     expect(reply.message).toContain('渠道校验')

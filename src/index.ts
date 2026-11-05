@@ -3573,7 +3573,7 @@ export function apply(ctx: Context, config: Config): void {
     switch (reason) {
       case 'rate-limited': return '账号被限流'
       case 'out-of-credit': return '账号积分耗尽'
-      case 'model-busy': return '账号撞上模型繁忙'
+      case 'model-busy': return '账号请求的模型繁忙'
       case 'credential-rejected': return '账号登录已失效'
       case 'account-restricted': return '账号被上游限制使用'
       case 'not-found': return '账号已不存在'

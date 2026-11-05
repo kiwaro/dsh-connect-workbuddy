@@ -378,7 +378,7 @@ export function resolveWorkingDir(
         ok: false,
         dir: '',
         unattended: false,
-        reason: `working_dir "${explicit}" 不是绝对路径。请传一个绝对路径（宿主的工具调用不携带会话 cwd）。`,
+        reason: `working_dir "${explicit}" 不是绝对路径。请提供工作目录的绝对路径。`,
       }
     }
     chosen = explicit
@@ -395,10 +395,10 @@ export function resolveWorkingDir(
       dir: '',
       unattended: false,
       reason:
-        'no working directory。宿主目前不把会话 cwd 传给插件工具，所以这个值必须由调用方给：' +
+        '缺少工作目录，请选择一种方式指定：' +
         '① 传 working_dir 指定一个已存在的绝对路径目录；② 在插件配置里设 cliBridge.workingDir；' +
-        '③ 若本回合只是通用问答、不需要任何目录，传 allow_unattended: true' +
-        '（会在一个临时目录里跑，该目录是它的读写边界，不碰你的 home 或会话工作区）。',
+        '③ 通用问答可传 allow_unattended: true，在临时目录执行' +
+        '，文件读写限于该临时目录。',
     }
   }
 
@@ -429,7 +429,7 @@ export function resolveWorkingDir(
       dir: '',
       unattended: false,
       reason: fallbackAlsoFailed
-        ? `${rejection}（回退的会话目录 "${fallbackSessionDir}" 同样不可用，工作目录投影与会话 header 都失效了。）`
+        ? `${rejection}（回退的会话目录 "${fallbackSessionDir}" 也不可用，请指定有效的工作目录。）`
         : rejection,
     }
   }
@@ -450,14 +450,14 @@ export function resolveWorkingDir(
       dir: '',
       unattended: false,
       reason:
-        `working_dir "${chosen}" 不在本回合允许的范围内。` +
+        `working_dir "${chosen}" 不在本次允许的范围内。` +
         (fromArgument
-          ? '工具不能把可写文件的 agent 指向任意目录——请从下面这些根里选一个（或子目录），' +
-            '要放开别的目录得在插件配置 cliBridge.allowedDirs 里显式列出。'
+          ? '请选择下列允许目录或其子目录，' +
+            '使用其他目录时，请先加入 cliBridge.allowedDirs 设置。'
           : '') +
         (listed.length > 0
-          ? `允许的根：${listed.join(' / ')}。`
-          : '当前没有任何允许的根：本会话没有 cwd，配置里也没有 cliBridge.workingDir 或 cliBridge.allowedDirs。'),
+          ? `允许的目录：${listed.join(' / ')}。`
+          : '尚未配置允许的目录：本会话没有 cwd，配置里也没有 cliBridge.workingDir 或 cliBridge.allowedDirs。'),
     }
   }
 
@@ -468,12 +468,12 @@ export function resolveWorkingDir(
 const OUTPUT_SCHEMA = {
   type: 'object',
   properties: {
-    ok: { type: 'boolean', description: '本回合是否正常完成' },
+    ok: { type: 'boolean', description: '本次是否正常完成' },
     reply: { type: 'string', description: 'CodeBuddy 的最终回复文本' },
-    session_id: { type: 'string', description: '本回合的 CLI 会话 id；空字符串表示未报' },
+    session_id: { type: 'string', description: '本次 CLI 会话标识；服务端未返回时为空' },
     tools: {
       type: 'array',
-      description: `本回合用过的工具及次数，最多 ${String(TOOLS_CAP)} 条（超出见 tool_calls，它是真实总数）`,
+      description: `本次使用的工具及次数，最多 ${String(TOOLS_CAP)} 条，完整调用数量见 tool_calls`,
       items: {
         type: 'object',
         properties: {
@@ -486,25 +486,25 @@ const OUTPUT_SCHEMA = {
     },
     denied_tools: {
       type: 'array',
-      description: '本回合 CLI 请求过、但被本插件拒绝的工具。非空说明它想动手但没被允许',
+      description: '本次被插件拒绝执行的 CLI 工具列表',
       items: { type: 'string' },
     },
-    tool_calls: { type: 'number', description: '本回合工具调用总次数（tools 数组可能被截断，这个数是真实的）' },
-    num_turns: { type: 'number', description: 'CLI 自报的 agent 轮数' },
-    tokens_in: { type: 'number', description: '本回合输入 token 数（含缓存命中部分）' },
-    tokens_out: { type: 'number', description: '本回合输出 token 数' },
+    tool_calls: { type: 'number', description: '本次工具调用总次数，包含列表截断部分' },
+    num_turns: { type: 'number', description: 'CLI 返回的执行轮数' },
+    tokens_in: { type: 'number', description: '本次输入 token 数（含缓存命中部分）' },
+    tokens_out: { type: 'number', description: '本次输出 token 数' },
     cache_read_tokens: {
       type: 'number',
-      description: '输入里命中提示缓存的部分。它通常占 tokens_in 的绝大部分——名义输入看着很大，新增计费其实很小',
+      description: '输入 token 中命中缓存的数量',
     },
     credential_region: { type: 'string', description: '本次实际用的凭据区域（cn / global / env）' },
-    working_dir: { type: 'string', description: '本回合实际使用的工作目录（它的读写边界）；空字符串表示本回合在拒绝前就结束了' },
+    working_dir: { type: 'string', description: '本次实际工作目录，读写限于该目录；请求被提前拒绝时为空' },
     unattended: {
       type: 'boolean',
-      description: '本回合是否因为调用方传了 allow_unattended 而在临时目录里跑（工具可能在那里写文件）',
+      description: '本次是否按 allow_unattended 参数在临时目录执行',
     },
-    elapsed_ms: { type: 'number', description: '本回合墙钟毫秒数' },
-    truncated: { type: 'boolean', description: 'reply 超过上限被截断（截断处有标记）；长内容应让它落盘再读' },
+    elapsed_ms: { type: 'number', description: '本次总耗时，单位为毫秒' },
+    truncated: { type: 'boolean', description: '回复是否超过长度上限；完整结果可保存到文件后读取' },
     error: { type: 'string', description: '失败原因；空字符串表示没有错误' },
   },
   required: [
@@ -739,7 +739,7 @@ export async function runAsk(
 
   const message = typeof args['message'] === 'string' ? args['message'] : ''
   if (message.trim() === '') {
-    return result({ ok: false, error: 'message 不能为空：要说清楚这一轮让 CodeBuddy 做什么。' })
+    return result({ ok: false, error: '请在 message 中填写完整任务要求。' })
   }
 
   const dir = resolveWorkingDir(args, options, execution, deps.directoryOf)
@@ -818,59 +818,59 @@ export function mountAskTool(tools: BridgeToolsService | undefined, deps: AskDep
     return tools.register({
       name: 'codebuddy_ask',
       description:
-        '把一个独立的任务交给本机的 CodeBuddy CLI 跑一轮完整 agent（它自己读文件、改文件、跑命令），返回它的结论。' +
-        '适合"独立审一块代码 / 跑一轮调查 / 让另一个 agent 复核"，不适合"接着我们刚才的思路改"——它看不到本会话的对话，会重新探索工作区。' +
-        `每次调用都会真实消耗一份 CodeBuddy 账号额度（一轮通常几万输入 token，多数命中缓存）；` +
-        `本会话每小时上限 ${String(deps.options.maxTurnsPerSessionHour === 0 ? '不限' : deps.options.maxTurnsPerSessionHour)} 次、` +
-        `全场每小时上限 ${String(deps.options.maxTurnsPerHour === 0 ? '不限' : deps.options.maxTurnsPerHour)} 次，超了会被具名拒绝。` +
-        '默认只能在本会话的工作区（或在配置里显式列出的目录）里跑；要指定别处的目录得先把它加进 cliBridge.allowedDirs。',
+        '调用本机 CodeBuddy CLI 执行独立任务，按权限设置读取文件、修改文件或执行命令，完成后返回结果。' +
+        '适用于独立代码审查、问题调查和复核。请提供完整背景、目标和要求，CodeBuddy 仅接收本次任务描述。' +
+        `每次调用均消耗 CodeBuddy 账号额度，输入可能包含数万 token，缓存命中按对应费率计费。` +
+        `本会话每小时最多 ${String(deps.options.maxTurnsPerSessionHour === 0 ? '不限' : deps.options.maxTurnsPerSessionHour)} 次、` +
+        `全局每小时最多 ${String(deps.options.maxTurnsPerHour === 0 ? '不限' : deps.options.maxTurnsPerHour)} 次，达到上限时返回限额提示。` +
+        '默认在当前会话工作区执行。使用其他目录时，请先加入 cliBridge.allowedDirs 设置。',
       timeoutMs: (deps.options.timeoutSecs + 30) * 1000,
       parameters: {
         type: 'object',
         properties: {
           message: {
             type: 'string',
-            description: '交给 CodeBuddy 的完整任务描述。它看不到本会话，所以要自包含：目标、范围、验收标准。',
+            description: '完整任务描述，包含背景、目标、允许修改的内容和完成条件。',
           },
           working_dir: {
             type: 'string',
             description:
-              '本回合的工作目录（它的读写边界），必须是已存在的绝对路径，且落在本会话工作区或配置的 allowedDirs 之内。不传则用本会话的工作区。',
+              '本次读写文件的工作目录。请提供现有目录的绝对路径，且位于当前工作区或 allowedDirs 内；省略时使用当前会话工作区。',
           },
           model: {
             type: 'string',
-            description: `可选：本回合模型 id，默认取插件配置（当前 ${deps.options.model === '' ? 'CLI 自己的设置' : deps.options.model}）。`,
+            description: `本次模型标识，可选。默认取插件配置，当前为 ${deps.options.model === '' ? 'CLI 自己的设置' : deps.options.model}。`,
           },
           permission_mode: {
             type: 'string',
             description:
-              '可选：本回合权限模式。默认取插件配置（dontAsk = 只读工具放行、写工具被拒，且不会卡住等审批）；' +
-              'plan = 只读，纯审查可用（注意 plan 在 -p 下会请求 ExitPlanMode 审批，被拒才结束）；' +
-              'acceptEdits = 允许改文件；bypassPermissions = 全部放行。default / auto 也接受。传其它值会被拒绝并列出合法值。',
+              '本次权限模式，可选。默认取插件配置。dontAsk = 仅允许只读工具，写入请求直接拒绝；' +
+              'plan = 只读审查，命令行模式下申请 ExitPlanMode 审批被拒绝后结束；' +
+              'acceptEdits = 允许修改文件；bypassPermissions = 允许全部工具。default / auto 也接受。传其它值会被拒绝并列出合法值。',
           },
           effort: {
             type: 'string',
-            description: `可选：本回合推理力度。合法值：${EFFORT_LEVELS.join(', ')}。不传取插件配置。`,
+            description: `可选：本次推理力度。合法值：${EFFORT_LEVELS.join(', ')}。不传取插件配置。`,
           },
           max_turns: {
             type: 'number',
-            description: `可选：本回合 agent 轮数上限，默认取插件配置（当前 ${String(deps.options.maxTurns)}），上限 ${String(MAX_TURNS_CAP)}。用尽会标记为截断，不当作成功。`,
+            description: `本次执行轮数上限，可选。默认值为 ${String(deps.options.maxTurns)}，最大值为 ${String(MAX_TURNS_CAP)}。达到上限后标记为截断。`,
           },
           timeout_secs: {
             type: 'number',
-            description: `可选：本回合墙钟超时秒数，默认取插件配置（当前 ${String(deps.options.timeoutSecs)}），上限 ${String(TIMEOUT_SECS_CAP)}；超时会被杀掉并报错。`,
+            description: `本次总超时秒数，可选。默认值为 ${String(deps.options.timeoutSecs)}，最大值为 ${String(TIMEOUT_SECS_CAP)}。超时后终止任务并返回错误。`,
           },
           session_id: {
             type: 'string',
             description:
               '可选：要续接的 CLI 会话 id。留空 = 由插件自动续接本会话上一轮的 CodeBuddy 对话'
               + '（cliBridge.sessionContinuity=auto 时；=off 时留空就是每次开新会话）。'
-              + '只有想故意开一条新对话、或切到另一条对话时才显式传。',
+              + '新建对话或切换对话时可显式指定。',
           },
           allow_unattended: {
             type: 'boolean',
             description:
-              '可选：本回合不需要任何目录时设为 true，会在一个临时目录里跑（该目录是它的读写边界）。默认 false：一个能改文件的 agent 不该被指向没人选过的目录。',
+              '可选：通用问答设为 true，在临时目录中执行并限制文件读写范围。默认 false，使用已确认的工作目录。',
           },
         },
         required: ['message'],
@@ -884,19 +884,19 @@ export function mountAskTool(tools: BridgeToolsService | undefined, deps: AskDep
           }
           const lines = ['CodeBuddy 回复:', typed.reply === '' ? '(空回复)' : typed.reply, '']
           if (typed.truncated) {
-            lines.push('[注意：reply 已截断。让 CodeBuddy 把完整内容写到文件里再读，别只靠这一份摘要]', '')
+            lines.push('[注意：reply 已截断。请将完整结果保存到文件后读取]', '')
           }
           if (typed.denied_tools.length > 0) {
             lines.push(
-              `[注意：本回合 CodeBuddy 请求过这些工具但被拒绝：${typed.denied_tools.join(', ')}。` +
-                '如果任务本来就要求它们动手，说明默认权限模式（dontAsk）挡住了——明确传 permission_mode 再试]',
+              `[注意：本次 CodeBuddy 请求过这些工具但被拒绝：${typed.denied_tools.join(', ')}。` +
+                '需要使用这些工具时，请在 permission_mode 中指定相应权限后重试]',
               '',
             )
           }
           if (typed.unattended) {
             lines.push(
-              `[注意：本回合未指定 working_dir，按调用方的 allow_unattended 在临时目录里执行（${typed.working_dir}）。` +
-                '它读不到你的仓库；要针对某个仓库请显式传 working_dir]',
+              `[本次按 allow_unattended 在临时目录执行，目录为 ${typed.working_dir}。` +
+                '针对仓库执行任务时，请在 working_dir 中指定仓库目录]',
               '',
             )
           }

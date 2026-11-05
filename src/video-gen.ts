@@ -283,9 +283,9 @@ export function pickVideoModel(
   const first = group[0]
   if (first === undefined) {
     throw new WorkBuddyVideoError(
-      `workbuddy video: 该区账号的产品配置里没有任何带 ${tag} 标签的模型（${tagLabel(tag)}）。`
-      + '国内区文生视频/图生视频是 kling-video-v3、minimax-video-h3；'
-      + '国际区 kling-video-v3 同时带这两个标签；一个都没有说明该区目录暂时没有这类模型。',
+      `workbuddy video: 当前区域模型目录中缺少 ${tag} 标签的模型（${tagLabel(tag)}）。`
+      + '请刷新当前区域模型目录后重试。'
+      + '',
       'NO_VIDEO_MODEL',
     )
   }
@@ -459,7 +459,7 @@ export function parseVideoSubmission(payload: unknown): WorkBuddyVideoSubmission
   const taskId = asString(data['id'])
   if (taskId === undefined) {
     throw new WorkBuddyVideoError(
-      'workbuddy video: 上游没返回 task id，无法进入轮询。',
+      'workbuddy video: 服务端未返回任务标识，视频状态查询失败。',
       'EMPTY_RESULT',
     )
   }
@@ -557,7 +557,7 @@ function describeUnknownTaskFields(data: Record<string, unknown>): string | unde
     text = JSON.stringify(extra)
   } catch {
     // 循环引用之类：退回一句"有额外字段"，至少不让诊断本身变成新的故障。
-    return '（上游返回了无法序列化的额外字段）'
+    return '服务端返回字段解析失败'
   }
   return text.length > 400 ? `${text.slice(0, 400)}…` : text
 }
@@ -598,7 +598,7 @@ export function describeVideoFailure(
   }
   if (status === 404) {
     return new WorkBuddyVideoError(
-      `workbuddy video: 上游没有这条生视频路由（HTTP 404）——该区网关没有开放视频接口。${detail === '' ? '' : ` ${detail}`}`,
+      `workbuddy video: 当前区域的视频生成接口不可用，HTTP 404。${detail === '' ? '' : ` ${detail}`}`,
       'NO_ROUTE',
     )
   }
@@ -611,7 +611,7 @@ export function describeVideoFailure(
     return new WorkBuddyVideoError(
       `workbuddy video: 上游拒绝了这次生视频请求（HTTP ${status}），没有创建任务、没有扣积分`
       + `${range === undefined ? '' : `；该模型支持的时长是 ${range.minSeconds}-${range.maxSeconds} 秒`}`
-      + `。按下面的提示改参数后可以立刻重试。${detail === '' ? '' : ` ${detail}`}`,
+      + `。请按服务端提示调整参数后重试。${detail === '' ? '' : ` ${detail}`}`,
       'REJECTED',
     )
   }

@@ -154,8 +154,8 @@ describe('issue #84 — a busy model must not be reported as an exhausted balanc
     expect(isQuotaExceededError(text)).toBe(false)
 
     // And the plugin's sentence is in there to be displayed.
-    expect(text).toContain('这不是账号被限流')
-    expect(text).toContain('与积分、额度无关')
+    expect(text).toContain('模型当前繁忙')
+    expect(text).toContain('切换到负载较低的模型')
   })
 
   it('keeps RATE_LIMIT retryable on the policy this adapter actually publishes', async () => {

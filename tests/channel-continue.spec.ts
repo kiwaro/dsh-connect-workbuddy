@@ -334,7 +334,7 @@ describe('the guards that keep it from making things worse', () => {
     engine.onSessionEvent(session('s1'), turnEndError(1, { code: 'channel_reject' }))
     await flush()
     expect(agent.sent).toHaveLength(0)
-    expect(logs.join('\n')).toContain('回合已经在跑')
+    expect(logs.join('\n')).toContain('会话正在执行请求')
   })
 
   it('refuses when someone already queued something in the inbox', async () => {
@@ -347,7 +347,7 @@ describe('the guards that keep it from making things worse', () => {
     engine.onSessionEvent(session('s1'), turnEndError(1, { code: 'channel_reject' }))
     await flush()
     expect(busy.sent).toHaveLength(0)
-    expect(logs.join('\n')).toContain('收件箱里已有排队内容')
+    expect(logs.join('\n')).toContain('会话已有待处理消息')
   })
 
   it('drops a scheduled send when the host starts a new turn first', async () => {
@@ -417,7 +417,7 @@ describe('the guards that keep it from making things worse', () => {
     engine.onSessionEvent(session('gone'), turnEndError(1, { code: 'channel_reject' }))
     await flush()
     // No live agent: nothing to send, and the refusal is sayable.
-    expect(logs.join('\n')).toContain('没有 live agent')
+    expect(logs.join('\n')).toContain('运行实例已退出')
   })
 
   it('survives a followup that throws', async () => {
@@ -514,7 +514,7 @@ describe('mounting on a host whose event bus is not what we expect', () => {
       log: message => { logs.push(message) },
       onSessionEvent: () => { throw new Error('no such event on this host') },
     })
-    expect(logs.join('\n')).toContain('自动续发不可用')
+    expect(logs.join('\n')).toContain('自动发送功能已停用')
     expect(logs.join('\n')).toContain('no such event on this host')
     // And the returned disposer is safe to call, so `ctx.effect` cannot throw.
     expect(() => { dispose() }).not.toThrow()

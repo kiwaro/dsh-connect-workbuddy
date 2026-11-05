@@ -117,7 +117,7 @@ describe('video tool model resolution', () => {
     const tool = createVideoTool(deps())
     const seconds = (tool.parameters['properties'] as Record<string, Record<string, unknown>>)['seconds']!
     const description = seconds['description'] as string
-    expect(description).toContain('报错')
+    expect(description).toContain('超出时返回参数错误')
     expect(description).not.toContain('夹回')
   })
 

@@ -248,7 +248,7 @@ function asVideoImageInput(value: unknown): string | undefined {
     if (typeof item !== 'string' || item.trim() === '') {
       throw new WorkBuddyVideoError(
         'workbuddy video: image 数组的唯一元素必须是非空字符串'
-        + '（本地路径 / file:// / http(s) / data URL / 裸 base64）。',
+        + '（本地路径 / file:// / http(s) / data URL / base64 编码）。',
         'INVALID_ARGS',
       )
     }
@@ -256,7 +256,7 @@ function asVideoImageInput(value: unknown): string | undefined {
   }
   throw new WorkBuddyVideoError(
     'workbuddy video: image 必须是字符串或单元素字符串数组'
-    + '（本地路径 / file:// / http(s) / data URL / 裸 base64）。',
+    + '（本地路径 / file:// / http(s) / data URL / base64 编码）。',
     'INVALID_ARGS',
   )
 }
@@ -321,7 +321,7 @@ async function resolveVideoImageInput(value: string, signal?: AbortSignal): Prom
     const parsed = parseImageDataUrl(text)
     if (parsed === undefined) {
       throw new WorkBuddyVideoError(
-        'workbuddy video: image 看起来是 data URL，但格式不对（需要 data:image/*;base64,...）。',
+        'workbuddy video: image 格式无效，请使用 data:image/*;base64,...。',
         'INVALID_ARGS',
       )
     }
@@ -373,7 +373,7 @@ async function resolveVideoImageInput(value: string, signal?: AbortSignal): Prom
     bytes = await readFile(path)
   } catch (error: unknown) {
     throw new WorkBuddyVideoError(
-      `workbuddy video: 读不到输入图「${path}」：`
+      `workbuddy video: 读取输入图失败「${path}」：`
       + (error instanceof Error ? error.message : String(error)),
       'INVALID_ARGS',
     )
@@ -444,14 +444,14 @@ export function createVideoTool(deps: VideoToolDeps): VideoToolDefinition {
       '用当前账号的 WorkBuddy 视频生成能力生成一段短视频。'
       + '不填 image 是文生视频（用该区带 text-to-video 标签的模型）；'
       + '填了 image 是图生视频（用带 image-to-video 标签的模型，只收一张输入图）。'
-      + '可选参数要么不填、要么类型正确；填错类型直接 INVALID_ARGS 且不发请求，'
-      + '不会静默丢参数或切换模式。'
+      + '请使用正确的参数类型；类型错误时返回 INVALID_ARGS，'
+      + '修改参数后可重试。'
       + '国内区与国际区都可用，模型取自该区产品配置'
       + '（国内区 kling-video-v3、minimax-video-h3；国际区 kling-video-v3，'
       + '两种 video tag 都有；以该区目录为准）。'
       + '视频是异步任务：先提交、再轮询到完成、最后把视频下载到本地，单次可能要几十秒到几分钟。'
-      + '每次生成会真实消耗 WorkBuddy 积分，单价随区域与模型不同，以返回结果里的 credit 为准；'
-      + '不要在没必要时调用，也不要为了试错连续调用。'
+      + '每次生成消耗 WorkBuddy 积分，单价随区域与模型不同，以返回结果里的 credit 为准；'
+      + '每次调用均会计费，请按用户授权生成。'
       + '返回的是本地 .mp4 文件路径（file:// URL），由宿主/客户端打开或下载。',
     parameters: {
       type: 'object',
@@ -465,34 +465,34 @@ export function createVideoTool(deps: VideoToolDeps): VideoToolDefinition {
           items: { type: 'string' },
           description:
             '输入图，可选。填了就是图生视频（image-to-video）；不填就是文生视频。'
-            + '接受本地绝对路径、file:// URL、http(s) URL、data URL 或裸 base64。'
+            + '接受本地绝对路径、file:// URL、http(s) URL、data URL 或base64 编码。'
             + '上限 8 MB，不做缩放或格式转换。'
             + '单元素字符串数组与字符串等价；图生视频只支持一张输入图，'
-            + '传多张会直接报错（不会静默改走文生视频）。'
+            + '提供多张图片时返回参数错误。'
             + '需要多图参考（如按模板换装）时，先用生图工具 workbuddy_draw_image 把参考'
             + '合成一张成品图，再把这张图传进来。',
         },
         model: {
           type: 'string',
           description:
-            '模型 id，可选。不填就用用户在设置卡片上按模式钉住的模型；'
-            + '卡片上没钉就用该区目录里第一个带当前模式标签的模型'
+            '模型标识，可选。省略时使用设置中对应模式的默认模型；'
+            + '未设置时使用当前区域对应模式的第一个模型'
             + '（文生视频看 text-to-video，图生视频看 image-to-video）。'
-            + '填了但该 tag 组里没有会直接报错，不会盲发。',
+            + '指定模型需属于当前模式对应的模型列表。',
         },
         seconds: {
           type: 'number',
           description:
             '视频时长（秒），可选。不填用模型默认（通常 5s）。'
-            + '该模型在目录里给了 videoGeneration.minSeconds..maxSeconds 时，越界直接报错、不会静默夹取；'
-            + '目录没给区间时交给上游判断，被拒的错误里会带上游支持的范围，改完可立刻重试（不计失败冷却）。',
+            + '时长须符合模型目录声明的 videoGeneration.minSeconds..maxSeconds 范围，超出时返回参数错误。'
+            + '目录未声明范围时，由服务端校验；被拒绝时请按返回的范围调整后重试。',
         },
         resolution: {
           type: 'string',
           description:
             '分辨率，可选，如 720P / 1080P（大小写不敏感，按模型目录里的拼写发）。不填用模型默认。'
-            + '该模型在目录里给了 videoGeneration.resolutions 时，不在列内会回落到默认分辨率并给出告警；'
-            + '目录没给这份清单时原样透传，交给上游判断（与 seconds 同一条判据）。',
+            + '模型目录包含 videoGeneration.resolutions 时，超出列表的选项会改用默认分辨率，并返回提示；'
+            + '目录未声明分辨率时，将所选值直接提交至服务端校验。',
         },
         aspect_ratio: {
           type: 'string',
@@ -585,8 +585,8 @@ export function createVideoTool(deps: VideoToolDeps): VideoToolDefinition {
       if (now < cooldownUntil) {
         const seconds = Math.ceil((cooldownUntil - now) / 1000)
         throw new WorkBuddyVideoError(
-          `workbuddy video: 上一次生视频刚失败过，请 ${seconds} 秒后再试`
-          + '（失败冷却是为了避免连续重试白白烧积分）。',
+          `workbuddy video: 视频生成失败后需等待，请 ${seconds} 秒后再试`
+          + '，以减少重复计费。',
           'COOLDOWN',
         )
       }
@@ -594,9 +594,9 @@ export function createVideoTool(deps: VideoToolDeps): VideoToolDefinition {
       const credential = await deps.resolveCredential()
       if (credential === undefined) {
         throw new WorkBuddyVideoError(
-          'workbuddy video: 没有可用的 WorkBuddy 账号——要么两个区都没登录，'
-          + '要么已登录的那个区没有打开「允许模型自主生图」。'
-          + '请先在插件设置里登录该区账号，并打开那个开关。',
+          'workbuddy video: 当前没有已授权的视频生成账号。'
+          + '请登录需要使用的区域，'
+          + '并在设置中开启「允许模型调用视频生成工具」。',
           'NOT_LOGGED_IN',
         )
       }

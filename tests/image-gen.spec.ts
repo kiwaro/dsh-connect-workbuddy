@@ -489,7 +489,7 @@ describe('createImageTool', () => {
     expect((error as { code?: string }).code).toBe('NOT_LOGGED_IN')
     expect((error as Error).message).not.toContain('国内区未登录')
     // 两种可能都要说到：没登录，或者登录了但没给那个区开「自主生图」。
-    expect((error as Error).message).toContain('两个区都没登录')
+    expect((error as Error).message).toContain('请登录需要使用的区域')
   })
 
   it('目录里没有生图模型 → NO_IMAGE_MODEL', async () => {

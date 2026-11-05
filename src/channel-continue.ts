@@ -292,18 +292,18 @@ export function createChannelContinue(host: ChannelContinueHost): ChannelContinu
     if (!config.enabled) return
     const agent = host.getAgent(sessionId)
     if (agent === undefined) {
-      host.log(`跳过自动续发 ${sessionId}：会话已没有 live agent`)
+      host.log(`跳过自动续发 ${sessionId}：会话运行实例已退出`)
       return
     }
     if (isSubagentSession(session, agent)) return
     // 已经在跑就别再塞一条：这一次失败之后宿主可能自己起了新回合（重试策略、
     // 压缩、用户点了继续），再 followup 会变成两条并行的意图。
     if (agent.status === 'running') {
-      host.log(`跳过自动续发 ${sessionId}：回合已经在跑`)
+      host.log(`跳过自动续发 ${sessionId}：会话正在执行请求`)
       return
     }
     if (inboxBusy(agent)) {
-      host.log(`跳过自动续发 ${sessionId}：收件箱里已有排队内容`)
+      host.log(`跳过自动续发 ${sessionId}：会话已有待处理消息`)
       return
     }
     try {
@@ -318,7 +318,7 @@ export function createChannelContinue(host: ChannelContinueHost): ChannelContinu
         + `第 ${String(state.consecutive)}/${String(config.maxConsecutive)} 次连续`,
       )
       if (state.consecutive >= config.maxConsecutive) {
-        host.log(`已达连续上限 ${String(config.maxConsecutive)} 次，${sessionId} 不再自动续发，等用户介入`)
+        host.log(`已达连续上限 ${String(config.maxConsecutive)} 次，${sessionId} 已停止自动发送，等待用户操作`)
       }
     } catch (error: unknown) {
       host.log(`自动续发失败 ${sessionId}：${error instanceof Error ? error.message : String(error)}`)
@@ -399,7 +399,7 @@ export function createChannelContinue(host: ChannelContinueHost): ChannelContinu
       }
 
       host.log(
-        `检测到渠道门拒绝 ${sessionId}，${String(SEND_DELAY_MS)}ms 后自动发送`
+        `检测到渠道校验拦截 ${sessionId}，${String(SEND_DELAY_MS)}ms 后自动发送`
         + `「${config.text}」（第 ${String(state.consecutive + 1)}/${String(config.maxConsecutive)} 次）`,
       )
       state.pending = setTimeout(() => {
@@ -462,7 +462,7 @@ export function installChannelContinue(mount: ChannelContinueMount): () => void 
     // Say so once, with the reason, so a user who turned the switch on and saw
     // nothing happen can find out why.
     mount.log(
-      `未能订阅 session/event，自动续发不可用（插件其余部分不受影响）：`
+      `会话事件订阅失败，自动发送功能已停用：`
       + `${error instanceof Error ? error.message : String(error)}`,
     )
     engine.dispose()

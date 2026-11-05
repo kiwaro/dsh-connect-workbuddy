@@ -463,7 +463,7 @@ describe('describeVideoFailure: 提交阶段 4xx', () => {
     expect(error.code).toBe('REJECTED')
     expect(error.message).toContain('没有创建任务')
     expect(error.message).toContain('没有扣积分')
-    expect(error.message).toContain('可以立刻重试')
+    expect(error.message).toContain('调整参数后重试')
   })
 
   it('把上游自报的区间写进错误里，替用户把「到底几秒」补全', () => {
