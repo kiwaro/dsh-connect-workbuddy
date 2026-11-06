@@ -27,7 +27,7 @@ export interface WorkBuddyRegionState {
   /**
    * Whether this region's credit balance shows at the DSH sidebar foot.
    *
-   * Per-region, independently switched: WB CN and WB AI are separate accounts
+   * Per-region, independently switched: WorkBuddy - CN and WB AI are separate accounts
    * on separate gateways, so a user holding only one of them must be able to
    * show exactly that one. Opt-out — an absent value reads as ON, so a config
    * written before this switch existed keeps whatever the default was.

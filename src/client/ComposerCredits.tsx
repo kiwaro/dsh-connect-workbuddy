@@ -8,12 +8,12 @@
  *     放在面板里而不是读数上、每账号读数**只在面板打开时抓**、5 分钟定时器、
  *     失败保留上次数值。本文件把「只有国内版」扩成「两个区域都支持」：那边
  *     的国际版是订阅制、没有可比数字，本插件的国际版有真实余额，所以按当前
- *     选中模型所属的区域显示，并在读数上标明是 WB CN 还是 WB AI。
+ *     选中模型所属的区域显示，并在读数上标明是 WorkBuddy - CN 还是 WB AI。
  *
  * Shows the selected region's general credit balance, but ONLY while the
  * session's selected model belongs to this plugin (the gate decides that).
  *
- * The row itself is a bare clickable readout — `WB CN · 1,072` — with NO
+ * The row itself is a bare clickable readout — `WorkBuddy - CN · 1,072` — with NO
  * refresh control: the manual refresh lives in the panel, because the row is
  * shared with the shell's own permission/agent/model controls and every extra
  * control there costs space that is not ours. Clicking it opens an anchored

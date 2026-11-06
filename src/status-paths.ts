@@ -804,7 +804,7 @@ export function regionPinsAccount(
  * line visible exactly as a fresh install does.
  *
  * Per-REGION by construction (it reads one region's slot), which is the point:
- * WB CN and WB AI are separate accounts on separate gateways, so "show credits"
+ * WorkBuddy - CN and WB AI are separate accounts on separate gateways, so "show credits"
  * is not one decision. `value` may be the whole settings section or the
  * `regions` map itself.
  */

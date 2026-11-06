@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/dsh-connect-workbuddy-usage-card.png" width="640" alt="dsh-connect-workbuddy settings card: model directory with multipliers, image and off-thinking switches, promo badges (account names redacted)" />
+  <img src="docs/assets/dsh-connect-workbuddy-usage-card.png" width="875" alt="Actual DSH model settings: catalog, multipliers, reasoning effort and context budgets" />
 </p>
 
 <h1 align="center">dsh-connect-workbuddy</h1>
@@ -19,7 +19,9 @@
 
 A [DeepSeek Harness (DSH)](https://github.com/deepseek-ai/deepseek-harness) bundle plugin that connects locally signed-in WorkBuddy models to the DSH model picker — **both the CN app and the international WorkBuddy AI app are supported** — with an account pool, selectable model management, and a set of read-only capabilities built around credits: **every catalog refresh reads each model's credit multiplier from upstream** (the `x0.79` figure comes entirely from the upstream catalog; the plugin neither hard-codes it nor guesses), image input is toggled per model, multiple accounts can be switched or fail over automatically through the pool, and daily check-in plus read-only credit overviews shown as compact pills on the card and in the composer. **The CN and international sides are two parallel providers (`workbuddy` / `workbuddy-global`) that can be used at the same time**; the settings card separates them with tabs for convenient management. All it needs is a WorkBuddy sign-in on this machine — or **one sign-in from the browser**.
 
-## Risk notice
+<a id="risk-notice"></a>
+
+## 1. Risk notice
 
 > **WorkBuddy has begun restricting requests from unofficial clients. This project does not promise that these endpoints will keep working; the day upstream tightens its rules, the plugin may stop working. Read the [Disclaimer](#disclaimer) at the end of this file and judge the account risk for yourself. Using the official WorkBuddy client is always the safest choice.**
 
@@ -27,7 +29,9 @@ It is worth stating what this plugin is actually for: **saving you the trip back
 
 It depends on the WorkBuddy client's own endpoints (not a public API), so the plugin may need to follow along when upstream changes them — that is normal for a tool of this kind, and it is the reason this notice exists. **Judge the account risk yourself before deciding to install.**
 
-## Features
+<a id="features"></a>
+
+## 2. Features
 
 This fork is based on upstream 5.18.1. Development uses main. See [CREDIT-JOURNAL.md](docs/CREDIT-JOURNAL.md) for response credit records and account attribution.
 
@@ -36,7 +40,7 @@ This fork is based on upstream 5.18.1. Development uses main. See [CREDIT-JOURNA
 - **Switch either provider off on its own** — each tab carries an on/off checkbox (both checked by default). Unchecking one **withdraws that provider from DSH's model picker entirely** (it is not merely a hidden tab): its adapter route and its "Settings → Models" directory entry are both pulled, and startup no longer sends pointless requests for it. Account, credits, directory, and selection are all kept, and re-checking restores everything. The typical use is "I have no use for the international side" — switch it off and keep the picker clean. Note: a session that had already selected a model from the switched-off provider will report `NO_ADAPTER` on its next call; the card states this plainly on the switched-off tab instead of failing silently.
 - **Model management** — refresh the full catalog from upstream and enable or disable each model individually; **your ticks are a draft that only takes effect on save, but the directory and its prices are not** (issue #214). A refresh records what it just read and applies it immediately, because a price is not an edit — the upstream changes those rates whenever it likes, and hiding a new one in a draft is what made the card show a stale figure while `/models/refresh` reported the fresh one (the reporter measured `glm-5.3` arriving as 0.69 from the refresh while the card still drew 0.79). **Your selection, context budgets, image ticks and default reasoning tiers** are still committed only by Save; a refresh never writes unsaved edits of those for you. Upstream also reports credit multiplier, context/output limits, and reasoning efforts; **every model row carries a "default reasoning" picker** (issue #179): which tier that model uses when a request names none — new conversations, compaction summaries and session titles are all such requests. The options are exactly the tiers that model declares (across one roster `deepseek`/`glm-5.3` say `low/high/max`, `glm-5.2` says `high/xhigh`, `space-bunny` has five), so this can only be chosen per model and not once for the route, and the first option names the tier that will actually be used — the level WorkBuddy declares for that model, or (when it declares none) that model’s own middle tier, never its weakest one, so an unset choice cannot quietly turn thinking down. **This picker also replaces the old read-only "Reasoning: …" line** — it already lists every tier, so saying it twice adds nothing. **"Turn thinking off" is not here**: that stays the job of the `off` checkbox below. **image input is decided by a verified table**: a refresh pre-checks only models the table records as natively multimodal, leaves documented text-only models unchecked, and treats any id without a source as unverified and unchecked rather than guessing. The table carries two evidence tiers — vendor documentation (13 entries) and **the upstream catalog's own description** (2 entries: `space-bunny` and `minimax-m3.1-flash`, whose descriptions say “native multimodal”) — while a NEW id still needs a vendor source; see the “Image input” section of [docs/DESIGN.md](docs/DESIGN.md). Upstream's `supportsImages` is a *platform* declaration, not the model's capability, so it does not drive that decision at all. You can still tick any box by hand, and your selection is kept locally. **Every model row also carries a “Can disable” (`off`) checkbox**: it decides whether that model gets the “turn thinking off entirely” level. The default comes from a reviewed built-in table (the 9 models that claim the capability but answer HTTP 400 for it start unticked), and you can change it per model — **untick** for a model you do not need the level on. **The 9 tabled models cannot be ticked at all** (their row is marked "refuses off" with an explanatory tooltip): the level is not merely an extra option — pi-ai uses it as the DEFAULT for every request that names no tier, and a compaction summary is exactly such a request, so one tick made every `/compact` for that model fail with HTTP 400 / code 11133 (issue #83). Models outside the table are still decided entirely by your selection and their own declaration; your ticks are saved on first save and recomputed no further.
 
-  <img src="docs/assets/dsh-connect-workbuddy-model-picker.png" width="420" alt="DSH model picker: the same campaign badge (night discount / Free now) drawn after the model name, per region (no account data)" />
+  <img src="docs/assets/dsh-connect-workbuddy-model-picker.png" width="420" alt="Actual DSH model picker with WorkBuddy models and credit multipliers" />
 - **Campaign badges on model rows** — the upstream model catalog carries campaign information (free trials, night discounts, limited-time free use, subscription-only tiers, and the like). The plugin adds **no extra request** (it reuses the catalog configuration it already fetches when refreshing models) and draws a pill badge right on the model row: the upstream supplies both the colour and the wording, and hovering shows the upstream's campaign text, its start/end dates, and its daily window (e.g. “night 23:00–7:50”). **A badge is a function of the current moment**: it shows only inside the window the upstream declares and disappears on its own when that window closes; a window that crosses midnight is judged in the timezone the upstream declared; when several campaigns hit the same model, only the highest-priority one is drawn. A benefit marker without an end date (such as “subscription only”) stays until upstream withdraws it. **The multiplier shown is the price you actually pay**: while a “night discount” is running, the card and the picker both show the discounted `x0.06` instead of the catalog figure, and both go back on their own when the window closes — no restart needed (issue #120). **A badge is a hint, not behaviour** — it reports the campaign and discount upstream currently advertises, and makes no choice for you. **The same badge now appears in the DSH model picker**: every menu row draws the identical pill after the model name and before the load icon — menu rows use the upstream's short wording ("night", "free"), the composer trigger beside the input uses the full one ("night discount", "exclusive free"); judged from the same data at the same clock, because the screen where the model is chosen is exactly where "is it free right now" matters most. (Both regions' catalogs ship the campaign fields: read as the app, the CN `/v3/config` carries 8 promotions + 1 tier badge and the global one carries 5 + 1; the evidence and the decision rules are written up in [docs/PROMO_BADGE.md](docs/PROMO_BADGE.md).)
 - **Model load on model rows (CN only)** — the upstream answers "how busy is this model right now" from a separate read-only probe (`POST /v2/chat/busy`, up to 50 ids per call, free, no account state touched). The plugin asks it once per catalog refresh and draws the level as a small figure beside the model name: **the number of people = how many are queueing** (healthy `normal` = one yellow figure, `busy` = two orange ones, `congested` = three red ones), while **idle is a green rocket** (nobody is queueing = full speed ahead) — idle is deliberately *not* drawn as "one green person", because at 12px "nobody is waiting" and "one person is waiting" have to be distinguishable at a glance; **unavailable** is a crossed-out figure. The probe's own `unknown` **draws nothing**: **"we were told nothing" is never reported as "all good"**. Colours follow the theme and the `title` tooltip ("极度拥堵") is still there. **The level is not persisted**: the catalog is a fact that survives a restart, a load level is a fact about that minute, so it is stamped onto the runtime catalog only and dies with the process; a failed probe logs one warning and never blocks the refresh. Measured on the CN gateway: the probe answers byte-identically under the CLI and the app identity, the 50-id ceiling is real (62 ids → HTTP 400), and 19 models come back in 186 ms. **The international region shows no load badge, because the international gateway simply does not have this endpoint** — measured, `www.workbuddy.ai` answers **404** for `/v2/chat/busy` (and for the neighbouring `/v3/chat/busy`, `/v2/models/busy` and friends), while the very same credential reads its `/v3/config` fine (28 models) and that document carries **no load or queue field at all**. This is not something the plugin left unimplemented, and it is not a configuration or permission problem: **upstream has never published this data for the international region**. So the international region shows the model name and campaign badges only; the failed probe degrades quietly to "no badge", never blocking the model list, and the plugin never guesses a load level from latency or credits.
 - **Queueing tells you your position** — upstream expresses a queue with three business codes (`6020` waiting, `6021` queue full, `6022` this user already at the maximum). Instead of passing along a raw upstream error, the plugin says "模型排队中：你排在第 8777 位，队列共 9021 个请求；约 7 秒后自动重试". **A queue does not trigger failover**: the line is shared platform-wide and bound to the model, so another account is handed the same position — no account-pool rotation, no extra requests burned. (The upstream's `/v2/chat/queue/status` returns an i18n KEY rather than a sentence, so the plugin never relays its `message` and always uses its own wording.) **The "resend once it is your turn" half is not implemented** — that needs the queue answer's real envelope on the OpenAI-compatible channel, and writing it unmeasured would mean code that never runs.
@@ -50,9 +54,9 @@ This fork is based on upstream 5.18.1. Development uses main. See [CREDIT-JOURNA
 
   **Two things to know.** ① **It really does spend credits** — one measured probe reported `credit` 0.02 (a refused one 429s and costs almost nothing). So testing is **manual and per-model only**: there is deliberately no “Test selected” batch button, because sweeping the whole list from one click is an uncontrolled spend — and the Host enforces the same rule, **accepting a single model only** and refusing multi-model requests. ② The upstream advertises a 1M context yet throttles far below it, and the plugin advertises each model's **native** window to DSH (no longer clamped to 200K as of 3.5.0), so DSH compacts very late — hitting the throttle in a long session follows directly from that. To make DSH compact sooner, set a “DSH context budget” cap on the model's row (200K / 500K / the model's native window). **Which of the three reads as current is decided by the window the backend actually derives** (issue #215): with no cap set, the selected tier is the model's native window, because that is what DSH is told. The native tier means **no cap** — choosing it deletes the model's budget entry rather than storing a number that happens to equal the window, so it keeps following the model if the upstream ever raises it.
 - **Local account switching** — discovers the multiple sign-in credentials WorkBuddy's desktop app leaves behind and lets you switch per region. Tokens are never written to DSH settings.
-- **Credit readout in the composer toolbar (follows the selected model, per region)** — a clickable readout sits at the left of the composer toolbar (e.g. `WB CN · 1,072`) and **switches region automatically with the model this session is using**: pick a WB CN model and it shows the domestic balance, pick a WB AI model and it shows the international one; with any other provider's model it does not appear at all. It refreshes every 5 minutes and can also be refreshed by hand. Clicking it opens a panel: a **table of balances per account**, where clicking a row switches to that account (the same setting the card's account picker writes), and an account that cannot serve right now is **labelled in its row** (e.g. rate-limited, out of credits) using the same wording as the account-pool table. The per-account figures are fetched only while the panel is open, so the 5-minute background refresh never multiplies by the account count. To turn a side off, untick “Show credits in the composer toolbar” under that region's tab on the card; while a region's provider is switched off, the readout disappears and its switch is disabled. The same block carries a “Position” line: by default the readout sits in the composer toolbar (the row with the model picker); choosing “below the input box” moves it to the turn/step/token stats row instead — useful when another plugin has taken the toolbar seat.
+- **Credit readout in the composer toolbar (follows the selected model, per region)** — a clickable readout sits at the left of the composer toolbar (e.g. `WorkBuddy - CN · 1,072`) and **switches region automatically with the model this session is using**: pick a WorkBuddy - CN model and it shows the domestic balance, pick a WB AI model and it shows the international one; with any other provider's model it does not appear at all. It refreshes every 5 minutes and can also be refreshed by hand. Clicking it opens a panel: a **table of balances per account**, where clicking a row switches to that account (the same setting the card's account picker writes), and an account that cannot serve right now is **labelled in its row** (e.g. rate-limited, out of credits) using the same wording as the account-pool table. The per-account figures are fetched only while the panel is open, so the 5-minute background refresh never multiplies by the account count. To turn a side off, untick “Show credits in the composer toolbar” under that region's tab on the card; while a region's provider is switched off, the readout disappears and its switch is disabled. The same block carries a “Position” line: by default the readout sits in the composer toolbar (the row with the model picker); choosing “below the input box” moves it to the turn/step/token stats row instead — useful when another plugin has taken the toolbar seat.
 
-  <img src="docs/assets/dsh-connect-workbuddy-composer-credits.png" width="360" alt="Composer credit panel: a per-account balance table for the domestic region, with a one-click test button and a last-refreshed time (account names redacted)" />
+  <img src="docs/assets/dsh-connect-workbuddy-composer-credits.png" width="360" alt="Composer credit panel: account balances, availability, equal-width Switch buttons and an In use marker (account names redacted)" />
 - **Account pool: batch actions across several accounts, plus automatic failover** — tick the accounts you want into a pool and you get **one-click check-in for every account**, **one-click testing of every account against a model you choose** (defaulting to the region's zero-multiplier free model), and with **Enable the account pool** switched on, **automatic failover**: a request that fails upstream is retried against the pool's other usable accounts, in order, until one serves it or none is left. Membership starts **empty and is an explicit opt-in**: "signed in on this machine" is not the same as "spend this account's credits and claim its rewards". The pool's **ranking decides who serves every request** (usable first, then expiring-credits-first, higher credits, freshest credential), and on a failure the next usable member is tried. It **never writes back your saved selection** — switch the pool off and your own account applies again immediately. **The switch only decides whether the PLUGIN chooses** — with it off, the plugin stops picking and switching accounts for you, but check-in and testing stay available (they are manual actions). Testing reuses the model rows' real-volume probe, so it **does cost real credits**; automatic check-in is available for CN personal accounts, off by default. When enabled and saved, it checks daily status before claiming unclaimed rewards. See [Account pool](#account-pool).
 - **Enterprise / education accounts: check-in and Claim do not apply** — a seat carrying an `enterpriseId` shows **no check-in column, no benefit campaigns, and no Claim request** in the pool (5.8.0, issue #129): upstream refuses the personal-entitlement **write** endpoints for such members (measured `10001`), while its **read** endpoint still lists the campaigns as unclaimed — so "the read said available" can never be the reason to write. Their credits live in a different book too (enterprise usage = limit − used), and the personal credit table simply returns an empty list. The flag now reaches the pool rows (`localPoolMembers`, `poolMembersOf`, `otherAccounts`) and the web account rows, and it is attached the moment an account enters the pool rather than after a click discovers it is unsupported. It is deliberately **not** on the usage page's top-level `account` object (that one was fixed for the display **name** only, via `preferredAccountName`) and not on the composer pill, which renders neither button.
 - **Optional: make the usage page record these calls like the official client's (5.8.0, issue #132, OFF by default)** — with `usageIdentity` on, chat requests carry `X-IDE-Name: WorkBuddy` (plus `X-IDE-Type: CLI` and a version taken from the existing product UA, not a second hard-coded number), so the usage page's client column is no longer blank, and the conversation-identity triple becomes the official **32-character lower-case hex UUIDv7** with `X-Request-ID` alongside it — the gateway echoes that id as the SSE `id` and writes it into the usage page, so hyphenated v4 ids made one account's rows look like two different clients — while "fresh per request, all distinct" has not been relaxed. **`User-Agent` is untouched under either setting**: billing and rate limits recognise the CLI channel. The image endpoint does not follow this switch; it keeps the shape measured on 2026-10-21. It is off by default because the shape fixes nothing on its own (the three `11128` doors read message openings, a missing conversation id, and whether the first message is a system prompt — no header moves any of them) and the only measurement is a reporter's on an older build, so a purely cosmetic alignment does not get to put every account at risk first. There is also an opt-in `keepPromptLast` (**off by default**): the usage page takes the request text from the LAST `user` message, and the host appends its time samples, runtime context and `<system-reminder>` blocks AFTER what you actually typed, so that column recorded injected text; when enabled it moves those injected blocks **above the real prompt** — order only, except that the recorded prompt's own leading `<acp …>mNNNNN</acp>` marker is stripped (leave it and that column still opens with a marker, i.e. nothing was fixed); earlier messages **keep** theirs, because the model cites history by those ids and the only id that can never matter is the message being answered now. It stays off by default because the order is something the upstream counts and a few leading characters are removed from the real prompt. The move matches only the host's own injected prefixes, and a conversation with no injected tail is untouched byte for byte — marker included — pinned by tests written for both.
@@ -75,7 +79,9 @@ This fork is based on upstream 5.18.1. Development uses main. See [CREDIT-JOURNA
 - **Command-line diagnostics** — `status` / `doctor` / `logout`, reporting sign-in and credits per region, without a browser.
 - **CLI route (optional, off by default)** — Disguising requests as a CodeBuddy client to pass the channel check is an arms race, and it has already produced account-level restrictions (issue #98, code 11140). A second route skips that disguise: **let the locally signed-in CodeBuddy CLI run the task itself** — it reads files, runs git, edits code. Turn on `cliBridge.enabled` and the plugin gains a `codebuddy_ask` tool and a `/codebuddy` command, with the result injected back into the session model. While it is off, the plugin behaves **exactly** as before. **It bypasses the client-fingerprint layer, not the account layer**: it uses the same accounts from this plugin's vault, so it is not a get-out-of-jail card after a block. See [CLI route](#cli-route-optional-let-codebuddy-do-the-work).
 
-## How it works
+<a id="how-it-works"></a>
+
+## 3. How it works
 
 ```text
 DSH PiAiAdapter (one stack per provider)
@@ -95,9 +101,11 @@ Credentials are read (read-only) from the WorkBuddy desktop app's own auth file.
 
 **Encrypted credential fields**: newer desktop builds (Windows first) replace the auth file's `accessToken` / `refreshToken` strings with an AES-256-GCM envelope (`{"$wbEncrypted":1,"envelope":"…"}`), and the account's **display name (`nickname`) is encrypted the same way** — left unopened it degrades to a bare uin number. The envelope is sealed with a field key **compiled into the app itself**, not a user secret — so the plugin ships no key copy. When it meets an encrypted document it runs the installed app with `ELECTRON_RUN_AS_NODE` and calls that app's own native binding (`electron_browser_workbuddy_storage.loggerGet()`) to fetch the same payload and derive the key locally: it asks the very build that wrote the file. The key is cached in process memory only — never on disk, never in logs. Plain-string documents (macOS, older Windows builds) take the original path and never spawn a child process. `account.phoneNumber` is encrypted there too, and the plugin deliberately **neither reads nor displays it**. If the app lives somewhere unusual, point `WORKBUDDY_APP_EXECUTABLE` at its executable.
 
-## Account pool
+<a id="account-pool"></a>
 
-<img src="docs/assets/dsh-connect-workbuddy-account-pool.png" width="900" alt="Account pool members, test settings and check-in results; account names redacted" />
+## 4. Account pool
+
+<img src="docs/assets/dsh-connect-workbuddy-account-pool.png" width="900" alt="Actual DSH account pool: saved order, rate limits, active account and reserved account; account identifiers redacted" />
 
 CN and international accounts have separate pools, members and test settings.
 
@@ -105,7 +113,9 @@ Membership starts empty.
 
 Check the accounts to use and save the selection before running batch actions or enabling automatic routing.
 
-### Batch check-in and tests
+<a id="batch-check-in-and-tests"></a>
+
+### 4.1 Batch check-in and tests
 
 Check in selected first reads each member's daily status.
 
@@ -145,7 +155,9 @@ Optional automatic check-in is available for CN personal accounts, off by defaul
 
 Once enabled and saved, it checks daily status and claims unclaimed rewards.
 
-### Membership and drafts
+<a id="membership-and-drafts"></a>
+
+### 4.2 Membership and drafts
 
 Selecting accounts edits a draft.
 
@@ -157,7 +169,9 @@ Drafts survive tab changes and closing the card.
 
 An empty saved selection causes batch actions to return a selection error.
 
-### Routing and failover
+<a id="routing-and-failover"></a>
+
+### 4.3 Routing and failover
 
 With the pool enabled, each request uses its highest-ranked usable member.
 
@@ -183,7 +197,9 @@ Automatic choices are runtime state.
 
 The manually saved account remains available when automatic routing is disabled.
 
-### Pool switch and manual selection
+<a id="pool-switch-and-manual-selection"></a>
+
+### 4.4 Pool switch and manual selection
 
 | Action | Pool enabled | Pool disabled |
 | --- | --- | --- |
@@ -200,7 +216,9 @@ When routing is on, the ranking determines the account and the dropdown is hidde
 
 Detection, selection, check-in and tests remain in the same section.
 
-### Ranking
+<a id="ranking"></a>
+
+### 4.5 Ranking
 
 Accounts are compared in this order, moving to the next key when the preceding key is equal:
 
@@ -241,7 +259,9 @@ An account with 1 expiring point can now precede one holding 50,000 points;
 
 ordinary failover handles insufficient credit for a complete request.
 
-### Availability and recovery
+<a id="availability-and-recovery"></a>
+
+### 4.6 Availability and recovery
 
 | Outcome | Recovery |
 | --- | --- |
@@ -259,7 +279,9 @@ A successful manual test restores eligibility.
 
 When no usable pool candidate remains, the saved account handles the request and its upstream error is returned.
 
-### Saving model settings and pool settings
+<a id="saving-model-settings-and-pool-settings"></a>
+
+### 4.7 Saving model settings and pool settings
 
 Model management and the account pool have separate drafts and Save/Discard actions.
 
@@ -279,7 +301,9 @@ Measurements, cooldowns and the account currently serving are runtime records, s
 
 Saving a draft preserves more recent runtime measurements.
 
-## Install
+<a id="install"></a>
+
+## 5. Install
 
 > ⚠️ **Version requirement: DSH 0.1.7-rc.1 or newer (current window: `0.1.7-rc.1` – `0.2.x` GA).** Since v2.1.0 this plugin only supports hosts on DSH 0.1.7-rc.1 and above (older hosts cannot resolve the dependencies to install this version); hosts on 0.1.5 and earlier should stay on v2.0.15. Since v2.1.2 the upper bound is **`<0.3.0-0`**; the 0.3.0 line is explicitly refused. See [Supported host range](#supported-host-range) below.
 
@@ -289,7 +313,9 @@ Saving a draft preserves more recent runtime measurements.
 >
 > The other thing that stops people from upgrading: **pnpm's 24-hour release-age window** (`minimumReleaseAge`) **silently resolves a floating range back to the previous version**. When you need this fixed right now, pin the **exact version**: `dsh-connect-workbuddy@5.15.1`.
 
-### Supported host range
+<a id="supported-host-range"></a>
+
+### 5.1 Supported host range
 
 DSH's shipped gate (`evaluatePluginCompatibility` in `packages/boot/app-boot/src/plugin-compatibility.ts`) checks every declared `dsh-*` peer range; **one unsatisfied peer skips the entire bundle** (it lands in `skippedBundles` and is only printed to stderr) — no provider is registered, no card appears, the model list goes empty, and the page shows no error at all.
 
@@ -358,7 +384,9 @@ dsh plugin --profile web add dsh-connect-workbuddy     # Web
 dsh plugin --profile dsh-tui add dsh-connect-workbuddy # TUI
 ```
 
-## Update
+<a id="update"></a>
+
+## 6. Update
 
 > **Whatever the marketplace shows is a snapshot; `npm view dsh-connect-workbuddy version` and [Releases](https://github.com/dingminhua/dsh-connect-workbuddy/releases) are the truth.**
 > Measured 2026-10-30: the community index (`dsh-plugin-catalog`, built that same day) still listed only **5.13.1** for this plugin while npm `latest` was **5.14.1**. Lag happens **per package** — the same index carried `@changfenhuang/dsh-genui` 0.15.0, `dsh-client-auto-continue` 0.17.0 and `billion-context` 0.1.209 (all current) — so "that other package shows a new version" proves nothing about this one.
@@ -391,7 +419,9 @@ My profile is desktop.
 
 Details (how the market index and the pnpm window each stop you, and both ways through) are in [`docs/PINNED-UPGRADE-LAG.md`](docs/PINNED-UPGRADE-LAG.md); the same text is posted as a long-term pinned issue.
 
-## Platform support
+<a id="platform-support"></a>
+
+## 7. Platform support
 
 All three platforms are supported targets; the differences below are **implementation facts**, not polite ways of saying "not yet supported". To change this section, change [`docs/WINDOWS.md`](docs/WINDOWS.md) too — that file is where platform-related constraints are registered.
 
@@ -412,7 +442,9 @@ All three platforms are supported targets; the differences below are **implement
 3. **Encrypted credentials (from 5.6.0) require the desktop app to be present**, on Windows exactly as on macOS; if the app lives in a custom directory (e.g. `E:\WorkBuddy\WorkBuddy.exe`), point `WORKBUDDY_APP_EXECUTABLE` at it.
 4. **The credential vault stores PLAINTEXT tokens** (issue #183). The plugin's vault directory `<DSH home>/workbuddy-vault/<region>/<accountId>.json` holds the decrypted `accessToken` / `refreshToken`, **unencrypted**. From 5.16.0 on Windows, each write hardens that directory with `icacls` so only the owner / SYSTEM / Administrators can read it, and `doctor` prints a `Credential vault ACL` line that reads the result back. But **restricted permissions are not encryption** — an administrator, a SYSTEM service, or an attacker who already has your user token can still read it. For encryption at rest, keep the DSH home on a BitLocker / FileVault volume. POSIX platforms rely on `mode 0600`.
 
-### Using it on a server: carry the credential over
+<a id="using-it-on-a-server-carry-the-credential-over"></a>
+
+### 7.1 Using it on a server: carry the credential over
 
 On a headless server (or any machine where you would rather not install the WorkBuddy desktop app), the plugin has no local credential to read. The way around it is to **copy the credential directory over from a machine that has already signed in to WorkBuddy** — the plugin only reads that file and does not require the app to be present (**provided the credential itself is not encrypted**, see below):
 
@@ -462,7 +494,9 @@ dsh plugin --profile web exec dsh-connect-workbuddy status
 
 > 🔒 **The credential is the account**: that file is a directly usable session. Transfer it over an encrypted channel (`scp` / private network), tighten it with `chmod 600` once on the server, and keep it out of anything that gets packaged or committed.
 
-## CLI route (optional): let CodeBuddy do the work
+<a id="cli-route-optional-let-codebuddy-do-the-work"></a>
+
+## 8. CLI route (optional): let CodeBuddy do the work
 
 > Off by default (`cliBridge.enabled: false`). While it is off, no tool and no command is registered, and the provider route is untouched. **The one exception** is the live pill described below: its read-only route and client component are registered unconditionally (the client needs them to tell "no turn" from "no route"), so an open page still asks that local route every 5 seconds — it never touches the upstream and spends nothing, and answers with an empty array.
 
@@ -472,13 +506,17 @@ This route uses CodeBuddy as a **tool** rather than as a model provider: the plu
 
 The CLI route escapes the **client-fingerprint layer**, not the account layer. It hands the CLI `CODEBUDDY_AUTH_TOKEN` taken from this plugin's own vault — the same WorkBuddy accounts. So the claim "the process talking to the gateway really is the signed-in CodeBuddy CLI, there is no identity to forge, therefore the account cannot be restricted" **does not hold**: the identity is the same set of accounts, `11140` is account-level, and the same accounts are just as restricted on this route. What is genuinely bypassed is "does this request's client fingerprint look like CodeBuddy" — a real gain against the channel check, but not immunity from blocking. The two routes are complementary fallbacks, not a replacement.
 
-### Prerequisites
+<a id="prerequisites"></a>
+
+### 8.1 Prerequisites
 
 - The CodeBuddy CLI is installed (npm package `@tencent-ai/codebuddy-code`; `codebuddy` and `cbc` are the same entry point). For a non-standard install, point `cliBridge.binary` at the absolute path.
 - It is signed in. Credentials are resolved in this order: the `CODEBUDDY_AUTH_TOKEN` environment variable, then this plugin's **own** vault (`$DSH_HOME/workbuddy-vault/<region>/<account>.json`). In other words, **the accounts you already signed in for this plugin are reused directly — no second sign-in.** (Verified against the real CLI: `getAuthenticationAttributesSync` checks `CODEBUDDY_AUTH_TOKEN` ahead of its own sign-in file.)
 - Region **outranks freshness**: a domestic token is valid against `copilot.tencent.com`, while a global token gets a 401 there (measured: `401 Authentication required ... (target: https://copilot.tencent.com)`). Hence the default `cn,global` order, falling through only when a region fails.
 
-### Turning it on
+<a id="turning-it-on"></a>
+
+### 8.2 Turning it on
 
 ```jsonc
 {
@@ -490,7 +528,9 @@ The CLI route escapes the **client-fingerprint layer**, not the account layer. I
 
 Every other key has a default. See the table below. Changing them does not need a host restart: `cliBridge` is a volatile field, so a change rebuilds only this route instead of reloading both provider stacks.
 
-### The two entrances
+<a id="the-two-entrances"></a>
+
+### 8.3 The two entrances
 
 | Entrance | Who triggers it | Working directory | Whose budget it spends |
 | --- | --- | --- | --- |
@@ -501,7 +541,9 @@ An **empty** `/codebuddy` means "review the uncommitted changes in this workspac
 
 When the turn finishes, the conclusion is **injected back into the session model** (`cliBridge.injectResult`, on by default): an idle session is woken for a new turn, a running one gets it queued for its next step. **That step really spends DSH tokens** — set `injectResult` to `false` to leave the model untouched, and the `/codebuddy` result is then shown to you only. The injected text starts with `[dsh-connect-workbuddy · 由 /codebuddy 自动回注，不是用户输入]` so neither you nor the model mistakes it for a human message.
 
-### While it runs: the pill under the composer
+<a id="while-it-runs-the-pill-under-the-composer"></a>
+
+### 8.4 While it runs: the pill under the composer
 
 A Host tool call is **one-shot**: the interface learns nothing until `execute()` returns. The minutes in between — reading files, running `git`, retrying — used to be a blank spinner, and a user could not tell "still working" from "hung".
 
@@ -517,19 +559,25 @@ So the plugin registers a **live pill** on `conversation.composer.dock` (the row
 
 > The pill lives in the plugin's client entry (`dsh.client`), so changing it means **rebuilding `lib/client.js` and restarting the Host**, same as host-side code.
 
-### Permissions: read-only by default
+<a id="permissions-read-only-by-default"></a>
+
+### 8.5 Permissions: read-only by default
 
 `permissionMode` defaults to **`dontAsk`**: read-only tools (Read/Glob/Grep) run, writes and command execution are refused, and the turn **does not hang** — the CLI ends the turn itself and reports which tools were denied.
 
 **Why not `plan`**, the more conservative candidate and the default this review suggested: under `-p` (headless), `plan` emits a `control_request` and waits on stdin for an approval, and an unattended call has nobody at the terminal to click it. Left unhandled, the CLI waits out its own 60-second protocol timeout while the plugin waits out `timeoutSecs` (900 seconds by default) — both measured attempts hung exactly this way. Hence `dontAsk` as the default, plus an explicit denial of every `control_request` in the runner. **The denial is per tool.** Only `ExitPlanMode` carries `interrupt: true` (without it `plan` will not finish; measured hanging past 70 seconds). Every other tool (Bash, Write, …) must NOT carry it: with it the whole turn aborts (measured under `acceptEdits` — a denied Bash gave `is_error`, an empty reply, and a 4.2-second turn), while without it the CLI records the denial and picks a different tool, finishing normally (measured: it switched to PowerShell and succeeded in 12 seconds). To let it edit files for real, set `acceptEdits` explicitly.
 
-### Working directory: a four-step ladder plus allowed roots
+<a id="working-directory-a-four-step-ladder-plus-allowed-roots"></a>
+
+### 8.6 Working directory: a four-step ladder plus allowed roots
 
 `codebuddy_ask` resolves its directory as: the caller's `working_dir` → **this session's workspace** (`session.header.cwd`) → `cliBridge.workingDir` → (only when `allow_unattended` is on) a scratch directory → otherwise it **refuses and explains the three ways out**.
 
 Whichever step wins, the directory must pass three checks: **absolute**, **exists and is a directory**, and **inside an allowed root** (the session workspace, `cliBridge.workingDir`, `cliBridge.allowedDirs`). `allowedDirs` is a comma-separated list of absolute paths for directories outside the workspace. So a model that invents `/` or `~/.ssh` cannot get it executed, and `..` cannot walk out (the comparison uses resolved `realpath` and matches on path-separator boundaries, so `/repo-evil` is not inside `/repo`).
 
-### Configuration
+<a id="configuration"></a>
+
+### 8.7 Configuration
 
 | Key | Default | Meaning |
 | --- | --- | --- |
@@ -550,7 +598,9 @@ Whichever step wins, the directory must pass three checks: **absolute**, **exist
 | `maxTurnsPerSessionHour` | `6` | Turns per session per hour. `0` disables the cap. |
 | `maxTurnsPerHour` | `20` | Turns across all sessions per hour. `0` disables the cap. |
 
-### Boundaries
+<a id="boundaries"></a>
+
+### 8.8 Boundaries
 
 - **No shared context.** CodeBuddy is a separate agent and cannot see this conversation. It is good at "review this module independently" or "go investigate"; it is bad at "continue the thread I was on" — it has to re-read the repository.
 - **Writing is gated, not sandboxed.** `dontAsk` is read-only by default; once you set `acceptEdits` it really does edit files in the workspace. The allowed roots constrain **where** it runs, not **what** it does there.
@@ -559,7 +609,9 @@ Whichever step wins, the directory must pass three checks: **absolute**, **exist
 - **A timeout kills the whole process tree.** The CLI spawns `git` / `npm`, so killing only the direct child leaves orphans. POSIX signals the process group; Windows uses `taskkill /T`.
 - **Restart needed.** New bundles and JS changes only take effect after a DSH host restart.
 
-## Command line
+<a id="command-line"></a>
+
+## 9. Command line
 
 ```sh
 dsh plugin --profile <web|desktop|dsh-tui> exec dsh-connect-workbuddy status   # sign-in state and remaining credit
@@ -569,7 +621,9 @@ dsh plugin --profile <web|desktop|dsh-tui> exec dsh-connect-workbuddy logout   #
 
 `status` and `doctor` accept `--json` for machine-readable output.
 
-### Device-identity environment variables
+<a id="device-identity-environment-variables"></a>
+
+### 9.1 Device-identity environment variables
 
 The outbound identity profile (`wireProfile`) and the device-header tier (`deviceTier`) are **card settings**, not environment variables. The variables below are the escape hatches for cases a card setting cannot reach:
 
@@ -603,7 +657,9 @@ The outbound identity profile (`wireProfile`) and the device-header tier (`devic
 >
 > Inside the repository checkout (peers present) it reports `host-provided (@deepseek-ai/dsh-atomic-write)` instead. The guard lives in `tests/host-peers.spec.ts`: it scans the **built output** and fails as soon as `lib/bin.js`'s dependency graph contains a bare package name again.
 
-## Development
+<a id="development"></a>
+
+## 10. Development
 
 To install this fork from source:
 
@@ -628,7 +684,9 @@ Local dev via a `link:` install to the desktop profile (restart DSH Desktop afte
 dsh plugin --profile desktop add /Users/dmh2002/DshProject/dsh-connect-workbuddy
 ```
 
-#### A `link:` install must be built first, or DSH refuses to load it
+<a id="a-link-install-must-be-built-first-or-dsh-refuses-to-load-it"></a>
+
+### 10.1 A `link:` install must be built first, or DSH refuses to load it
 
 `lib/` is a build product and is gitignored, while a `link:` install runs **no lifecycle scripts**
 (`prepare` never fires). Install from a source checkout that was never built and the files named by
@@ -660,7 +718,9 @@ node scripts/verify-entry-artifacts.mjs <installed dir>    # a specific installe
 > Installing from npm (`dsh plugin add dsh-connect-workbuddy`) needs none of this: the published
 > tarball already contains `lib/`, and `prepack` only regenerates it.
 
-### Calling `chatStream()` from a script: it returns an **envelope**, not a stream
+<a id="calling-chatstream-from-a-script-it-returns-an-envelope-not-a-stream"></a>
+
+### 10.2 Calling `chatStream()` from a script: it returns an **envelope**, not a stream
 
 ```ts
 const envelope = await client.chatStream(credential, bodyJson)
@@ -672,7 +732,9 @@ else { await envelope.response.text() /* or consume it as SSE */ }
 
 `kind` on a failed envelope is the failure classification used throughout this document (`soft_rate` / `model_busy` / `hard_credit` / `session_dead` / `policy_reject` / `not_found` / `server` / `client`), and `detail` carries the upstream `upstreamCode` / `requestId` / `displayMsg`.
 
-## Marketplace listing
+<a id="marketplace-listing"></a>
+
+## 11. Marketplace listing
 
 The plugin ships an installable `dsh.bundle` manifest and is published to npm. Community marketplaces generally sync entries from the [Awesome DSH Plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) registry; the local mirror of the entry lives at [`awesome-dsh-plugin-submission/dingminhua__dsh-connect-workbuddy.yml`](awesome-dsh-plugin-submission/dingminhua__dsh-connect-workbuddy.yml). **The entry was merged and listed via PR [#3812](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/3812) (2026-08-30).**
 
@@ -693,7 +755,9 @@ Marketplace screenshots and GitHub README badges are two separate mechanisms:
 
 **The title and description on the plugin card are not rendered by this plugin** — they are **package metadata** the DSH plugin manager reads: it takes its words from `meta.title` / `meta.description` in `locale/<lang>.json` (`locale/en.json` is the anchor, so without it `zh.json` is never read; without the `"./locale/*.json"` wildcard in `exports` the whole directory is skipped **silently**), and falls back to `package.json`'s `description` for English. The same sentence therefore lives in three places in this repository, and [`tests/locale-meta.spec.ts`](tests/locale-meta.spec.ts) pins them together: the card dictionary (`locale/en.json` / `locale/zh.json`), the English fallback (`package.json.description`) and the listing draft (`description.en` / `description.zh` in `awesome-dsh-plugin-submission/dingminhua__dsh-connect-workbuddy.yml`). **Edit one, edit all three.**
 
-## Known limitations
+<a id="known-limitations"></a>
+
+## 12. Known limitations
 
 - The plugin depends on WorkBuddy client endpoints (not an official public API), so a WorkBuddy update may require adjustments.
 - **Account switching** relies on the historical auth files the WorkBuddy desktop app leaves behind (the app's own backups), not an official multi-account API. Following the app's current sign-in remains the default; switching is an explicit opt-in, and historical credentials can be invalidated by the app's cleanup or sign-out.
@@ -722,7 +786,9 @@ Marketplace screenshots and GitHub README badges are two separate mechanisms:
     - **It also covers switching MODELS inside one region** (`hy3` → `deepseek-v4.1-flash`, both served by this plugin, both stamped `provider: workbuddy`). The provider and api legs are equal there, so only the `model` leg separates the turn from the request — and 5.12.0's predicate compared just the first two, so that switch detected **nothing** and the switch looked broken. The model id comes from the request entry points (`model.id` on `stream` / `streamSimple`); omitting it keeps 5.12.0's behaviour exactly, which is why the card's read-only path is unaffected (it reads `lastForeignThinking`, which the request path fills).
   - **This is a mismatch between the host and pi-ai, not a bug in this plugin**: not replaying thinking across providers/models is right in itself (another model's train of thought is not context this model should be fed), and the mistake is treating `provider` as a necessary condition for "the same model" when the two provider ids here are **two access regions of one model**. The fix belongs upstream (same api + same model id, providers as an equivalence group); on the plugin side the backstop is `src/context-rescue.ts` since 4.8.0 — **once the upstream confirms an overflow, it folds history in chunks and resends**, instead of replaying the entire range the host meant to compact (which is exactly what makes a compaction request overflow itself and deadlock). To see where it happened: set `WORKBUDDY_BODY_REPORT` to capture a body-composition report — it records counts only, never text. **It appends continuously**: one `<region>.jsonl` per region, rolled to `.1` past 32 MB (one old copy kept); unset the variable and delete the files when you are done — do not leave it on for long sessions.
 
-## Disclaimer
+<a id="disclaimer"></a>
+
+## 13. Disclaimer
 
 **Read all of it, then decide whether to install.** (There is also a [risk notice](#risk-notice) near the top; the two say the same thing.)
 
@@ -733,47 +799,65 @@ Marketplace screenshots and GitHub README badges are two separate mechanisms:
 - The author is **not liable for any direct or indirect loss** arising from the use or misuse of this project.
 - This project is **unaffiliated with and unendorsed by Tencent, WorkBuddy, or DeepSeek**. Names appear solely to describe compatibility; **their trademarks belong to their respective owners**.
 
-## Acknowledgements
+<a id="acknowledgements"></a>
+
+## 14. Acknowledgements
 
 This project builds on work others have published. Sources and licenses are credited honestly below; we hold that in genuine respect.
 
-### Reference for the connection core
+<a id="reference-for-the-connection-core"></a>
+
+### 14.1 Reference for the connection core
 
 - [corrinehu/dsh-workbuddy-connect](https://github.com/corrinehu/dsh-workbuddy-connect) (MIT, Copyright (c) 2026 Corrine Hu) — **the principal reference for this project.** That project first validated a working WorkBuddy-to-DSH integration: desktop credential discovery and refresh, the upstream protocol and header conventions, loopback shim hardening, pi-ai provider assembly, and the status CLI were all studied from it. This project reimplements those proven capabilities while focusing on improving the experience.
 - [Sliverkiss/workbuddy2api](https://github.com/Sliverkiss/workbuddy2api) (MIT) — reference implementation of the WorkBuddy upstream protocol (the `copilot.tencent.com` wire behavior), referenced via `dsh-workbuddy-connect`.
 - [hawklithm/workbuddy2api](https://github.com/hawklithm/workbuddy2api) (MIT, Copyright (c) 2026 Mayer) — **the only entry in this list that is a CODE PORT rather than a design reference**: its `src/codebuddy_proxy/dsml_parser.py` is a DSML tool-call parser for a proxy in front of the same WorkBuddy/CodeBuddy upstream, and this project ported it to `src/dsml-recovery.ts` (the tag state machine, ignored-region detection, missing-wrapper repair, recursive parameter parsing, and the streaming buffer), adding the two gates it does not have (a tool name must be declared in THIS request; no declared tools means no recovery at all). The three deliberate deviations are listed in that file's header; the formal attribution is in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-### References for the auto-continue semantics
+<a id="references-for-the-auto-continue-semantics"></a>
+
+### 14.2 References for the auto-continue semantics
 
 - [HsiangNianian/dsh-auto-continue](https://github.com/HsiangNianian/dsh-auto-continue) (MIT) — the source of the "consecutive-failure cap" semantics: the counter increments on send, stops at the cap, resets on a successful turn, and skips subagent sessions. This project's `channelRejectContinue` takes only that layer, not its engine.
 - [YuJunZhiXue/dsh-purge](https://github.com/YuJunZhiXue/dsh-purge) (MIT) — three concrete practices: which failure codes must not be continued (quota / rate limit / transport), do not queue behind a busy inbox, and use a message's `source.kind` to tell human intervention from the plugin's own message.
 
-### Baseline for the plugin presentation and structure
+<a id="baseline-for-the-plugin-presentation-and-structure"></a>
+
+### 14.3 Baseline for the plugin presentation and structure
 
 - [dingminhua/dsh-connect-trae](https://github.com/dingminhua/dsh-connect-trae) (MIT, Copyright (c) 2026 LaoDing) — the plugin's presentation is kept consistent with it: the settings-card structure and interaction, the model-management (refresh → select → save) and account-selection model, the read-only host↔client route shape, and the npm release engineering.
 - [dingminhua/dsh-subagent-default-model](https://github.com/dingminhua/dsh-subagent-default-model) (MIT, Copyright (c) 2026 LaoDing) — source of the `dsm-*` card style system, the `row.*` bilingual copy-key convention, and the brand icon, referenced via `dsh-connect-trae`.
 - [franksong2702/dsh-codex-connect](https://github.com/franksong2702/dsh-codex-connect) (Apache-2.0) — reference for the DSH plugin structure and provider registration, referenced via `dsh-workbuddy-connect`. Its Apache-2.0 obligations are discharged separately in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-### Note
+<a id="note"></a>
+
+### 14.4 Note
 
 Copyright in each project above belongs to its respective author. This project follows a **learn-the-design, write-our-own-code** approach and does not copy any reference project's source wholesale; key modules are written independently and each file's header comment names the specific project and pattern it draws on. If you find an attribution missing or incorrect, please open an issue and we will correct it promptly.
 
-## Third-party open-source dependencies
+<a id="third-party-open-source-dependencies"></a>
+
+## 15. Third-party open-source dependencies
 
 The open-source projects referenced here, together with their licenses and compliance notes, are recorded in full in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). When introducing new WorkBuddy-related external dependencies or reusing code from other projects, update that file and honor the upstream licenses.
 
-## Last-account reserve
+<a id="last-account-reserve"></a>
+
+## 16. Last-account reserve
 
 With at least two checked pool accounts, the last account in the saved order is reserved. It becomes eligible only when every preceding account has zero credits, has exhausted its credits, or is still account-rate-limited. Unknown balances, model congestion, and rejected credentials do not unlock it. A recovered preceding account locks the reserve again. Without a separate saved order, the saved member order is used.
 
 Selection before a request, failover, and the displayed pool state use this rule. Failed attempts are recorded before selecting a replacement. If selection cannot be evaluated, the request stops; a locked reserve cannot be reached by falling back to the saved account.
 
-## Local integration updates
+<a id="local-integration-updates"></a>
+
+## 17. Local integration updates
 
 The credit panel provides a Switch button for each account and marks the active account as In use. Successful manual switching shows the target account in the panel; automatic failover identifies the original account, reason, and serving account before the answer. Recovery time is shown only when available.
 
 Model discovery keeps the original local first-seen timestamp when a model leaves and returns. Only active models first recorded within seven days are displayed. See the [module split and verification record](docs/MODULE-SPLIT-PLAN.md) for implementation and validation details.
 
-## License
+<a id="license"></a>
+
+## 18. License
 
 This project is licensed under the [MIT License](LICENSE). Copyright: **Copyright (c) 2026 LaoDing**.
