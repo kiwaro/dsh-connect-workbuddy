@@ -237,22 +237,12 @@ export interface WorkBuddyShimOptions {
    */
   onRequestBody?: (bodyJson: string) => void
   /**
-   * Called with the token counts the UPSTREAM reported for the request whose
-   * body was just handed to {@link onRequestBody} (issue #59).
-   *
-   * `onRequestBody` records what we SENT; this records what the gateway
-   * CHARGED. The issue cannot be settled with only one of them: a difference
-   * between two captures is ambiguous until both sides are known, because
-   * "the gateway counted the same bytes differently" and "the two bodies were
-   * not the same" look identical from the sent side alone.
-   *
-   * May fire zero times (the upstream reported no `usage`, or the stream was
-   * cut before its final frame) or more than once per body (a failover retry
-   * reaches a second upstream). The callee is expected to keep the FIRST
-   * real measurement, since that is the one the report's line belongs to.
-   *
-   * Fired without awaiting, and never allowed to fail the request.
-   */
+ * Receive token counts reported by the upstream for diagnostics.
+ * These counts are usage observations, not a reconciled bill. A stream may
+ * provide no usage or several observations, and retries can add more. Callers
+ * must associate an observation with the correct request; the callback itself
+ * does not provide a request id. Errors in reporting must not fail the request.
+ */
   onUpstreamUsage?: (usage: {
     promptTokens?: number
     completionTokens?: number
@@ -345,7 +335,7 @@ function failoverReasonText(failure: WorkBuddyChatResult): string {
   if (failure.ok) return '不可用'
   switch (failure.kind) {
     // The 6004 volume limit: the account serves this request again once the
-    // stated reset passes.
+    // stated reset passes, subject to another upstream attempt succeeding.
     case 'soft_rate':
       return '被限流'
     // NOT the same sentence as `soft_rate`, though both leave the pool. The
@@ -384,7 +374,8 @@ function failoverReasonText(failure: WorkBuddyChatResult): string {
     // A request the upstream rejected on its PARAMETERS (issue #78). Deliberately
     // NOT "不可用": the plugin never fails over for this kind, so saying only
     // "unavailable" leaves the reader to guess whether an account or the network
-    // is at fault. Neither is — the same body will be refused by every account.
+    // is at fault. This classification points to request parameters; it does
+    // not establish that every account would receive the same refusal.
     case 'client':
       return '请求被上游拒绝'
     default:
@@ -429,28 +420,11 @@ function clippedUpstreamText(text: string, limit: number): string {
 }
 
 /**
- * The channel-gate reply's evidence sentence: what the gateway actually read.
- *
- * Read from the HOST's body, not from the prepared one, because the prepared
- * body has the plugin's neutral head in front of every opening it recognises —
- * so the first line it could report is the plugin's own placeholder, which is
- * exactly the false lead issue #98's reporters were given. They were told the
- * gateway had refused `You are a helpful assistant.`, a line that returns 200
- * when sent alone.
- *
- * Each entry is labelled with its ROLE (`system` / `assistant`) because both are
- * scanned and the difference is what tells the reader where to look: an
- * `assistant` entry is a history message, i.e. the session is poisoned and every
- * later turn will fail the same way until that line is changed.
- *
- * Each entry also says whether the plugin's own neutralisation already covers
- * it. An entry marked "not in the plugin's list" is the actionable one: that
- * opening goes on the wire verbatim, so either the host wrote it or the
- * gateway's list grew.
- *
- * Capped at {@link CHANNEL_EVIDENCE_LIMIT} entries: a session can carry dozens
- * of system/assistant messages, and a wall of them would bury the one that
- * matters. The remainder is counted instead of listed.
+ * List selected message openings from the original DSH request to help inspect
+ * a channel refusal. The prepared request may differ after neutralization or
+ * perturbation, so this list is not a capture of the final wire body and does
+ * not identify the text that caused refusal. Roles and local rule matches are
+ * included; output is limited to CHANNEL_EVIDENCE_LIMIT entries.
  */
 function channelEvidenceText(bodyJson: string): string {
   const entries = openingEvidenceOfBody(bodyJson)
@@ -527,36 +501,17 @@ export function createWorkBuddyShim(options: WorkBuddyShimOptions): WorkBuddyShi
   // Per-process shared secret. Lives only in memory; the adapter resolves it
   // as the OpenAI apiKey, which pi-ai sends as `Authorization: Bearer ...`.
   // The shim never forwards it upstream — the real credential comes from the
-  // store. A local attacker who can hit the port still cannot forge this.
+  // store. Port access alone does not supply this secret; processes that can
+  // read the plugin's memory or client traffic may still obtain it.
   const SHARED_SECRET = randomBytes(32).toString('base64url')
 
   /**
-   * Whether this process's prompts have been PROVEN to need the invisible
-   * perturbation before the gateway will accept them.
-   *
-   * WHY THIS EXISTS (measured 2026-10-22). The retry ladder below is
-   * discover-by-failing: a request goes out unmodified, is refused with `11128`,
-   * and the ladder re-sends a perturbed copy. That is correct the first time and
-   * wasteful every time after — the prompt SHAPE that carries a fingerprinted
-   * substring does not change between turns of a session, so the plugin was
-   * paying one refused request (~209ms measured) on EVERY request, forever.
-   *
-   * So once the perturbation is what made a request succeed, the next request
-   * starts from the perturbed form and skips the doomed first attempt. The
-   * saving is one round trip plus one refused request per turn.
-   *
-   * WHY A PROCESS-LOCAL FLAG AND NOT A CONFIG. The gateway's fingerprint list is
-   * a snapshot the upstream can change at any time, in either direction: a rule
-   * can be withdrawn as easily as added. A persisted flag would therefore
-   * outlive the condition that justified it and could keep perturbing prompts a
-   * gateway no longer objects to. In memory it is forgotten at restart, which is
-   * the natural expiry for "what this gateway refused recently".
-   *
-   * AND IT SELF-CORRECTS. If a perturbed body is EVER refused with the channel
-   * gate, the flag is cleared and the request falls back to the plain ladder —
-   * so a withdrawn rule, or a different model behind the same gateway, cannot
-   * leave the plugin stuck sending a shape that no longer helps.
-   */
+ * Remember whether a channel-refused request later succeeded with perturbation.
+ * In failure mode, subsequent requests start with the remembered form. A later
+ * channel refusal clears the flag; restarting also clears it. Success after a
+ * retry is an observation, not proof that the text change caused acceptance or
+ * that later prompts require it.
+ */
   let channelNeedsPerturbation = false
 
   /** Constant-time bearer check; absent or mismatched bearers are rejected. */
@@ -675,42 +630,13 @@ export function createWorkBuddyShim(options: WorkBuddyShimOptions): WorkBuddyShi
   }
 
   /**
-   * Failure classes worth retrying against another account.
-   *
-   * `client` is deliberately NOT one of them: the upstream rejected the
-   * REQUEST (malformed body, unsupported field), so every account answers the
-   * same 400 and walking the rest of the pool only multiplies the wait before
-   * the user sees an error they must act on anyway.
-   *
-   * `model_busy` is NOT one of them either, and the distinction is the whole of
-   * issue #56. The 14003 throttle belongs to the MODEL — the upstream's own
-   * message says so ("switch to a less busy model") and the reporter's
-   * measurement confirms it: same credential, same second, other models answer.
-   * So a second account does not answer better than the first; it answers the
-   * same 14003, one round trip later, and each attempt writes a rate-limited
-   * measurement onto an account that was never the problem. The measured outcome
-   * was a pool in which every member had been taught a false fact, and a user
-   * who could not talk to the model for half an hour.
-   *
-   * Everything else describes a PER-ACCOUNT condition — a volume limit,
-   * exhausted credits, a dead session, a gateway that failed this one call —
-   * which another account may well survive.
-   */
+ * Local policy for retrying with another account.
+ * Client errors, model congestion, channel refusal and model queues do not
+ * trigger account rotation. Other kinds may rotate when the pool supplies an
+ * eligible candidate. This policy does not prove the error's scope or that
+ * another account would receive the same result.
+ */
   function isFailoverWorthy(kind: UpstreamErrorKind): boolean {
-    // `channel_reject` joins the two non-failover kinds. The gate matches the
-    // OPENING of a system message, and every account sends that same opening, so
-    // the next account answers the same 11128 one round trip later — while each
-    // attempt burns real quota and records a false statistic against a credential
-    // that was never at fault (issues #87–#90 were reported as account problems
-    // for exactly this reason).
-    //
-    // `model_queue` joins them for a different reason: the queue is a fact about
-    // the MODEL and the platform-wide line in front of it, not about this
-    // credential. The next account is put in the SAME queue with the SAME
-    // position, so rotating spends one real request per account to learn nothing.
-    // Before it was its own kind a queue fell through to `server`/`soft_rate`
-    // (the status it rides on), both of which fail over — so one queued request
-    // walked the whole pool before the user was told their position.
     return kind !== 'client' && kind !== 'model_busy' && kind !== 'channel_reject'
       && kind !== 'model_queue'
   }
@@ -783,19 +709,13 @@ export function createWorkBuddyShim(options: WorkBuddyShimOptions): WorkBuddyShi
     // not retried — the client already received a partial answer, and
     // replaying it would duplicate output the model may already have acted on.
     // The first attempt always uses the store's own resolution, so a token
-    // refresh still happens exactly once, before any retry.
+    // refresh uses the store's resolve path before the first attempt.
     /**
-     * The body to send FIRST, which is the perturbed form once this process has
-     * proven the gateway demands it, or when the user selected `always`.
-     *
-     * `perturbChannelFingerprints` is consulted only when the flag is set, so a
-     * fresh process still pays the plain attempt — that is what discovers
-     * whether the gate is on at all (see `channelNeedsPerturbation`).
-     *
-     * The perturbed form is a purely additive transform: it inserts zero-width
-     * spaces and changes no word the model reads, so starting from it is not a
-     * behaviour change, only a saved round trip.
-     */
+ * Choose the first body using the configured policy and the process-local
+ * record of successful perturbation retries. Inserting zero-width spaces changes
+ * request bytes and can affect tokenization or model behavior. It does not
+ * guarantee acceptance or preserve behavior exactly.
+ */
     const startPerturbed = channelPerturbation === 'always' || channelNeedsPerturbation
     const preferred = startPerturbed
       ? perturbChannelFingerprints(prepared, channelPerturbation === 'always') ?? prepared
@@ -812,37 +732,13 @@ export function createWorkBuddyShim(options: WorkBuddyShimOptions): WorkBuddyShi
     }
 
     /**
-     * The retry ladder that does not depend on knowing the fingerprint
-     * (issue #98, both halves).
-     *
-     * The gateway refuses the request for data the plugin cannot see: a list of
-     * refused `system`/`assistant` OPENINGS (the plugin holds a measured
-     * SNAPSHOT, `UNAPPROVED_CHANNEL_OPENINGS`) and, since 2026-10-21, at least
-     * one long substring INSIDE the prompt. Every account and every region
-     * sends the same bytes, so without a rescue the only outcome is a dead end
-     * the reader cannot get out of.
-     *
-     * Two rungs, both on the SAME credential (the gate reads the request, not
-     * the account, which is why `channel_reject` is not failover-worthy):
-     *
-     *   1. `forceNeutralHead` — move every scanned opening behind the neutral
-     *      head. Measured: whatever the banned opening is, moving it off the
-     *      start of the content answers 200.
-     *   2. `perturbChannelFingerprints` — insert zero-width spaces at the
-     *      sentence boundaries of the scanned messages, which breaks an
-     *      exact-substring fingerprint without changing a word the model reads.
-     *      This is the rung that rescues the inside-the-prompt fingerprints,
-     *      where rung 1 is a no-op.
-     *
-     * Both return `undefined` when they would change nothing; that is the
-     * signal not to spend a request on a body that would be refused identically.
-     *
-     * Nothing has been written to the client at this point (`!ok` means the
-     * upstream answered non-2xx before any stream started), so a retry cannot
-     * splice two responses together. The first attempt's failure is NOT booked
-     * as an account failure: it was the request that was refused, not the
-     * credential.
-     */
+ * On channel refusal, try the supported request transforms on the same account:
+ * neutral head, punctuation-based perturbation, then dense perturbation.
+ * Skip transforms that make no change. These are bounded recovery attempts;
+ * the gateway may still refuse them. No response body has been sent to the
+ * client at this stage, so retries do not append two partial answers.
+ * The initial refusal is not treated as an account-health measurement.
+ */
     let retriedWithForcedHead = false
     let retriedWithPerturbation = false
     let retriedWithDensePerturbation = false
@@ -860,7 +756,7 @@ export function createWorkBuddyShim(options: WorkBuddyShimOptions): WorkBuddyShi
           result = await client.chatStream(credential, rescued, controller.signal)
           retriedWithPerturbation = true
           // THE PERTURBATION IS WHAT WORKED, so remember it: the next request
-          // in this process starts perturbed and skips both doomed attempts.
+          // in this process starts perturbed. Later success is not guaranteed.
           // Only set on SUCCESS — a perturbation that is also refused teaches
           // nothing about what the gateway wants.
           if (result.ok) channelNeedsPerturbation = true
@@ -1034,21 +930,9 @@ export function createWorkBuddyShim(options: WorkBuddyShimOptions): WorkBuddyShi
       // (compaction, for one) swallows the reply text (issue #83).
       const refusedReport = refusedTierReport(result, requestModelId)
       if (refusedReport !== undefined) reportRefusedTier(refusedReport)
-      // A QUEUE CONDITION IS NOT A FAILURE OF THE REQUEST. The upstream accepted
-      // the call and stated where it stands in line — `6020` (waiting),
-      // `6021` (queue full), `6022` (this user already holds the maximum). The
-      // app answers that with a banner and a poll, never with "请求失败"; so does
-      // this path, using the app's own vocabulary ("排队中 / 第 N 位") rather than
-      // the raw envelope. See `src/queue.ts`.
-      //
-      // The KIND is what selects this branch, not a second body parse: a queue is
-      // now classified as its own kind in `classifyUpstreamError`, which is also
-      // what keeps it OUT of the failover loop (see `isFailoverWorthy`). Reading
-      // the body again here is only to get the position and the size.
-      //
-      // 429 keeps the host's bounded in-place retry available: for `6020` a
-      // retry is exactly the right next move (the queue is moving), and for
-      // `6021`/`6022` the sentence says what to do instead of queueing.
+      // Queue-related codes include waiting, a full queue and a per-user limit.
+      // They do not all establish that the request entered a queue. Report the
+      // parsed status with NO_RETRY_HEADERS rather than rotating accounts.
       const queue = result.kind === 'model_queue' ? parseQueueAnswer(result.message) : undefined
       if (queue !== undefined) {
         writeOpenAIError(
@@ -1146,7 +1030,7 @@ export function createWorkBuddyShim(options: WorkBuddyShimOptions): WorkBuddyShi
         if (detail?.requestId !== undefined) meta.push(`requestId ${detail.requestId}`)
         const message =
           `${lead}（${meta.join('，')}）${note}。模型当前繁忙。` +
-          '请等待约 1 分钟，或切换到负载较低的模型。' +
+          '请稍后重试，或切换到负载较低的模型。' +
           'DSH 会按重试设置自动重试此类请求。'
         writeOpenAIError(res, KIND_STATUS[result.kind], result.kind, message, hostErrorCode(result.kind))
         return

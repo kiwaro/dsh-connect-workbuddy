@@ -1,41 +1,13 @@
 /**
- * Decides whether the composer credit readout belongs in this session, by
- * reading the Host's own `modelSelection` projection and the plugin's
- * per-region `showCreditsInMainUi` switch.
+ * 根据区域开关、积分显示开关及显示位置，决定是否渲染 WorkBuddy 读数。
  *
- * 参考：dingminhua/dsh-connect-trae（MIT，Copyright (c) 2026 LaoDing）
- *   — 该项目的 `client/ComposerPointsGate.tsx`：从 `modelSelection` 提供的模型选择状态读
- *     「本会话当前用哪个 provider」来决定要不要渲染，以及 `next` 优先于
- *     `lastUsed` 的判定。这是本项目从侧边栏迁到输入框的核心机制。
+ * 参考 dingminhua/dsh-connect-trae 的 client/ComposerPointsGate.tsx。
+ * 原实现采用 MIT 许可，Copyright (c) 2026 LaoDing。
  *
- * WHY the projection rather than this plugin's own state: the projection is
- * what the model picker writes and what the next request will use, so the
- * readout cannot disagree with the model actually in effect. `next` outranks
- * `lastUsed` because a selection that has been made but not yet sent is still
- * what the composer shows the user — the same precedence the shell itself uses.
- *
- * WHY the composer row rather than the sidebar foot: the sidebar foot is a
- * SINGLE root-scope row shared by every bundle, so two connector plugins each
- * parking a line there fight over the same width (measured on the referring
- * project: its line was squeezed to a clipped "Tr" beside this plugin's two
- * rows). The composer row is per-session and provider-scoped, so exactly one
- * plugin's credits are relevant at a time and nothing overlaps.
- *
- * WHY THERE IS A SECOND SEAT (issue #62). The composer tool row is a LIST seat,
- * so it is shared not only with the shell's own controls but with any other
- * plugin that registers there — and one report is exactly that: with a
- * third-party plugin installed the readout stopped appearing at all. A list seat
- * cannot promise that every occupant is visible, so the seat is the USER's
- * choice: `composer` (default, unchanged for anyone who does not choose) or
- * `stats`, the ambient dock below the composer card where the shell renders its
- * own round/token pills. The gate is registered in BOTH seats and renders in the
- * one the setting names, which keeps the decision in one function instead of
- * re-registering slots when the setting changes.
- *
- * Kept separate from {@link ComposerCredits} (and from the browser-plugin
- * entry) so the decision can be unit-tested without a Host: the entry imports
- * browser-only DSH packages the test environment cannot load, while this module
- * depends only on React and a narrow projection shape.
+ * 读取 DSH 的 modelSelection，next 优先于 lastUsed。选中的供应商属于本插件
+ * 时使用对应区域；选择其他供应商时不渲染 WorkBuddy 读数。
+ * 组件在工具栏和输入框下方均注册，按保存的 creditPosition 选择实际位置。
+ * 工具栏顺序避让由 composer-order.ts 处理。
  */
 import { useEffect, useState } from 'react'
 import { ComposerCredits, WORKBUDDY_COMPOSER_PROVIDERS } from './ComposerCredits.tsx'

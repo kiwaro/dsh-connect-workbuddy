@@ -27,15 +27,15 @@
  * 模型配置来自产品配置里每条媒体模型的 `videoGeneration` 字段：
  *   { resolutions:[...], defaultResolution, defaultSeconds,
  *     minSeconds, maxSeconds }。时长/分辨率要在该模型允许的集合内，否则上游
- *   会拒。这里把"该模型支持哪些值"的读取与校验收进来，工具层只把用户给的值
- *   递进来、拿校验结果。
+ *   会拒。本模块读取模型约束并校验输入，工具层传入用户参数后读取校验结果。
  *
  * 两个区的视频目录（2026-10-25 实测，`src/upstream.ts` 的 `fetchMediaModels`
  * 注释）：
  *   - 国内区（61 条模型）：`kling-video-v3` 与 `minimax-video-h3` 各带
  *     `text-to-video` + `image-to-video`。
  *   - 国际区（29 条）：`kling-video-v3` 带两种 video tag。
- * 两边目录完全不重叠，所以"以哪个区为准"由工具的 `videoToolRegionOf` 决定
+ * 两个区域的目录独立读取，其中 kling-video-v3 同时出现于两区。
+ * 使用哪个区域由工具的 `videoToolRegionOf` 决定
  * （默认国内区优先，与 image 工具一致）。
  *
  * @module dsh-connect-workbuddy/video-gen
@@ -55,7 +55,7 @@ export const VIDEO_TASKS_PATH = '/v2/videos/tasks'
 export const DEFAULT_VIDEO_SECONDS = 5
 /** 官方 CLI 的默认宽高比（仅文生视频时使用）。 */
 export const DEFAULT_VIDEO_ASPECT_RATIO = '16:9'
-/** 支持的非图像决定宽高比集合。 */
+/** 文生视频允许的宽高比集合。 */
 export const VIDEO_ASPECT_RATIOS: readonly string[] = ['16:9', '9:16', '1:1']
 /** 默认开启音频。 */
 export const DEFAULT_VIDEO_ENABLE_AUDIO = true
@@ -86,7 +86,7 @@ export interface WorkBuddyVideoModelConfig {
  *
  * 实测上游媒体条目只有 `{"id","name","tags"}` 三个字段（见 `image-gen.ts` 的
  * 模块注释）；`videoGeneration` 是**模型级**配置，随条目下发时才有。这里只做
- * 原样传递：下游校验拿它当**唯一**的时长/分辨率依据，没有就交给上游，绝不臆造默认区间。
+ * 原样传递：下游将它作为时长和分辨率约束；工具层还可用最近一次拒绝响应中的时长范围覆盖目录值。缺少范围时交给上游校验。
  *
  * `image-gen.ts` 的同名接口带同一个可选字段——两边读的是同一份目录，
  * `fetchMediaModels` 只会返回一种形状（见该文件的 `WorkBuddyMediaVideoGeneration`）。
@@ -258,10 +258,9 @@ function tagLabel(tag: string): string {
 }
 
 /**
- * 按能力标签选一个视频模型：先在该标签组内找调用方点名的那个，否则取组内第一个。
+ * 在指定能力标签组中选择模型。提供模型标识时按标识查找，否则使用组内第一个。
  *
- * 与 `image-gen.ts` 的 `pickMediaModel` 完全一致的设计——点名的模型必须在**这一组**
- * 里，写错名字或拿文生视频模型去图生视频都直接报错，而不是把它发上去换一个上游 404。
+ * 指定模型不属于该标签组时，在本地返回错误并列出可用模型。
  */
 export function pickVideoModel(
   models: readonly WorkBuddyMediaModel[],
@@ -338,8 +337,8 @@ export function buildVideoBody(
  *
  * 集中处理"该模型支持哪些值"的判断，让工具层只需把用户给的值递进来。
  * 返回：最终要用的 `seconds` / `resolution` / `aspectRatio`（图生视频时
- * `aspectRatio` 为 undefined，因为由输入图决定），以及一条非致命告警列表
- * （例如用户给的分辨率模型不支持、被回落成默认值）。
+ * `aspectRatio` 为 undefined，因为由输入图决定），以及非致命告警列表
+ * （例如模型不支持请求中的分辨率，改用默认值）。
  *
  * 抛 `WorkBuddyVideoError`('INVALID_ARGS') 的情况：prompt 超长、宽高比非法、
  * 模型不支持自定义时长却给了时长、时长越界。
@@ -436,7 +435,7 @@ export function resolveVideoParams(
  * 解析 `POST /v2/videos/generations` 的响应，取出 task id。
  *
  * 信封是 `{code, msg, request_id, data}`，`code !== 0` 是业务失败（与 HTTP
- * 状态无关）。成功时 `data.id` 是 task id。没有 id 就说不通（上游一定返回 id）。
+ * 状态无关）。成功时 `data.id` 是 task id。未返回 id 时报告 EMPTY_RESULT，避免继续轮询未知任务。
  */
 export function parseVideoSubmission(payload: unknown): WorkBuddyVideoSubmission {
   if (typeof payload !== 'object' || payload === null) {
@@ -586,7 +585,7 @@ export function describeVideoFailure(
   const where = phase === 'submit' ? '提交生视频任务' : '轮询生视频任务'
   if (status === 401 || status === 403) {
     return new WorkBuddyVideoError(
-      `workbuddy video: 凭据被上游拒绝（HTTP ${status}），请在插件设置里重新登录 WorkBuddy。${detail === '' ? '' : ` ${detail}`}`,
+      `workbuddy video: 凭据被上游拒绝（HTTP ${status}），请在 WorkBuddy 中重新登录，再回到插件检测账号。${detail === '' ? '' : ` ${detail}`}`,
       'AUTH',
     )
   }
@@ -603,13 +602,13 @@ export function describeVideoFailure(
     )
   }
   // 提交阶段的其他 4xx：上游在**创建任务之前**就把请求退回了（典型是参数不合它的
-  // 规则，例如 `unsupported video duration: 1 seconds`）。没有 task、没有扣积分，
+  // 规则，例如 `unsupported video duration: 1 seconds`）。未取得 task id，无法进入轮询，
   // 所以归成 REJECTED 而不是 UPSTREAM——「UPSTREAM 一律进冷却」会让一次参数写错
   // 白等一分钟，正是「上游返回这种错误，也要等半天」的来源。
   if (phase === 'submit' && status >= 400 && status < 500) {
     const range = parseSupportedSecondsRange(detail)
     return new WorkBuddyVideoError(
-      `workbuddy video: 上游拒绝了这次生视频请求（HTTP ${status}），没有创建任务、没有扣积分`
+      `workbuddy video: 上游拒绝了这次生视频请求（HTTP ${status}），提交被拒绝，未取得任务标识`
       + `${range === undefined ? '' : `；该模型支持的时长是 ${range.minSeconds}-${range.maxSeconds} 秒`}`
       + `。请按服务端提示调整参数后重试。${detail === '' ? '' : ` ${detail}`}`,
       'REJECTED',

@@ -1,46 +1,22 @@
 /**
- * Output-speed measurement: how fast does this model actually write tokens?
+ * Estimate output throughput from streamed content arrival and reported usage.
+ * The speed probe uses small input and requests up to 256 output tokens, unlike
+ * the availability probe's larger input and one-token output cap. Historical
+ * 2026-10-22 measurements reported 0.01–0.15 credit per speed run; these samples
+ * do not establish current pricing.
  *
- * WHY IT EXISTS (issue #92). Credit multiplier alone is not enough to pick a
- * model any more. DSH runs models as sub-agents, dispatched in parallel and each
- * with several round trips, so OUTPUT SPEED multiplies into wall-clock time: a
- * cheap+s low model can cost more in total than an expensive+fast one. The
- * reporter measured four models at the same x0.08 multiplier whose median output
- * speed differed by 3.8x.
- *
- * WHY IT IS A SEPARATE PROBE FROM THE AVAILABILITY ONE. The existing probe sends
- * 25,000 input tokens and caps output at ONE token: its whole job is to discover
- * the input-size rate limit, and one token says nothing about throughput — its
- * `elapsedMs` is time-to-first-byte, which is a different quantity. Measuring
- * speed needs the opposite shape: tiny input, long output.
- *
- * WHAT IT COSTS. Measured on this machine 2026-10-22 with `max_tokens: 256` and
- * ~35 input tokens: `credit 0.01`–`0.15` per run depending on the model's
- * multiplier. That is an order of magnitude BELOW the availability probe
- * (measured `credit 0.72` at 25k input), because cost scale s with input on this
- * gateway.
- *
- * WHY THREE RUNS AND A MEDIAN. Measured 2026-10-22 on `deepseek-v4.1-flash`:
- * five runs gave 406 / 405 / 419 / 423 / 411 tok/s (4% spread) — but
- * `glm-5.3-flash` gave 110 / 105 / **177** / 103 / 109 (72% spread), one clear
- * outlier. A single run would have reported that outlier as the truth. The
- * median of three discards it while still costing about a third of a cent.
- *
- * NEVER EXTRAPOLATED. A sample count is carried beside the number, and a run
- * that lost samples reports the ones it kept rather than pretending to be
- * complete.
- *
- * @module dsh-connect-workbuddy/tps
+ * Run three samples and take each quantity's median. A median reduces the
+ * influence of one extreme sample but does not guarantee representative speed.
+ * Network buffering and upstream token-count definitions affect the estimate.
+ * Incomplete samples remain visible through the reported sample count.
  */
 
 /** Output tokens each speed run asks for. */
 export const TPS_PROBE_MAX_TOKENS = 256
 
 /**
- * Runs per model. Median of three, not mean: see the outlier above.
- *
- * Odd on purpose — a median of an even count is an average of two middle values,
- * which reintroduces the outlier's influence this is here to remove.
+ * Three runs per model. Per-quantity medians reduce the influence of a single
+ * extreme reading; they do not remove measurement error or every outlier.
  */
 export const TPS_PROBE_RUNS = 3
 

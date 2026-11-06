@@ -45,7 +45,7 @@ export interface WorkBuddyCardInjected {
  */
 export type WorkBuddyCardProps =
   Partial<WorkBuddyCardInjected>
-  & { view?: string; surface?: 'card' | 'page'; backToConversation?: () => void }
+  & { view?: string; surface?: 'card' | 'page' | 'section'; backToConversation?: () => void }
 
 export const POLL_INTERVAL_MS = 60_000
 
@@ -171,7 +171,7 @@ export function promoChip(model: WorkBuddyWebModel): ReactElement | null {
  * resolved against the clock while the number beside it was the catalog's
  * static figure. The discount lives in the same upstream entry, so both are
  * answered against the same clock — a promotion that is running and carries a
- * readable `replace` discount wins; otherwise the catalog figure stands.
+ * readable supported discount wins; otherwise the catalog figure stands.
  */
 export function effectiveRate(model: WorkBuddyWebModel): number | undefined {
   return selectPromoMultiplier(model.promos, Date.now()) ?? model.creditMultiplier
@@ -303,17 +303,10 @@ export function dotStyle(status: WorkBuddyWebUsage['status']): Record<string, st
 }
 
 /**
- * The sentence a probe result gets, and how it should be coloured.
- *
- * The cooldown wording is the part that had to be got right. The upstream names
- * a "use again" time in three situations: a `Retry-After` header, the reset
- * sentence it writes into its own failure BODY (where this service actually
- * puts it — its 429s carry no rate-limit header at all), or an exhausted
- * monthly quota whose refresh point it declares. So a limited result WITHOUT
- * any stated time must say that plainly. Substituting a locally invented
- * countdown would be the single most misleading thing this feature could do: it
- * would look like an upstream answer while being a guess, and the user would
- * wait for a moment that means nothing.
+ * Map a probe result to localized wording and a display tone.
+ * Retry times may come from upstream reset information or a locally calculated
+ * waiting deadline. They indicate when to try again, not guaranteed recovery.
+ * When no time is recorded, the result says that none was provided.
  */
 /**
  * ` · 约 1 小时后` for a future instant, or `''` when there is none.

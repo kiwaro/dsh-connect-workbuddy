@@ -1,3 +1,4 @@
+import { claimComposerOrder } from './composer-order.ts'
 /**
  * Browser half: WorkBuddy credits and model management inside Plugin
  * configuration.
@@ -44,7 +45,7 @@ import { selectQuotaNoticeClaim, WorkBuddyQuotaNotice } from './WorkBuddyQuotaNo
 import { en, zh } from './locales.ts'
 import type { WorkBuddySettingsKey } from './locales.ts'
 import { WORKBUDDY_PLUGIN_ICON } from './icon.ts'
-import { openPluginSettingsPage } from './settings-route.ts'
+import { WORKBUDDY_SETTINGS_ID, openPluginSettingsPage } from './settings-route.ts'
 import {
   setSidebarPanelWanted, sidebarPanelWanted, subscribeSidebarPanelWanted,
 } from './panel-switch.ts'
@@ -189,7 +190,9 @@ export function apply(ctx: WorkBuddyClientContext): void {
      */
     const registerComposerCredits = (): (() => void) | undefined => {
       try {
-        return ctx.slots.inject('conversation.input.right' as never, () => (ctx.slots as unknown as {
+        return ctx.slots.inject('conversation.input.right' as never, () => {
+          const claim = claimComposerOrder(4)
+          try { const dispose = (ctx.slots as unknown as {
           register(
             options: { name: string; id: string; order: number; locale: string; inject: () => WorkBuddyCardInjected },
             component: unknown,
@@ -197,7 +200,7 @@ export function apply(ctx: WorkBuddyClientContext): void {
         }).register({
           name: 'conversation.input.right',
           id: 'dsh-connect-workbuddy-composer-credits',
-          order: 4,
+          order: claim.order,
           locale: namespace,
           // `settingsScope` rides along so the gate can honor the card's
           // per-region switch without a second writer.
@@ -209,7 +212,10 @@ export function apply(ctx: WorkBuddyClientContext): void {
           inject: () => settingsScope === undefined
             ? { t, position: 'composer' as const, onOpenSettings }
             : { t, position: 'composer' as const, settingsScope, onOpenSettings },
-        }, ComposerCreditsGate))
+        }, ComposerCreditsGate)
+          return () => { try { dispose() } finally { claim.release() } }
+          } catch (error) { claim.release(); throw error }
+        })
       } catch (error: unknown) {
         console.error('[dsh-connect-workbuddy] composer credits slot failed to register (host provider unaffected):', error)
         return undefined
@@ -420,23 +426,11 @@ export function apply(ctx: WorkBuddyClientContext): void {
     }
 
     /**
-     * The live CodeBuddy turn pill, in the same ambient dock as the readout.
-     *
-     * `order` 11 puts it immediately after the credit readout (10) and still
-     * right of the shell's own pills (0): the two numbers a user glances at while
-     * a turn runs sit together. The component renders `null` whenever no turn is
-     * live, which is the normal case — the bridge is off by default — so an
-     * unused seat costs one poll interval and nothing on screen.
-     *
-     * THE SESSION ID IS THE PILL'S DISPLAY CONDITION. `conversation.composer.dock`
-     * is declared `scope: 'session'`, so the registration's `inject` receives the
-     * session id and the pill can keep only the rows that session started. The
-     * board itself is host-wide (one route for every session in the process), so
-     * without this the pill would describe whatever turn is newest anywhere —
-     * including one from another tab, about a directory the reader is not in.
-     * Unlike the credit readout there is deliberately no provider gate: the CLI
-     * route is model-independent, and a turn started from a DeepSeek session is
-     * exactly a case the readout has to cover.
+     * Register the CLI activity pill after the credit readout in the dock.
+     * The component polls while mounted, including when the bridge has no live turn.
+     * It renders nothing for an empty board. sessionId filters attributed rows;
+     * unattributed rows remain visible, and a missing sessionId disables filtering.
+     * No provider gate is used because CLI calls can start from any provider.
      */
     const registerCliLive = (): (() => void) | undefined => {
       try {
@@ -532,7 +526,48 @@ export function apply(ctx: WorkBuddyClientContext): void {
      * — issue #55 is exactly that mismatch, which renders an empty page and
      * reports nothing at all.
      */
+    // Settings navigation is independent of the optional conversation sidebar panel.
+    const registerSettingsSection = (): (() => void) | undefined => {
+      try {
+        return ctx.slots.inject('settings.section' as never, () => {
+          try {
+            return (ctx.slots as unknown as {
+              register(options: { name: string; id: string; order: number; label: () => string; locale: string; inject: () => WorkBuddyCardInjected & { surface: 'section' } }, component: unknown): () => void
+            }).register({
+              name: 'settings.section', id: WORKBUDDY_SETTINGS_ID, order: 31,
+              label: () => t('nav.panel'), locale: namespace,
+              inject: () => settingsScope === undefined
+                ? { t, surface: 'section' as const }
+                : { t, settingsScope, surface: 'section' as const },
+            }, WorkBuddyCard)
+          } catch (error: unknown) {
+            console.error('[dsh-connect-workbuddy] settings section registration failed:', error)
+            return () => {}
+          }
+        })
+      } catch (error: unknown) {
+        console.error('[dsh-connect-workbuddy] settings section injection failed:', error)
+        return undefined
+      }
+    }
+    const registerSettingsIcon = (): (() => void) | undefined => {
+      try {
+        return ctx.slots.inject('settings.section.icon' as never, () => {
+          try {
+            return (ctx.slots as unknown as {
+              register(options: { name: string; id: string; locale: string }, component: unknown): () => void
+            }).register({ name: 'settings.section.icon', id: WORKBUDDY_SETTINGS_ID, locale: namespace }, WorkBuddyPanelIcon)
+          } catch (error: unknown) {
+            console.error('[dsh-connect-workbuddy] settings icon registration failed:', error)
+            return () => {}
+          }
+        })
+      } catch { return undefined }
+    }
+
     const registerAllSlots = (): Array<() => void> => [
+      registerSettingsSection(),
+      registerSettingsIcon(),
       ...WORKBUDDY_CARD_KEYS.map(key => registerCard('plugins.bundle.config', key)),
       ...WORKBUDDY_CARD_KEYS.map(key => registerCard('plugins.row.config', `${key}#${key}`)),
       registerComposerCredits(),

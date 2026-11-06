@@ -7,8 +7,8 @@ import type { PiAiGeneration } from './pi-ai-runtime.ts'
 import { WORKBUDDY_MODEL_IDENTITY, WORKBUDDY_PROVIDER, WORKBUDDY_GLOBAL_PROVIDER, HOST_FOREIGN_API } from './adapter-identity.ts'
 
 /**
- * Rewrite a pi-ai 0.87-shaped transcript into the 0.85 shape this plugin's
- * pi-ai understands — prompt AND tools.
+ * Rewrite a pi-ai normalized transcript into the flat shape consumed by legacy
+ * pi-ai — prompt AND tools.
  *
  * WHY THIS EXISTS (issue #24). pi-ai 0.87's `normalizeContext` moves the system
  * prompt INTO `messages` as `{ role: 'system', content: '<string>' }`. pi-ai
@@ -289,9 +289,8 @@ function transcript<T>(context: Context): T {
  * is the reported symptom: reasoning collapses to a character or two while the
  * answer channel fills with working notes.
  *
- * WHY REWRITING IS SAFE. Every message here was produced by THIS plugin, in THIS
- * region — the transcript never contains another provider's assistant turns
- * (`dsh-llm` splits history by provider before the API sees it). The identity is
+ * The transcript can contain turns from other providers. Rewriting is scoped
+ * to the ownedRoutes and identity checks below. The identity is
  * already the field this adapter stamps on the models it serves, and it resolves
  * as a registry key in both regions (issue #75). Nothing about routing, billing
  * or the destination changes: `baseUrl` comes from the model, not from the
@@ -655,8 +654,8 @@ function dropThinkingBlocks(context: Context, affected: readonly ForeignThinking
 /**
  * How deeply this wrapper repairs the transcript before it reaches pi-ai.
  *
- * Both members are OFF by default, so a config that never mentions them sends
- * byte-for-byte what earlier builds sent (see {@link WorkBuddyAdapterOptions}).
+ * The optional same-route repair defaults to off. Cross-provider repair still
+ * runs regardless of that switch; the optional callback reports removed blocks.
  */
 export interface TranscriptRepairOptions {
   /**

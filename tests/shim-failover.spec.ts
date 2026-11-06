@@ -258,7 +258,8 @@ describe('pool failover: retrying a failed chat on another account', () => {
     // The three things the user needs: it is not the account, what to do, and the
     // upstream's own words as the receipt.
     expect(response.body).toContain('模型当前繁忙')
-    expect(response.body).toContain('等待约 1 分钟')
+    expect(response.body).toContain('请稍后重试，或切换到负载较低的模型。')
+    expect(response.body).not.toContain('等待约 1 分钟')
     expect(response.body).toContain('请求过于频繁，请稍后重试。')
     // The count of accounts tried is absent because nobody else was tried.
     expect(response.body).not.toContain('已尝试')

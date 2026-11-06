@@ -22,7 +22,7 @@ export function useWorkBuddyCardState({ t, settingsScope, view, surface, backToC
   // collapse button is not rendered in page mode, so `setCardOpen` is unused there
   // — keeping a single `open` value lets the polling effects stay untouched.
   const [cardOpen, setCardOpen] = useState(view === 'page')
-  const open = pageSurface || cardOpen
+  const open = pageSurface || surface === 'section' || cardOpen
   /** The region whose tab is on screen; each tab is its own provider stack. */
   const [activeRegion, setActiveRegion] = useState<WorkBuddyWebRegion>('cn')
   /**
@@ -447,9 +447,8 @@ export function useWorkBuddyCardState({ t, settingsScope, view, surface, backToC
   /**
    * 设备头设置：卡片打开时读一次。
    *
-   * 不跟 60 秒轮询走：这份文档只在用户自己点开关或保存齿轮时变，定时重读只是
-   * 每分钟多一次请求。每次写完都把 DSH 的返回值直接放进状态（见下面两个
-   * handler），所以这个标签页看到的永远是最新写入的那一份。
+   * 不跟 60 秒轮询走：本页每次写入后，用 DSH 返回值更新状态，避免多余的定时读取。
+   * 其他标签页或外部进程修改文件时，本页不会立即同步，重新打开后再读。
    */
   useEffect(() => {
     if (!open) return
@@ -1297,15 +1296,10 @@ export function useWorkBuddyCardState({ t, settingsScope, view, surface, backToC
   const activeDefaultEfforts = draft?.defaultThinkingEfforts ?? savedDefaultEfforts
   const dirty = draft !== undefined
   /**
-   * Whether the card's inputs accept edits.
-   *
-   * Deliberately NOT the settings scope's own `writable` flag: on the affected
-   * DSH 0.1.7 deployment that flag stays false (the scope initialises it false
-   * and only raises it once its mirror loads as a Host-backed form), which left
-   * every input `disabled` — clicking them did nothing at all. Writes no longer
-   * depend on that flag: `writeField` tries the scope and falls back to the
-   * plugin's own Host endpoint, which performs the mutate in the Host process.
-   * A bound scope is therefore all that is required to accept an edit.
+   * Allow edits when a settings scope is bound. The scope's writable flag is
+   * not used because it stayed false on the affected DSH deployment. writeField
+   * tries the Host endpoint first, then the scope fallback. A bound scope enables
+   * the controls; it does not guarantee that either write path will succeed.
    */
   const canWrite = settingsScope !== undefined
 
@@ -1482,36 +1476,13 @@ export function useWorkBuddyCardState({ t, settingsScope, view, surface, backToC
   }
 
   /**
-   * ONE-CLICK availability sweep over several models (issue #61 follow-up, by
-   * request of the maintainer after comparing with the sibling `trae` plugin).
-   *
-   * WHY IT IS A CLIENT-SIDE LOOP. The route accepts exactly ONE model id and
-   * refuses more, and that cap is deliberate: it is what stops a stale bundle or
-   * a hand-rolled client from turning one click into an unaccounted spend over a
-   * whole roster (3.0.0's reason for deleting the original batch button). A
-   * sweep is therefore expressed the way trae expresses it — one model per
-   * request, from here — which keeps that gate intact and has a second benefit
-   * the host-side batch never had: each row's verdict appears the moment it is
-   * known, instead of the card sitting blank until the slowest model answers.
-   *
-   * COST is stated in the button's own hint rather than in a confirmation
-   * dialog: a probe sends a real-volume request, so a sweep over a whole catalog
-   * spends real credit (measured 0.01 per probe at the current default size, on
-   * this machine — see the hint text). The user asked for the hint form, and it
-   * matches the sibling plugin.
-   *
-   * SEQUENTIAL, not parallel: a probe exists to discover rate limits, and firing
-   * a roster's worth of requests at once is the surest way to create one — the
-   * same reason the host's own loop was serial.
-   *
-   * STOPS ON THE FIRST AUTH FAILURE: a rejected credential answers identically
-   * for every remaining model, so continuing would only spend credit to collect
-   * the same answer again. Other failures (a rate limit on one model) do NOT
-   * stop the sweep — that is information about that model, and stopping would
-   * hide it.
-   *
-   * The summary counts what the run actually established, so a stopped or
-   * failed sweep cannot read as a complete green roster.
+   * Run an availability sweep as sequential single-model requests.
+   * Each result is displayed as it arrives. The route limits each request to one
+   * model; this does not limit the total requests a client can issue.
+   * The hint discloses that probes may cost credits. Actual cost depends on model,
+   * request size and upstream billing. Stop on credential-rejected as a local
+   * policy to avoid repeated auth failures, without claiming every other model
+   * would necessarily return the same result. The summary records completed rows.
    */
   const sweepModels = async (modelIds: readonly string[]): Promise<void> => {
     if (modelIds.length === 0) return
@@ -1528,7 +1499,7 @@ export function useWorkBuddyCardState({ t, settingsScope, view, surface, backToC
         measured += 1
         if (result?.outcome === 'ok') available += 1
         if (result?.outcome === 'credential-rejected') {
-          // Every remaining model would answer the same way; the summary below
+          // Stop after a credential rejection to avoid repeated auth attempts; the summary below
           // says "N of M measured" so the shortfall is visible, not silent.
           if (mounted.current) setProbeError(t('row.modelsTestAuth'))
           break
@@ -1547,18 +1518,10 @@ export function useWorkBuddyCardState({ t, settingsScope, view, surface, backToC
   }
 
   /**
-   * Measure OUTPUT SPEED for one or more models (issue #92).
-   *
-   * One model per request, like every other spending route: the upstream route
-   * refuses more than one id, and that cap is what keeps a stale bundle from
-   * turning a click into an unaccounted spend over a whole roster. The loop for a
-   * sweep therefore lives here, not on the Host.
-   *
-   * A failed model does NOT abort the sweep. Unlike an availability sweep — where
-   * a rejected credential answers identically for every remaining model and
-   * continuing only spends credit to hear the same answer — a speed failure is
-   * specific to that model, so stopping would hide the one thing the sweep was
-   * asked to find out.
+   * Measure speed sequentially, using one model id per route request.
+   * Continue after a model fails so later models can still be measured. A failure
+   * can concern transport or credentials as well as the model. This differs from
+   * the availability sweep's local stop policy for credential-rejected outcomes.
    */
   const measureTpsFor = async (modelIds: readonly string[]): Promise<void> => {
     if (modelIds.length === 0) return
@@ -1699,7 +1662,7 @@ export function useWorkBuddyCardState({ t, settingsScope, view, surface, backToC
       // including it in the save's loading state told a user their edits were
       // still saving long after the verified write had landed (issue #131).
       // The refresh may still fail, but that is a display freshness problem:
-      // the saved draft stays committed and the next poll repairs the figures.
+      // the saved draft stays committed and a later successful poll can update the figures.
       if (mounted.current) setSaving(false)
       discardModels()
       void refreshUsage(activeRegion)

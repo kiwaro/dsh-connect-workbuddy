@@ -20,8 +20,8 @@
  *      显示「上游未给出何时恢复」，而时间其实就在眼前。因此
  *      {@link parseUpstreamResetAt} 从响应体解析，{@link cooldownOf} 只在三处都
  *      没有时才如实返回「上游未给出」—— 绝不编造倒计时。
- *   3. **限流按请求体积触发。** 极小请求永远「可用」，而长会话里的真实请求会越过
- *      阈值被拒 —— 这正是「测试通过、实际被限」的成因。所以探测**故意发真实体积**
+ *   3. **限流按请求体积触发。** 实测中小请求可用时，长会话请求仍可能因体积较大
+ *      被拒绝 —— 这正是「测试通过、实际被限」的成因。所以探测**故意发真实体积**
  *      的请求，见 {@link DEFAULT_PROBE_INPUT_TOKENS} 的实测表。
  *
  * @module dsh-connect-workbuddy/probe
@@ -31,18 +31,9 @@ import type { WorkBuddyCredential } from './auth.ts'
 import { classifyUpstreamError } from './upstream.ts'
 
 /**
- * How long to bench a MODEL that answered 14003 with no stated time.
- *
- * One minute, because that is what the upstream itself says: the failure body
- * carries `displayTips.zh` = "建议等待约 1 分钟后重试，或切换到负载较低的模型"
- * (and its English twin "Wait about a minute before retrying, or switch to a
- * less busy model"). A fallback coarser than the upstream's own advice is not
- * conservatism, it is a different and worse claim: issue #56 reports 14003 being
- * multiplied into 30 minutes per account, which turned a one-minute model
- * hiccup into a half-hour outage across the whole pool.
- *
- * Two minutes rather than one, because a probe costs a full request and the
- * point of the wait is to be past the burst, not to land exactly on its edge.
+ * 模型返回 14003 且没有给出恢复时间时，采用两分钟的本地等待。
+ * 上游提示约一分钟后重试；此处多留一分钟，减少再次遇到短时拥堵的机会。
+ * 该值仅决定何时允许重试，不能保证模型到时恢复。
  */
 export const MODEL_BUSY_COOLDOWN_MS = 2 * 60_000
 
@@ -58,9 +49,8 @@ export const PROBE_SYSTEM_PROMPT = 'You are a connectivity check. Reply with a s
 /**
  * Output cap for a probe. One token is enough to prove the model answers.
  *
- * The probe's cost comes from its INPUT, not its output (see
- * {@link DEFAULT_PROBE_INPUT_TOKENS}), so paying for a long completion would add money
- * without adding signal.
+ * This caps requested output while the filler determines input size. Actual
+ * usage and billing remain subject to the upstream response and pricing.
  */
 export const PROBE_MAX_TOKENS = 1
 
@@ -80,9 +70,9 @@ export const PROBE_MAX_TOKENS = 1
  *   | ~25,000   | 25,023                             | ok     |
  *   | ~30,000   | ~32k                               | **429 / 6004** |
  *
- * So the threshold sits between 20k and 30k, a SINGLE large request is enough to
- * trip it (it is not a running total), and each account reports its own reset
- * time (two accounts at the same moment: `22:20:33` and `00:32:51`).
+ * In this sample, a larger request failed after smaller requests succeeded.
+ * The observation does not isolate cumulative use or establish a universal
+ * threshold. Two sampled accounts reported different reset times.
  *
  * A probe that sent a handful of tokens answered "usable" while every real
  * request in a long conversation was refused — the probe was asking too small a
@@ -99,7 +89,7 @@ export const DEFAULT_PROBE_INPUT_TOKENS = 25_000
  * The probe sizes the card offers, in tokens.
  *
  * A closed set, each step a meaningful position relative to the measured 20k~30k
- * threshold: below it (10k/20k) proves an account can serve SHORT requests and
+ * threshold: below it (10k/20k) samples shorter requests and
  * is the cheap choice; at it (30k) is the size that finally covers the whole
  * measured window; above it (50k/100k) is for conversations that routinely run
  * long, where a smaller probe would report "usable" for an account that refuses
@@ -129,8 +119,8 @@ export function resolveProbeInputTokens(requested: number | undefined): number {
  *
  * Filling with a fixed English sentence, the upstream counted about 4.5
  * characters per token. An estimate rather than a bundled tokenizer: the body
- * only needs to be the right SIZE CLASS, and the target has ample margin over
- * the measured threshold, so estimate error cannot change the verdict.
+ * approximates a size class. Tokenizer differences can affect whether the
+ * request reaches a size-sensitive limit.
  */
 const CHARS_PER_TOKEN = 4.5
 
@@ -146,9 +136,9 @@ const FILLER_LINE = 'The quick brown fox jumps over the lazy dog. '
  *
  * Measured on the built artifact at the DEFAULT size: 112,713 bytes of body, and
  * the upstream counted `prompt_tokens: 25023` at a cost of `credit: 0.72`. The
- * body bytes and the credit both scale with the size asked for, which is why the
- * size is a user setting: a larger probe answers more truthfully for someone
- * whose conversations are long, and costs proportionally more to ask.
+ * filler bytes scale with the chosen size. Reported credit depends on the
+ * selected model and upstream pricing; this sample does not establish linear
+ * billing or guarantee that a later conversation will succeed.
  */
 export function probeRequestBody(modelId: string, inputTokens: number = DEFAULT_PROBE_INPUT_TOKENS): string {
   const targetChars = Math.ceil(resolveProbeInputTokens(inputTokens) * CHARS_PER_TOKEN)
@@ -172,9 +162,9 @@ export function probeRequestBody(modelId: string, inputTokens: number = DEFAULT_
  * now". Everything else is a real, actionable failure or a success.
  *
  * `model-busy` is a second such split, and it is NOT cosmetic — see
- * {@link MODEL_BUSY_COOLDOWN_MS} and `exclusionOf`. A 14003 says the MODEL is
- * loaded, everywhere, for everyone; a 6004 says THIS ACCOUNT exceeded a volume
- * limit. Reporting both as `rate-limited` made the pool bench every account for
+ * {@link MODEL_BUSY_COOLDOWN_MS} and `exclusionOf`. A 14003 is treated as
+ * model congestion; it does not establish that every account or region is
+ * affected. A 6004 is treated as an account rate limit. Reporting both as `rate-limited` made the pool bench every account for
  * the cooldown of one, which is the outage issue #56 describes.
  *
  * `channel-rejected` is a third split, and it is the one that answers the
@@ -208,17 +198,16 @@ export type WorkBuddyProbeOutcome =
 /**
  * One probe result, as the card renders it.
  *
- * `retryAtMs` is present ONLY when the upstream actually stated a time (a
- * `Retry-After` header, or the region's quota refresh point when the failure is
- * an exhausted quota). Its absence is meaningful and must be rendered as "the
- * upstream did not say", never as a locally invented countdown.
+ * `retryAtMs` can come from an upstream header or message, a known quota reset,
+ * or the local model-busy waiting period. `retrySource` distinguishes these
+ * cases. A retry time allows another attempt; it does not promise recovery.
  */
 export interface WorkBuddyProbeResult {
   modelId: string
   outcome: WorkBuddyProbeOutcome
   /** Round-trip time in ms, for a successful probe. */
   elapsedMs?: number
-  /** HTTP status the upstream answered with; 0 means the request never landed. */
+  /** Observed HTTP status; 0 means no HTTP response was observed. */
   status?: number
   /** Upstream's own words, redacted. Present on failures. */
   message?: string
@@ -359,38 +348,14 @@ export function parseUpstreamResetAt(message: string): number | undefined {
 }
 
 /**
- * The cooldown the upstream stated, if it stated one.
+ * Resolve the next permitted retry time. Successful probes have no cooldown.
  *
- * Three sources, in order of authority:
- *
- * 1. `Retry-After` on the failure response. This is the upstream naming a time
- *    for THIS request, so it wins.
- * 2. The reset time the upstream writes into its own failure body (see
- *    {@link parseUpstreamResetAt}). This is the case that actually fires on
- *    this service: a 429 from the Chinese gateway carries code 6004 and a
- *    `将在 … 重置` sentence, with no `Retry-After` header at all.
- * 3. The region's monthly quota refresh point, but ONLY for an out-of-credit
- *    outcome. A quota that resets at a known time is the one case where "when
- *    can I use this again" has a real answer even without a header — and it is
- *    the answer for the most common real limit on this service.
- *
- * A limited outcome with none of the three returns `{}`, which the card renders
- * as "the upstream did not say when". That remains the honest answer for a
- * genuinely timeless failure; inventing a number here would be pure fiction.
- *
- * An `ok` outcome ALWAYS returns `{}`, whatever headers or body came with it.
- * A successful probe has already answered "can this account serve right now?"
- * with yes, so there is no wait to state; and on this gateway a 200 can carry a
- * `Retry-After` whose value is the account's monthly quota reset, which must
- * never be rendered as a lockout. See the guard at the top of the function.
- *
- * `model-busy` is the ONE exception, and it is not an invented countdown: the
- * upstream states a magnitude in prose ("about a minute") rather than a
- * timestamp, and the card's own vocabulary has no way to render "about". A
- * per-account fallback of 30 minutes is what it used to get, which is both wrong
- * about the magnitude and wrong about the scope (issue #56). The returned value
- * is {@link MODEL_BUSY_COOLDOWN_MS}, and it is used only to bench the MODEL, never
- * an account.
+ * Failed probes use Retry-After first, then a reset time parsed from the body.
+ * Out-of-credit results may fall back to the region's quota refresh time.
+ * For model-busy results without either upstream time, the plugin applies
+ * MODEL_BUSY_COOLDOWN_MS as a local waiting period. It is longer than the
+ * upstream's approximate one-minute suggestion and does not promise recovery.
+ * Other failures without a known time return an empty object.
  */
 export function cooldownOf(input: {
   outcome: WorkBuddyProbeOutcome
@@ -426,14 +391,15 @@ export function cooldownOf(input: {
  * Classify one failed probe into the card's outcome vocabulary.
  *
  * Built on `classifyUpstreamError` rather than re-testing status codes, so a
- * probe and a real chat request can never disagree about what the same upstream
- * answer means. The extra splits here are `credential-rejected`, which the
+ * probe and chat classification share the base rules. The probe adds the
+ * outcome mapping below, including its special handling of HTTP 401/403. The extra splits here are `credential-rejected`, which the
  * upstream signals with a non-JSON 401/403 edge page and which needs completely
  * different advice (re-auth, not "wait"), `policy-rejected`, a JSON 403
  * content-policy refusal where re-auth advice would be actively misleading,
  * `model-busy`, the model-scoped 14003 throttle that must NOT be benched as an
  * account failure (issue #56), and `channel-rejected`, the gateway's 11128 gate
- * on the PROMPT's opening, which no account can change.
+ * on the request channel or prompt. One refusal does not prove that every
+ * account will receive the same response.
  */
 export function outcomeOfFailure(status: number, body: string): WorkBuddyProbeOutcome {
   if (status === 401 || status === 403) {
@@ -458,9 +424,9 @@ export function outcomeOfFailure(status: number, body: string): WorkBuddyProbeOu
  * Read the credit this probe consumed out of an SSE stream, when the upstream
  * reports it.
  *
- * Purely informational — the card shows it so a user can see how little a probe
- * actually costs rather than having to trust a claim. Absent when the stream
- * carried no `usage` block.
+ * Returns the first numeric `credit` match in the text. It is a reported
+ * figure, not a reconciled bill; the parser does not require a usage block.
+ * Returns undefined when no finite matching value is found.
  */
 export function creditOfStream(text: string): number | undefined {
   const match = /"credit"\s*:\s*(-?[0-9]*\.?[0-9]+)/u.exec(text)
@@ -553,24 +519,9 @@ export async function probeModel(input: {
     return {
       modelId: input.modelId,
       outcome: 'unavailable',
-      // `status: 0` — the request never landed, so this is the transport talking
-      // and NOT a measurement of the account.
-      //
-      // It is written EXPLICITLY here because the throw this catches never came
-      // from the upstream. `probeChat` already reports its own failures as a
-      // return value (`status: 0` for a timeout or a dead socket); what reaches
-      // this `catch` is the work that happens BEFORE the request is sent —
-      // `wireIdentity()`, which reads the device-profile file, may spawn the
-      // device-token subprocess, and resolves the SDK directory. Any of those can
-      // throw, and none of them has an opinion about this account.
-      //
-      // Leaving the field out was a real defect (issue #195): `status` is
-      // optional on {@link WorkBuddyProbeResult}, so an omitted value read as
-      // "no HTTP status to speak of" and `isTransportFailure` — which asks for
-      // `status === 0` — did not recognise the row. It was then persisted as a
-      // real measurement, and because it carries no `retryAtMs` the pool applied
-      // the 30-minute `POOL_UNKNOWN_COOLDOWN_MS` fallback to a perfectly healthy
-      // account. Same outage as issue #193, arriving through a different door.
+      // Explicit status 0 lets isTransportFailure exclude this exception from
+      // account-health measurements. Identity preparation and transport errors
+      // can reach this path; it does not prove whether bytes reached the gateway.
       status: 0,
       message: redactUpstreamText(error instanceof Error ? error.message : String(error)),
     }
@@ -583,8 +534,8 @@ export async function probeModel(input: {
       try {
         credit = creditOfStream(await answer.response.text())
       } catch {
-        // A truncated stream still proves the model answered; the credit figure
-        // is informational, so its absence must not turn a success into a fail.
+        // Preserve the client's success classification if reading the stream fails.
+        // This does not prove that a complete model response was received.
       }
     }
     return {

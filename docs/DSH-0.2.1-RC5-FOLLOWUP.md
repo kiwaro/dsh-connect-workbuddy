@@ -39,7 +39,7 @@ DSH 新增 conversation.chat.reasoning.body。该界面扩展位置的 rawText �
 | `dsh-harness-dev-context` | 字节内容相同 | 同上 |
 | `dsh-file-reference` | 字节内容相同 | 同上 |
 | `dsh-web-app` | 字节内容相同 | `personaPrefix`（`You are a coding agent powered by the {{model}} model.`）与 1017 徽章插件的 patch 行都在原位 |
-| `dsh-cordis-client-runner` | 仅 `slot-catalog.ts` 的 sourcemap 行号 + `reasoning.body` 的 summary/doc/ownerProps | 就是 §2.1 那处改动在目录里的对应记录 |
+| `dsh-cordis-client-runner` | 仅 `slot-catalog.ts` 的 sourcemap 行号 + `reasoning.body` 的 summary/doc/ownerProps | 对应第 2 节所述新增位置的目录记录 |
 | `dsh` 包的依赖表 | 86 条，键集合与版本形态完全一致，仅 `0.2.1-rc.N` 的号一起翻 | 依赖集没有增删 |
 | `@deepseek-ai/cordis` / `schemastery` | `~4.0.5` / `~3.18.5`，两版相同 | 运行时底座未动 |
 
@@ -53,4 +53,8 @@ DSH 新增 conversation.chat.reasoning.body。该界面扩展位置的 rawText �
 
 本机 doctor 记录的插件版本为 5.14.1、DSH 进程号为 35629，账号池包含国内版 9 个、国际版 3 个账号。这些数据用于说明当时的检查环境。
 
-新增的 host-slot-surface.spec.ts 包含 5 项检查；3 种故意破坏源码的恢复缺陷的修改均触发了预期失败。后续升级应继续核对界面扩展位置、路由和主题回退，测试结果须附依赖版本。
+新增的 host-slot-surface.spec.ts 包含 5 项检查。变异测试分别对源码引入 3 种缺陷，均触发了预期失败。后续升级应继续核对界面扩展位置、路由和主题回退，测试结果须附依赖版本。
+
+## 6. 后续设置页补充
+
+2026-11-06 新增 `settings.section` 与 `settings.section.icon`，用于 DSH 设置栏中的独立页面及图标。这两处不读取推理正文，不改变 rc.5 的 `rawText` 与 `text` 处理结论。界面扩展位置清单已同步到设计说明与测试。

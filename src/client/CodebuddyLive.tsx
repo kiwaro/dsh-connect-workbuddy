@@ -14,12 +14,9 @@
  * (`cliBridge.enabled` defaults to false), so the empty state is `null`: the row
  * is untouched until there is something true to say.
  *
- * WHY IT ONLY DESCRIBES THIS SESSION'S TURN. The board is host-wide: one route
- * answers for every session in the process, so an unfiltered pill would show the
- * turn another tab started — a line about a directory the user is not looking at,
- * sitting under the composer they are typing in. The seat is declared
- * `scope: 'session'` (`conversation.composer.dock`), so the framework hands the
- * registration its `sessionId`; the pill keeps the rows that belong to it.
+ * Session filtering uses the sessionId supplied by the session-scoped seat.
+ * Rows without a sessionId remain visible. If the seat supplies no sessionId,
+ * all rows remain visible, including work started in another session.
  *
  * WHY NOT THE PROVIDER GATE THE CREDIT READOUT USES. `ComposerCredits` renders
  * only while the session's model is a WorkBuddy provider, because it reports that
@@ -35,9 +32,9 @@
  * cadence at which a turn that just started still feels immediate; the elapsed
  * counter between polls is advanced locally from `startedAt` (a 1s tick that
  * costs no request), so the number moves every second without the network
- * traffic moving with it. Concurrent sessions share ONE in-flight request per
- * interval (see {@link readLive}), which is what keeps N open tabs from becoming
- * N polls per tick.
+ * traffic moving with it. Components using this module instance share a recent
+ * response and an in-flight request (see {@link readLive}). Separate browser
+ * tabs or windows have their own module state and may poll independently.
  *
  * WHY THE CLOCK OFFSET IS APPLIED. `startedAt` is the HOST's clock. A browser
  * whose clock is a minute behind would compute a negative age and the pill would
@@ -176,8 +173,8 @@ export async function readLive(
       cached = { at: Date.now(), document }
       return document
     } catch {
-      // A failed poll is not an error worth surfacing: the route is local, and
-      // the pill simply keeps showing the last document until the next tick.
+      // Return no new document on failure. The component retains its previous
+      // display until CLI_LIVE_FAILURE_LIMIT consecutive failed reads.
       return undefined
     } finally {
       inflight = undefined
@@ -189,12 +186,9 @@ export async function readLive(
 /**
  * How many consecutive failed polls before the pill stops claiming a turn.
  *
- * The comment above says the pill "keeps showing the last document until the
- * next tick", which is right for one dropped request and wrong for a route that
- * has started answering 500: the pill would then describe a turn forever, with
- * an elapsed counter that keeps growing. Three intervals (15s) is long enough to
- * ride out a reload and short enough that a dead route does not leave a ghost on
- * the composer.
+ * Clear the display after three consecutive failed reads. Reads are scheduled
+ * every five seconds by default; request duration and scheduling affect when
+ * the third failure is observed.
  */
 export const CLI_LIVE_FAILURE_LIMIT = 3
 

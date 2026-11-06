@@ -18,15 +18,10 @@ import type { WorkBuddyPromo } from './promo.ts'
 /** Plugin-owned usage endpoint consumed by its browser half. */
 export const WORKBUDDY_USAGE_PATH = '/plugins/dsh-connect-workbuddy/usage'
 /**
- * Per-account credit balances for one region, read ONLY while the composer
- * panel is open.
- *
- * Separate from {@link WORKBUDDY_USAGE_PATH} because its cost is different in
- * kind: the usage document is one upstream read for the selected account, while
- * this is one read PER account in the region. Folding it into the usage route
- * would make every 5-minute refresh pay for a table nobody is looking at, so it
- * is fetched on demand instead — the same principle the pool applies to its
- * per-account figures.
+ * Per-account credit endpoint fetched by the composer panel when open.
+ * It can read upstream credit data for several accounts, so it is separate from
+ * the regular usage snapshot. One client request can cause multiple upstream
+ * reads; it is not a fixed one-request-per-account cost.
  */
 export const WORKBUDDY_ACCOUNT_CREDITS_PATH = '/plugins/dsh-connect-workbuddy/account-credits'
 /**
@@ -65,8 +60,7 @@ export const WORKBUDDY_MODELS_REFRESH_PATH = '/plugins/dsh-connect-workbuddy/mod
  * different question from a different document projection: the refresh route
  * returns the CHAT roster, from which `selectCliModels` drops every media
  * entry, while this one keeps the `text-to-image`/`image-to-image`/
- * `text-to-video`/`image-to-video` rows the card lists. Read-only and free —
- * it is the same GET the image tool already performs.
+ * `text-to-video`/`image-to-video` rows the card lists. Read-only; it uses the configuration GET also used by the image tool.
  */
 export const WORKBUDDY_MEDIA_MODELS_PATH = '/plugins/dsh-connect-workbuddy/media-models'
 /** Plugin-owned local account rescan endpoint. */
@@ -74,12 +68,10 @@ export const WORKBUDDY_ACCOUNTS_REFRESH_PATH = '/plugins/dsh-connect-workbuddy/a
 /** Plugin-owned daily check-in action endpoint. */
 export const WORKBUDDY_CHECKIN_PATH = '/plugins/dsh-connect-workbuddy/checkin'
 /**
- * Plugin-owned model probe endpoint.
- *
- * Sends one minimal chat request per named model so the card can answer "is
- * this model usable right now, and if it is limited, when can it be used
- * again?". Lives on the Host because the credential must never reach the
- * browser half.
+ * Model probe endpoint. Sends a request at the configured/default probe size
+ * for each named model and returns the observed outcome and retry information.
+ * The route resolves credentials in DSH; it does not return them to the browser.
+ * A successful probe does not guarantee a later request will succeed.
  */
 export const WORKBUDDY_PROBE_PATH = '/plugins/dsh-connect-workbuddy/probe'
 
@@ -96,16 +88,10 @@ export const WORKBUDDY_PROBE_PATH = '/plugins/dsh-connect-workbuddy/probe'
 export const WORKBUDDY_TPS_PATH = '/plugins/dsh-connect-workbuddy/tps'
 
 /**
- * Plugin-owned account-pool endpoint: one batch action per call.
- *
- * `?action=checkin` claims the daily reward for every account of a region;
- * `?action=test` probes every account against the region's target model. Both
- * are POST and loopback-only because both cost something real — check-in writes
- * to the user's account, a probe spends credits.
- *
- * Deliberately ONE endpoint rather than two: the two actions share every
- * guard (method, origin, region, pool-enabled) and differ only in the work, so
- * splitting them would duplicate the guards and invite them to drift apart.
+ * Pool batch endpoint for opted-in members of one region.
+ * action=checkin attempts supported daily claims; action=test probes eligible
+ * members using the pool's target settings. These POST actions share the route
+ * guards. Check-in changes account state and probes can consume credits.
  */
 export const WORKBUDDY_POOL_PATH = '/plugins/dsh-connect-workbuddy/pool'
 
@@ -258,7 +244,8 @@ export interface WorkBuddyTransferImportAnswer {
  * Contract with sibling tools exporting the same format: a JSON array of
  * objects keyed in snake_case — `access_token` (required), `refresh_token`,
  * `uid`, `nickname`, `email`, `domain`, `expiresAt` (epoch ms),
- * `refreshExpiresAt`, `auth_raw`. Extra fields ride along untouched.
+ * `refreshExpiresAt`, `auth_raw`. Only recognized fields are consumed; this interface does not promise
+ * lossless round-tripping of arbitrary fields.
  */
 export interface WorkBuddyTransferRecord {
   access_token: string
@@ -270,7 +257,7 @@ export interface WorkBuddyTransferRecord {
   /** Access-token expiry in epoch MILLISECONDS, the sibling format's unit. */
   expiresAt?: number
   refreshExpiresAt?: number
-  /** The sibling tool's original credential document, preserved verbatim. */
+  /** Original credential value from the transfer record; serialization may differ. */
   auth_raw?: unknown
 }
 
@@ -479,9 +466,8 @@ function carriesForeignKey(record: Record<string, unknown>): boolean {
  * and burying the real one under a `regions` key. A live profile ended up five
  * levels deep (one per startup) and 258 KB of duplicated slots.
  *
- * Neither a region id (`cn` / `global`) nor any future one can collide with
- * these names, so removing them from the map is safe, idempotent, and does not
- * discard a region that a newer build might add.
+ * Current region ids (`cn` / `global`) do not collide with these names.
+ * Future region names must be checked against this reserved-key list.
  */
 const REGION_MAP_FOREIGN_KEYS: ReadonlySet<string> = new Set([
   // The section's own fields.
@@ -587,7 +573,7 @@ function healedRegionsMap(map: Record<string, unknown>): Record<string, unknown>
       const weight = slotConfigWeight(candidate)
       const best = recovered[region]
       // `>` not `>=`: on equal weight the shallower copy stays, which makes the
-      // choice stable and prefers the copy written most recently.
+      // choice stable; shallower depth does not establish a newer write time.
       if (best === undefined || weight > best.weight) recovered[region] = { slot: candidate, weight }
     }
     deeper = nested
@@ -628,7 +614,7 @@ function regionSlotOf(value: unknown, region: WorkBuddyWebRegion): Record<string
  * explicit `false` disables it, so a config written before this switch existed
  * (and the pre-region-split flat fields, which never carry `enabled`) keep both
  * providers running exactly as before. The Host reads the same rule through
- * `regionStateOf`, so card and Host can never disagree about a region's state.
+ * `regionStateOf`, so card and DSH use the same interpretation; reads at different times may differ.
  *
  * `value` may be the whole settings section or the `regions` map (see
  * {@link regionsMapOf}).
@@ -813,15 +799,9 @@ export function regionCreditsShownOf(value: unknown, region: WorkBuddyWebRegion)
 }
 
 /**
- * Whether the model may call the image-generation tool in one region.
- *
- * OPT-IN, unlike every other switch in this file: absent reads as `false`. The
- * asymmetry is deliberate. The credit line and the provider switch are things
- * whose absence should behave like a fresh install (on), because a hidden line
- * or a withdrawn provider is recoverable by clicking. This one authorizes the
- * MODEL to spend credits on its own — about 5.71 per image, with no per-call
- * approval available in the host — so an upgrade or an unreadable setting must
- * leave it OFF rather than silently grant it.
+ * Whether image-tool registration is authorized for this region.
+ * An absent setting means false, as with the video-tool switch. The provider
+ * must also be enabled before this region can own the tool.
  */
 export function regionImageToolEnabledOf(value: unknown, region: WorkBuddyWebRegion): boolean {
   return regionSlotOf(value, region)['imageToolEnabled'] === true
@@ -998,35 +978,26 @@ export interface WorkBuddyWebCheckin {
 }
 
 /**
- * What the user can do about a credential the upstream refused.
- *
- * Two different fixes hide behind one 401, and naming the wrong one is worse
- * than saying nothing: with a stale account SELECTED but a healthy sign-in
- * sitting right there, "sign in again" sends the user to re-authenticate — which
- * changes nothing, because the credentials were never the problem.
+ * Recovery information after an upstream credential refusal.
+ * An alternative account may have passed a recovery check. That observation
+ * does not guarantee it can serve a later chat request.
  */
 export interface WorkBuddyWebRecovery {
   /**
-   * Another local account answered the upstream during recovery, so switching
-   * to it is a VERIFIED fix rather than a suggestion.
-   */
+ * Alternative account that passed the recovery check at the time of testing.
+ */
   usableAccount?: { accountId: string; accountName: string }
   /**
-   * Signing in again is the only remaining fix: this region has no other local
-   * account to switch to. Set only in that case — never as a fallback for
-   * "nothing could be verified".
-   */
+ * Recommend signing in again when no other local account is available.
+ * This flag does not establish that reauthentication is the only possible fix.
+ */
   reloginRequired: boolean
 }
 
 /**
- * One MEDIA model row (image / video) as the card's read-only roster shows it.
- *
- * Deliberately its own shape, not a subset of {@link WorkBuddyWebModel}: a
- * media entry carries `id`/`name`/`tags` and NOTHING else upstream (no price,
- * no context window), and it is never editable — the card has no media
- * checkbox, because each tag group holds exactly one model today and a
- * one-option picker is a fake choice.
+ * Media model projection for the card: id, name and tags.
+ * It is separate from editable chat model rows. Video model selection uses the
+ * per-tag preference; this type does not describe every upstream media field.
  */
 export interface WorkBuddyWebMediaModel {
   id: string
@@ -1338,7 +1309,7 @@ export type WorkBuddyWebUsage =
      *
      * Absent means "no report", not "feature off" — the two are different facts
      * and the card says different things about them. Process-local and
-     * last-wins: it describes the turn the reader is looking at.
+     * last-wins: concurrent conversations can replace it before the card reads it.
      */
     lastForeignThinking?: {
       blocks: readonly { messageIndex: number, blockIndex: number, characters: number, variant: 'flattened' | 'dropped' }[]
@@ -1481,7 +1452,7 @@ export type WorkBuddyWebUsage =
      *
      * Absent means "no report", not "feature off" — the two are different facts
      * and the card says different things about them. Process-local and
-     * last-wins: it describes the turn the reader is looking at.
+     * last-wins: concurrent conversations can replace it before the card reads it.
      */
     lastForeignThinking?: {
       blocks: readonly { messageIndex: number, blockIndex: number, characters: number, variant: 'flattened' | 'dropped' }[]
@@ -1643,9 +1614,9 @@ export type WorkBuddyWebProbeOutcome =
 export interface WorkBuddyWebProbeResult {
   modelId: string
   outcome: WorkBuddyWebProbeOutcome
-  /** Round-trip time in ms; present once the request landed. */
+  /** Elapsed time in ms when supplied by the probe; not proof of complete output. */
   elapsedMs?: number
-  /** HTTP status the upstream answered with; 0 means it never landed. */
+  /** Observed HTTP status; 0 means no HTTP response was observed. */
   status?: number
   /** Upstream's own words, already redacted. */
   message?: string
@@ -1687,7 +1658,7 @@ export interface WorkBuddyWebTpsResult {
   tokensPerSecond?: number
   /** Median time to first content chunk, in ms. */
   timeToFirstTokenMs?: number
-  /** Output tokens the upstream counted for the fastest usable run. */
+  /** Output-token count from the last retained run that reported one. */
   outputTokens?: number
   /** How many runs contributed; below the planned count when runs were lost. */
   samples: number
@@ -1802,7 +1773,7 @@ export interface WorkBuddyWebPoolAccount {
      * the card must then say the scope is unknown rather than assume it.
      */
     modelId?: string
-    /** Only when the upstream named a time; never invented locally. */
+    /** Retry time from the recorded source; can include a local waiting period. */
     retryAtMs?: number
     /**
      * Why it failed, in the upstream's own redacted words.
@@ -1823,7 +1794,8 @@ export interface WorkBuddyWebPoolAccount {
    *
    * Listed rows include UNCHECKED accounts so the card can offer them to check:
    * membership is an explicit opt-in, and a user can only opt in to something
-   * they can see. Only checked rows can bill or be batched.
+   * they can see. Checked rows participate in pool selection and batches. With the pool off,
+   * the separately selected account can still serve requests.
    */
   member: boolean
   /**
@@ -1879,7 +1851,7 @@ export interface WorkBuddyWebAutoCheckinToday {
   done: number
   /** Accounts in scope today (pool members minus enterprise members). */
   total: number
-  /** Accounts still owed an attempt; 0 means the day is finished. */
+  /** Accounts pending in the latest scope; later scope changes can add work. */
   pending: number
   /** Why the last attempt failed, when it did. */
   lastError?: string

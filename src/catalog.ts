@@ -4,8 +4,8 @@
  *
  * 参考：dingminhua/dsh-connect-trae（MIT，Copyright (c) 2026 LaoDing）
  *   — 「上次刷新的完整目录（lastCatalog）与用户勾选分离，运行时目录由两者
- *     推导」的模型来自该项目。它让卡片永远展示最新目录而不是陈之前读取的数据，
- *     并让上游刷新成为草稿操作（用户点保存才生效）。
+ *     推导」的模型来自该项目。目录刷新后立即记录并应用价格等上游数据；
+ *     用户的模型勾选、预算和推理偏好另存为草稿，点击保存后生效。
  *   静态 fallback 目录的做法来自
  *     corrinehu/dsh-workbuddy-connect（MIT）：上游不可用时 provider 不为空。
  * 改动：WorkBuddy 直接用各模型的 `maxInputTokens` 声明实际上下文窗口；

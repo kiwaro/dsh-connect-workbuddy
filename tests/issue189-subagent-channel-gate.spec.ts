@@ -76,7 +76,7 @@ describe('issue #189: subagent assistant messages and the channel gate', () => {
    * **子句本身不再连续存在**。下面用 `powered by` 这个必现片段来钉：
    * 子句完好时它在；被子句中断后，那里会插进不可见字符。
    *
-   * 恢复缺陷后的测试：把 `breakIdentityClauses` 从 `neutralizeScannedText` 里拿掉
+   * 变异测试：把 `breakIdentityClauses` 从 `neutralizeScannedText` 里拿掉
    * （≈ 退化成 5.12.x 的行为），这条会红——而"原文不再匹配"那条不会红。
    */
   it('the proactive path breaks the identity clause INTERNALLY, not just in front', () => {

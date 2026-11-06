@@ -29,8 +29,7 @@ export const KIND_STATUS: Readonly<Record<UpstreamErrorKind, number>> = {
   // not read this as a retryable transport failure.
   channel_reject: 400,
   // A queue is a 429 in the sense the host understands: "not now, try again".
-  // The host's bounded in-place retry is exactly right for `6020` (the queue is
-  // moving), and for `6021`/`6022` the sentence says what to do instead.
+  // Queue responses also carry NO_RETRY_HEADERS to request no automatic retry.
   model_queue: 429,
   not_found: 502,
   server: 502,
@@ -159,30 +158,14 @@ export function writeOpenAIError(
 }
 
 /**
- * Tell every retrying client NOT to retry this failure (2026-10-22, at the
- * maintainer's request: the queue's automatic retry is removed).
- *
- * `x-should-retry` is a non-standard header that both clients in this stack
- * check BEFORE their status-based rules — the pinned OpenAI SDK's `shouldRetry`
- * and pi-ai's `isRetryableProviderError` each return false on "false".
- *
- * WHY THE QUEUE MUST NOT BE RETRIED. Without this header a 429 is retried by
- * construction: `@deepseek-ai/dsh-llm` maps status 429 to the `RATE_LIMIT` code
- * and `RATE_LIMIT` is in `DEFAULT_RETRYABLE_CODES`, so the HOST runs five
- * in-place attempts with 0.5s→8s backoff. Measured, that budget totals roughly
- * 15 seconds — against a queue the upstream reports in thousands. Every one of
- * those attempts is a real request spent to be told the same position again, and
- * none of them can clear the queue.
- *
- * So the queue is now reported ONCE, with the position intact, and the reader
- * decides whether to resend or switch models. That is exactly what
- * {@link queueNoticeText} tells them to do — the two changes are one decision: a
- * diagnostic that declares itself final must actually be final.
+ * Request that clients honoring x-should-retry stop automatic retries.
+ * Queue responses use this header so the user can decide whether to resend or
+ * switch models. Other clients may ignore it. Retry-After: 0 specifies no
+ * waiting period; that header alone does not prohibit another attempt.
  */
 export const NO_RETRY_HEADERS: Readonly<Record<string, string>> = Object.freeze({
   'x-should-retry': 'false',
-  // The same instruction in the standard spelling, for a client that prefers it
-  // over the vendor one. `0` means "do not wait, do not retry".
+  // No waiting interval; x-should-retry carries the stop-retry instruction.
   'retry-after': '0',
 })
 

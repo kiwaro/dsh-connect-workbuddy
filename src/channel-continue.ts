@@ -96,7 +96,7 @@ const MAX_CONSECUTIVE_CEILING = 10
  */
 const SEND_DELAY_MS = 300
 
-/** 每个进程最多记多少个会话的计数（长开进程的 按先进先出顺序清理旧记录，`dsh-purge` 同一做法）。 */
+/** 进程内保存的会话计数上限；超限后按插入顺序清理最早的记录。 */
 const SESSION_CAP = 200
 
 /** 超过时一次丢多少个。 */
@@ -442,7 +442,7 @@ export interface ChannelContinueMount extends ChannelContinueHost {
  *
  * 订阅走添加的 `onSessionEvent`，而不是在这里 `ctx.on`：DSH 把 `session/event`
  * 声明在 `@deepseek-ai/dsh-session` 的类型里，本插件没有也不该有那条 peer 依赖，
- * 由调用方用一行鸭子类型的 cast 提供，才能让这个模块在没装 DSH 包的测试里也能跑。
+ * 调用方提供结构兼容的订阅函数，使本模块可在未安装 DSH 包的测试环境中执行。
  *
  * @param mount - DSH 切片。
  * @returns 卸载函数（取消订阅并清空计数）。

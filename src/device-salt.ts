@@ -1,30 +1,9 @@
 /**
- * 本机设备盐：一次生成、永久复用、**绝不悄悄换新**。
- *
- * ## 为什么需要一个盐，而不是直接把 uid 哈希掉
- *
- * `sha256(uid)` 是全局确定的：任何装了同款工具的人，对同一个账号都会算出同一个
- * 设备 id，于是全体用户在上游眼里就是一个可识别族群，而"换一台机器"根本不会
- * 改变这个值——它既不隔离也不真实。加一个本机随机盐之后：
- *
- *   - 同一个账号在本机恒同值（重启、升级、插件重装都不变）；
- *   - 换一台机器 → 换一个盐 → 换一个 id（与真实设备的行为一致）；
- *   - 两台机器上同一个账号 → 两个不同 id（这才是"设备"该有的处理规则）。
- *
- * ## 唯一真正的风险：盐被换掉
- *
- * 换了盐等于换了设备，而 device hopping 正是风控最想抓的信号。因此：
- *
- *   - **只有文件不存在时才写**。文件存在但读不懂（坏 JSON、未知 version、
- *     长度不对）一律判为 `unreadable` 并**停止使用**，绝不"读不懂就重新生成"。
- *   - 写失败不重试、不改为内存随机值：一个只保存在内存中的盐每次进程启动都不同，
- *     比没有盐更糟。返回 `unwritable`，让调用方选择"不发设备头"。
- *
- * ## 存在哪里
- *
- * `$DSH_HOME/.workbuddy-device.json`，与 `roster-seen` 同一层。**不放在插件安装
- * 目录**：npm 重装/升级会换掉那个目录，盐跟着没了，设备也就跟着变了。
- *
+ * 本机设备盐保存在 $DSH_HOME/.workbuddy-device.json。
+ * 文件不存在时才尝试创建；已存在但不可解析时返回 unreadable，不覆盖原文件。
+ * 写入失败返回 unwritable，调用方据此决定设备头。
+ * 同一盐、uid、用途和算法生成相同标识。重装不改变结果的前提是 DSH_HOME 与盐文件保留；
+ * 复制盐文件到另一台机器可能得到相同标识。派生结果不证明真实设备身份或上游风控隔离。
  * @module dsh-connect-workbuddy/device-salt
  */
 
@@ -129,9 +108,9 @@ export async function readDeviceSalt(options: { dir?: string } = {}): Promise<De
  * the loser's salt would then never be used again and its ids would silently
  * change. Writing asks for `mode: 0o600` under a `0o700` directory: the value is
  * not a credential, but it IS what makes this machine's derived ids unguessable.
- * On Windows those bits are a no-op and the DACL decides — this file lives in
- * `$DSH_HOME`, whose permissions `doctor` already hardens for the vault
- * (`credentialAcl` in `src/bin.ts`).
+ * On Windows the DACL also governs access. This file lives directly in
+ * DSH_HOME; vault hardening does not protect it, and doctor deliberately
+ * refuses to harden the DSH home itself.
  */
 export async function ensureDeviceSalt(options: { dir?: string } = {}): Promise<DeviceSaltReadout> {
   const first = await readDeviceSalt(options)

@@ -137,7 +137,7 @@ export function DeviceSdkPanel(props: DeviceSdkPanelProps): ReactElement | null 
    *
    * 启动时的后台预热要起一个子进程再等一次网络（约几百毫秒），而这一页是在用户
    * 点开标签时挂载的——两者偶尔会撞在一起，那一瞬间读到的就是 idle。这里做有限次
-   * 复查（最多 5 次、每次 1.2 秒）：预热一落地，这一行自己变成"可用"，而不是要用户
+   * 复查（最多 5 次、每次 1.2 秒）：预热成功后，这一行更新为“可用”，而不是要用户
    * 手动点一次「重新获取」。上限是必须的——预热真的失败时，无限轮询只是一台一直
    * 发 GET 的机器。
    */
@@ -232,9 +232,8 @@ export function DeviceSdkPanel(props: DeviceSdkPanelProps): ReactElement | null 
   /**
    * 切换 SDK 总开关。
    *
-   * 保存开关后**重新读取诊断结果**：关掉之后状态行必须立刻变成 `disabled`，而那一条是
-   * 从 `GET /device-sdk` 算出来的——只改本地 state 会让"已关"与下面那行"正常"
-   * 并存，正是这一页最不该出现的自相矛盾。
+   * 保存后重新读取配置与运行状态。SDK 实例在创建时读取总开关，
+   * 因此新配置与现有实例状态可能暂时不同；需重载插件或重启 DSH 才能应用。
    */
   const saveMaster = async (value: boolean): Promise<void> => {
     if (path === '') return

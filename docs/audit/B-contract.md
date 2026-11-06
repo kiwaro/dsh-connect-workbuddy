@@ -15,14 +15,14 @@
 | `src/account-pool-store.ts` | `7ada6cc37b23` | 测量结果写入文件 |
 | `src/client/WorkBuddyCard.tsx` | `755dcc61160d` | 轮询与父组件调用关系 |
 
-**结论**：确认发现 **11** 条 —— 高 **2** / 中 **3** / 低 **6**。
+**结论**：列出 11 个核对项目，原报告按高 2、中 3、低 6 分类。其中包含已正确实现或仅作记录的项目，不能把 11 项全部计为行为缺陷。
 
 **三态统计**（下列各表逐行可数，计数方法见注）：
 
 | 三态 | 计数 | 明细 |
 | --- | --- | --- |
 | ✅ 已被实际调用 | **31** | Pool 9 + Account 12 + Model 3 + 批量行 7 |
-| ⚠️ 类型有但 DSH 未提供 | **0** | 本功能**不存在「类型撒谎」**：每个声明字段 Host 都会按处理规则产生。这是本次修复的核心成果 |
+| ⚠️ 类型有但 DSH 未提供 | **0** | 所查版本未发现声明字段缺少服务端赋值路径；可选字段仍可能不出现在单次响应中 |
 | ◻️ 客户端未读取 | **12** | 具有实际用途 **3** 项（`member` + 两个 `accountId`）；有意精简 **9** 项（行内可选字段） |
 | 无人 import 的信封字段 | **3** | `CheckinAnswer.action/rows`、`TestAnswer.rows` —— 两个信封类型无任何引用位置，见 B-11 |
 | **已声明字段合计** | **46** | 43（表中行）+ 3（信封未列表字段） |
@@ -98,7 +98,7 @@
 | `TestAnswer.action` | `629` | `web-status.ts:826` | **无** | ◻️ 未读取 |
 | `TestAnswer.modelId?` | `631` | `web-status.ts:826` | **无** | ◻️ 未读取 |
 
-> 注：上表「未读取」共 **12 项**。其中 **9 项是有意的精简** —— 行内可选字段（`CheckinRow.streakDays`、`result.elapsedMs/status/message/retryAtMs/retrySource`、`TestAnswer.action/modelId`），池日志只渲染 `accountName + outcome`，下发了不用不是缺陷。**具有实际用途的只有 3 项**：`WorkBuddyWebPoolAccount.member`（见 B-6）与两个 `accountId`（`CheckinRow.accountId`、`TestRow.accountId`）—— 后两者本可用于把批量结果**关联回具体账号行**，目前只靠 `accountName` 匹配，而 `accountName` 在空名时统一显示为占位（见 B-10），同名或空名账号无法区分。
+> 注：上表「未读取」共 **12 项**。其中 **9 项是有意的精简** —— 行内可选字段（`CheckinRow.streakDays`、`result.modelId/elapsedMs/status/message/retryAtMs/retrySource`、`TestAnswer.action/modelId`），池日志只渲染 `accountName + outcome`，下发了不用不是缺陷。**具有实际用途的只有 3 项**：`WorkBuddyWebPoolAccount.member`（见 B-6）与两个 `accountId`（`CheckinRow.accountId`、`TestRow.accountId`）—— 后两者本可用于把批量结果**关联回具体账号行**，目前只靠 `accountName` 匹配，而 `accountName` 在空名时统一显示为占位（见 B-10），同名或空名账号无法区分。
 
 ---
 
@@ -153,7 +153,7 @@
 - **问题**：两种 409 只有**英文原文**可辨，客户端不做结构化区分 —— 文案是 `safeMessage`/原样字符串（`web-status.ts` 的 `error` 字段），**不经过 `t()` 本地化**，中文界面下会直接蹦出英文长句。更关键的是第二条：`AccountPool.tsx:413, 421` 已用 `active.memberAccountIds.length === 0` 把按钮禁用，所以「无成员」的 409 **在 UI 里不可能被触发** —— 唯一能真实触发它的是**草稿未保存**（勾了但没点保存，`:491` 只显示「勾选已改动 —— 保存后生效」）。
 
   此时用户点按钮 → 英文报错「no accounts are checked into this region's pool」，而界面明明勾着账号。
-- **严重级**：中。不致命（Host 守住了不花钱的底线），但把用户导向「我明明勾了」的死胡同，且是唯一一条中文界面下的英文报错。
+- **严重级**：中。不致命（Host 守住了不花钱的底线），但把用户导向「我明明勾了」的死胡同，中文界面中的英文错误也影响理解。
 
 ### B-4（中｜契约·测试后不刷新）`probe` / `rotatedToAccountId` 是运行时事实，但批量成功后**不重读** usage，界面直到下一次 60 秒轮询前都在撒谎
 
@@ -198,8 +198,8 @@
   ```
   === pool block keys: accounts, autoTestIntervalMinutes, catalog, enabled, memberAccountIds, rotateByCredits, targetModelId, targetModelSource
   ```
-  与 `status-paths.ts:585-592` 的注释一致（有意裁剪成三字段），但**可选标记与实际行为不符**：注释说「同一文档里模型表已带全量」，暗示它可缺席，实际从不缺席。
-- **严重级**：低（纯契约卫生）。真正的风险是**处理规则**：`catalog: []` 在「Host 尚未刷新目录」与「这个区域确实没有模型」两种情况下都出现，而 `targetModelSource` 恰好用来区分二者（`'none'`）—— 所以客户端目前靠 `targetModelSource` 而非 `catalog` 判空是**正确**的，这条只是记录契约与实现的不一致。
+  与 `status-paths.ts:585-592` 的注释一致（有意裁剪成三字段），但**可选标记比当前实现宽松，并不单独构成契约错误**：注释说「同一文档里模型表已带全量」，暗示它可缺席，实际从不缺席。
+- **严重级**：低（纯契约卫生）。还需区分两种空目录状态：`catalog: []` 在「Host 尚未刷新目录」与「这个区域确实没有模型」两种情况下都出现，而 `targetModelSource` 恰好用来区分二者（`'none'`）—— 所以客户端目前靠 `targetModelSource` 而非 `catalog` 判空是**正确**的，这条只是记录契约与实现的不一致。
 
 ### B-8（低｜契约·可选性正确，仅记录）`creditMultiplier` 的「缺失 ≠ 免费」在两侧都被正确尊重
 
@@ -219,7 +219,7 @@
 - **实测证据**：`{"accountId":"...","accountName":"Alpha","status":"claimed","credit":150,"streakDays":8}`。
 - **严重级**：低（信息冗余，非缺陷；列出以证明覆盖完整）。
 
-### B-10（低｜契约·空名占位）`accountName` 的 `''` 在**行内**与**日志**两处都有占位，但占位文案是 `—`（「尚未测试」），处理规则与空名无关
+### B-10（低｜文案）签到状态未知时误用了“尚未测试”提示
 
 - **位置**：Host 保证 `accountName` 为 `''` 而非缺失（`auth.ts:924` 注释明确「不回落 uin/uid，展示层自己给占位」）；客户端两处占位 —— 行内 `AccountPool.tsx:532` → `t('row.accountUnnamed')`，日志 `:350, 355, 359, 368` → 同一个 key。
 - **问题**：占位本身正确（`''` 不会被当假值漏渲染），但 `AccountPool.tsx:598` 给「未读签到」用的 `title` 是 `t('row.poolNeverTested')`（"Not tested yet" / "尚未测试"，`locales.ts:125`），而它渲染的**内容**是 `poolCheckinUnknown`（`—`）。用「尚未测试」解释一个「—」是**串了另一列的处理规则**。
@@ -286,6 +286,6 @@
 ## 4. 审计边界与未覆盖项
 
 - **未做的验证**：真实上游（网络）行为、DSH 版本差异（0.1.5 vs 0.1.7 的 volatile 引用）、`WorkBuddyCard.tsx` 的其余渲染分支。本审计只覆盖「账号池字段的客户端↔Host 契约」。
-- **同伴写入风险**：`web-status.ts` / `index.ts` / `WorkBuddyCard.tsx` / `status-paths.ts` 均在同一仓库被其他审计或修复会话改动。本报告的行号以第三节的基线哈希为准；若这些文件在报告之后被修改，**引用行号可能漂移，字段结论需按新哈希复核**。`AccountPool.tsx` 的基线 `b5a8117521d1` 与审计 A 一致。
+- **同伴写入风险**：`web-status.ts` / `index.ts` / `WorkBuddyCard.tsx` / `status-paths.ts` 均在同一仓库被其他审计或修复会话改动。本报告的行号以文首的基线哈希为准；若这些文件在报告之后被修改，**引用行号可能漂移，字段结论需按新哈希复核**。`AccountPool.tsx` 的基线 `b5a8117521d1` 与审计 A 一致。
 - **未改任何源码**：`git status --porcelain src/` 显示的改动全部来自同伴会话，与本审计无关；本审计只新增 `docs/audit/B-contract.md`。临时脚本目录 `/tmp/wb-audit/` 已删除。
-- **可复现性**：本文所有「实测证据」块均由挂载项目插件的临时脚本产生（`node --experimental-strip-types`，Node v25.9.0），方法同 `tests/pool-e2e.spec.ts:87-98` 的 `mount()`；脚本已删，如需复现请参照该 spec 的写法重建。
+- **可复现性**：原报告的「实测证据」块均由挂载项目插件的临时脚本产生（`node --experimental-strip-types`，Node v25.9.0），方法同 `tests/pool-e2e.spec.ts:87-98` 的 `mount()`；脚本已删，如需复现请参照该 spec 的写法重建。

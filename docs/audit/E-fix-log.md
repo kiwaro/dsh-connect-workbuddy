@@ -59,9 +59,9 @@
 
 这正是"测试必须能区分修复前后"的实例：两个测试在修复前也会通过。
 
-## 5. 未修（有意保留）
+## 5. 首轮未独立处理的项目
 
-以下发现**未修**，理由记录在此以免被误认为遗漏：
+本节记录首轮处置理由；部分项目随后随其他修复处理，后续状态见下文。
 
 > **后续修复补记**：本表中 **M-2 / A-4**、**M-4 / B-4 / C1-2**、**L-5** 三项在**第三轮**修复（理由当时成立，后来条件变了：`AccountPool` 获得了 `onRefresh` prop、输入框引入字符串中间态、DSH 的 `createLatestWins` 已可复用）。见 §11。**M-1 / A-3** 与其余各项仍保持原判。
 
@@ -87,11 +87,11 @@
 | **恢复缺陷后仍能通过的测试** | 已判始终为 true | `tests/pool-e2e.spec.ts` 的「H-5: the batch still refuses…」重写为「a ghost-only pool is refused, so the card cannot announce a batch」，断言从"零上游请求"（修复前也成立）改为**路由必须答 409 `reason='no-members'`** |
 | **覆盖面缺口** | H-1/H-2/H-3/H-4 无回归测试 | 新建 `src/client/pool-state.ts`（纯函数、不 import React）导出 `rotationLockState` / `draftBaseFor` / `effectiveMemberIds` / `ghostMemberIds` / `usableMemberIds`，`AccountPool.tsx` 改为调用它们；新建 `tests/pool-state.spec.ts`（21 条）。另把 H-3 的 generation 令牌抽成纯工厂 `createLatestWins<Key>()`（`src/account-pool.ts`），`applyRotation` 改用 `rotationGuard.begin(region)`，补 5 条单测 |
 
-### 判别力验证（每条都做了恢复缺陷后的测试）
+### 判别力验证（每条均做了变异测试）
 
 只跑通测试不算数——必须证明测试在**回退修复**时会失败。
 
-| 恢复缺陷的修改 | 结果 |
+| 变异 | 结果 |
 | --- | --- |
 | H-2 改重新读取 draft（原缺陷） | `tests/pool-state.spec.ts` **3 条失败** ✓ |
 | H-1 去掉 region 校验（原缺陷） | **1 条失败** ✓ |
@@ -105,7 +105,7 @@
 ### 自验证结果（第二轮）
 
 - **613 个测试通过**（29 个文件），typecheck 双配置通过，`tsdown` 构建成功。
-- 恢复缺陷后的测试逐条确认了上表判别力。
+- 变异测试逐条确认了上表中断言的判别力。
 
 ## 7. 下一步建议
 
@@ -172,9 +172,7 @@ case 'out-of-credit':
 
 1. **同型缺陷（确定成立，不依赖上面的更正）**：4 种上游结局被压成 1 个值，而**客户端只按值渲染**（`exclusionText` → `row.poolExcludedRejected` = "被拒绝"），于是**同一条账号行自相矛盾**——名称列说「被拒绝」（`AccountPool.tsx:855`），探测列说「✗ 连不上上游——这是网络问题，不是模型问题」（`:870` → `outcomeText('unavailable')`）。两句话在同一行同时渲染，用户无法判断该重登录还是该查网络。
 
-   **这是本项目"算出了区分却压平"模式的第六例。
-
-   **
+   **这是本项目“算出了区分却压平”模式的第六例。**
 2. **`poolNoCandidateHint`（C4-8）同步失准**：文案列「被限流、积分耗尽、被上游拒绝、本版本无法使用」四种，但 `unavailable`/`failed`/`not-found` 都显示为「被上游拒绝」，用户按文案排查会走错方向。
 3. **一次临时网络故障就让账号退出轮换，最长一个间隔**：`unavailable` 包含 `status === 0 || status >= 500`（`src/probe.ts:296`），即一次超时或一次上游 5xx 就足以让该账号在下一次探测前不再是轮换候选。`rate-limited` 用 30 分钟冷却，而它用"整个测试间隔"（默认 30 分钟，最长 24 小时）——两把尺子不同，且没有文档说明。
 
@@ -189,7 +187,7 @@ case 'out-of-credit':
 ## 9. 第二轮独立验证结果（G 报告）
 
 **验证员**：`round2-verify`（独立 teammate，fresh context）。**产出**：`docs/audit/G-round2-verification.md`（281 行）。
-**方法**：证伪而非确认——**21 个恢复缺陷的代码副本**跑在 `/tmp/r2ver/mut` 的抛离副本上，每个 patch 都用哈希校验确认**真的应用了**（否则报 `NO-OP-PATCH`），并有两个 oracle：自建 **14 条组件渲染** oracle（React 18.3.1 + jsdom，`t` 换成保 key 的翻译器 → 断言读 **locale key** 而非文案）+ 该源码版本的测试。
+**方法**：证伪而非确认——**21 个变异副本**跑在 `/tmp/r2ver/mut` 的抛离副本上，每个 patch 都用哈希校验确认**真的应用了**（否则报 `NO-OP-PATCH`），并有两个 oracle：自建 **14 条组件渲染** oracle（React 18.3.1 + jsdom，`t` 换成保 key 的翻译器 → 断言读 **locale key** 而非文案）+ 该源码版本的测试。
 
 跑前跑后各比一次 8 个哈希，**全部一致**。
 
@@ -210,19 +208,17 @@ case 'out-of-credit':
 
 **计数差异（验证员主动说明）**：他没复现修复记录中的 H-2→3、C4-3→3，因为他的 oracle **刻意每行为一条测试**（各 1 条失败）。判别力成立，计数是 oracle 相关——两个验证器按不同粒度统计失败数量，比较结果时需注明统计单位。
 
-### 唯一逃逸的恢复缺陷的代码副本 M4，以及它暴露的测试缺陷
+### 唯一逃逸的变异副本 M4，以及它暴露的测试缺陷
 
 M4（把 `announcedBatchCount` 的入参换成 draft-aware 的 `effectiveMembers`——一个看似合理的"未来简化"）**第一轮存活**，即当时"宣告已被测试"是**假的**。
 **根因**：`runAction` 是 `useCallback(..., [appendLog, pool, region, t])`（`AccountPool.tsx:503-592`），body 读 `saved`/`active`/`dirty`/`effectiveMembers`——**都不是依赖**，所以点击处理器用的是**上一次改 `pool` 的那次渲染**的值。
 
-验证员的 S2b 勾选后立即点击 → 恢复缺陷的代码副本读到勾选前的闭包 → **要等卡片下一次身份变化（真实应用里是 60 秒轮询）才可见**。
+验证员的 S2b 勾选后立即点击 → 变异副本读到勾选前的闭包 → **要等卡片下一次身份变化（真实应用里是 60 秒轮询）才可见**。
 
 
 **修复在 oracle（非 `src/`）**：S2b 改为先刷新 `pool` prop（正是卡片自己的轮询行为）再点击 → M4 失败 `expected '…count=2…' to contain '…count=1'`，纯净树保持 14/14。
 
-**矩阵至此零未被测试发现的缺陷副本。
-
-**
+**修订后的渲染测试检出了本轮目标矩阵中的全部变异。H5 等仓库测试的检出缺口仍需单独阅读。**
 **两个后果**：(1) 冻结版在这里是**正确**的——宣告**刻意**读已保存对，draft-aware 会宣告 Host 不会执行的编辑，由 S2b 的正/负配对验证；(2) `runAction` 的依赖数组是**潜在陷阱**（见 D5）——今天 body 里唯一的状态读取恰好与 draft 无关所以无害，但**未来任何 draft-aware 读取都会静默陈旧一个轮询周期**。
 
 ### 新发现（6 条，详见 G 报告 §5）
@@ -231,7 +227,7 @@ M4（把 `announcedBatchCount` 的入参换成 draft-aware 的 `effectiveMembers
 
   验证员第一次驱动调度器就复现了两半（`chatCalls = 0`，对照测试"通过"而批次从未运行）；只有把假时钟装在 `WorkBuddy.apply(...)` **之前**，批次才真的跑起来。
 
-  **同一没有检查到目标行为也影响邻接用例**"整间隔未到不探测任何东西"（`memberAccountIds: ['x']` 不是本地登录 → 批次也是 no-op）。
+  **相同的测试缺口也影响邻接用例**"整间隔未到不探测任何东西"（`memberAccountIds: ['x']` 不是本地登录 → 批次也是 no-op）。
 
   **这与我已经重写的 ghost-only e2e 属同一类**：一条正确实现与缺失实现都能满足的断言。
 - **D1（中）**：即我的发现 7，验证员**独立复现且无法证伪**——真实挂载下**同一行**同时含 `row.poolExcludedRejected`（"Rejected"）与 `row.probeUnavailable`（"…这是网络问题，不是模型"）；对照行（真被拒）无矛盾。`exclusionOf({outcome:'unavailable'}, NOW+365d)` 仍排除。**他同时确认了有界性**（下一批重探即清除），与我的更正一致。
@@ -265,9 +261,9 @@ cd /tmp/r2ver/sched   && REPO_ROOT=/tmp/r2ver/base ./node_modules/.bin/vitest ru
 bash /tmp/r2ver/mutate.sh                                                        # 21 mutants + 2 controls
 ```
 
-四个套件全部把 `DSH_HOME/HOME/USERPROFILE/LOCALAPPDATA/APPDATA/XDG_CONFIG_HOME` 隔离到 per-run 临时目录（与 `vitest.config.ts:39` 一致），未触碰真实 `~/.dsh`；每个恢复缺陷的修改副本都在 `/tmp` 下；冻结版在执行完成后与 G 报告开头的哈希表一致。
+四个套件全部把 `DSH_HOME/HOME/USERPROFILE/LOCALAPPDATA/APPDATA/XDG_CONFIG_HOME` 隔离到 per-run 临时目录（与 `vitest.config.ts:39` 一致），未触碰真实 `~/.dsh`；每个变异测试副本都在 `/tmp` 下；冻结版在执行完成后与 G 报告开头的哈希表一致。
 
-**总评**：这一轮**没有未被测试发现的缺陷副本**，且最高优先级怀疑（抽函数是装饰性的）被明确**证伪**。剩下的问题集中在两类：(a) **测试没有检查到目标行为**（D4、H7/H8）——断言在正确与缺失实现下都成立；(b) **又一次"算出区分却压平/只修一端"**（D1 四种结局压成一个值、D2 只本地化了带 reason 的那一支）。后续检查应覆盖测试的区分能力，以及同一规则的所有入口。
+**总评**：这一轮的**目标渲染矩阵没有未检出的变异副本**，且最高优先级怀疑（抽函数是装饰性的）被明确**证伪**。剩下的问题集中在两类：(a) **测试没有检查到目标行为**（D4、H7/H8）——断言在正确与缺失实现下都成立；(b) **又一次"算出区分却压平/只修一端"**（D1 四种结局压成一个值、D2 只本地化了带 reason 的那一支）。后续检查应覆盖测试的区分能力，以及同一规则的所有入口。
 
 ## 10. 第三轮待办（按用户价值排序）
 
@@ -300,7 +296,7 @@ bash /tmp/r2ver/mutate.sh                                                       
 
 ### 11.3 D4 调度器 e2e 没有检查到目标行为 —— 已修
 
-`tests/pool-e2e.spec.ts` 的 `'arms on the first tick…'` 原挂 `memberAccountIds: []` 且两条断言都是 `expect(probes).toBe(0)`——**死计时器与活调度器同结果**；邻接用例 `'does not probe anything before a full interval has elapsed'` 同没有检查到目标行为（挂 `['x']` 非本地登录 → no-op）。
+`tests/pool-e2e.spec.ts` 的 `'arms on the first tick…'` 原挂 `memberAccountIds: []` 且两条断言都是 `expect(probes).toBe(0)`——**死计时器与活调度器同结果**；邻接用例 `'does not probe anything before a full interval has elapsed'` 也缺少有效断言（挂 `['x']` 非本地登录 → no-op）。
 
 改写后**首次运行即失败**，暴露两个真问题：(1) **假时钟必须在 mount 之前**（心跳 `setInterval` 在 `apply()` 内创建），且 `toFake` 必须含 `Date`（调度器用 `Date.now()` 比较），并收窄到 `['setInterval','clearInterval','Date']`（不含 `setImmediate`，否则 mount 的 `setTimeout(0)` 不结算）；(2) **假计时器不伪造 I/O**——批处理经 `fs/promises` 读 auth 文件（`auth.ts:909`），`advanceTimersByTimeAsync` 返回时批次仍挂起，必须 `flushRealWork()`（drain 60 次 `setImmediate`）后 `probes` 才从 0 变 1。
 
@@ -312,7 +308,7 @@ bash /tmp/r2ver/mutate.sh                                                       
 
 ### 11.5 D5 `runAction` 依赖数组 —— 已修，并推广
 
-`runAction` 的 body 曾读 `saved.memberAccountIds`，而 `saved` 是每次渲染重建、**不在依赖里**的绑定 → 点击处理器用上一次渲染值；静止时两值相等所以整套测试从不失败（M4 恢复缺陷的代码副本正是靠这点逃逸）。改为经 `pool?.memberAccountIds` 读取。
+`runAction` 的 body 曾读 `saved.memberAccountIds`，而 `saved` 是每次渲染重建、**不在依赖里**的绑定 → 点击处理器用上一次渲染值；静止时两值相等所以整套测试从不失败（M4 变异副本正是靠这点逃逸）。改为经 `pool?.memberAccountIds` 读取。
 
 **推广**：同一形状还有 `save` 读 `onSaved`、`runAction` 读 `onRefresh`——两个 prop 回调都不在各自依赖数组里，已补。新增两条结构性检查：一条钉 `runAction` 不得读 draft 派生绑定，一条**通用**扫描 `AccountPool.tsx` 全部 `useCallback`，断言 body 读到的 prop 回调都出现在依赖数组里。
 
@@ -320,11 +316,11 @@ bash /tmp/r2ver/mutate.sh                                                       
 
 ### 11.6 M-4 批量后不刷新 —— 已修
 
-签到消耗积分、测试写入探测结果，但面板数字来自 usage 路由，批量后**无人重读** → 面板一直显示**签到前**的积分直到下一次 60s 轮询。新增 `onRefresh` prop，由卡片传 `refreshUsage`，在批量**成功路径**调用（放在 `finally` 会在失败时也刷新并掩盖错误——有检查验证）。
+签到领取积分，模型测试可能消耗积分并写入探测结果，但面板数字来自 usage 路由，批量后**无人重读** → 面板一直显示**签到前**的积分直到下一次 60s 轮询。新增 `onRefresh` prop，由卡片传 `refreshUsage`，在批量**成功路径**调用（放在 `finally` 会在失败时也刷新并掩盖错误——有检查验证）。
 
 ### 11.7 L-5 两次 refreshUsage 无按请求顺序丢弃旧响应的检查 —— 已修
 
-两个刷新（轮询 / 保存 / 批量 / 重扫）都是裸 `fetch`，无顺序保证 → **慢的响应获胜**，签到前的读取结果可能覆盖签到后的。加**按区域**的 latest-wins 令牌（`createLatestWins<WorkBuddyWebRegion>()`，**复用** Host 那份已测试的工厂而非重写）；成功与错误两条写入路径**都**在检查之后。**必须按区域**：卡片刻意一次取两个区域，全局计数会让两个调用互相取消、留下一个永远陈旧的标签页。
+轮询、保存、批量操作和重扫触发的刷新都是裸 `fetch`，无顺序保证 → **慢的响应获胜**，签到前的读取结果可能覆盖签到后的。加**按区域**的 latest-wins 令牌（`createLatestWins<WorkBuddyWebRegion>()`，**复用** Host 那份已测试的工厂而非重写）；成功与错误两条写入路径**都**在检查之后。**必须按区域**：卡片刻意一次取两个区域，全局计数会让两个调用互相取消、留下一个永远陈旧的标签页。
 
 ### 11.8 A-8 保存后遗留窗口 —— 已修
 
@@ -344,11 +340,11 @@ bash /tmp/r2ver/mutate.sh                                                       
 
 ### 11.10 未做：`eslint-plugin-react-hooks/exhaustive-deps`
 
-**本项目根本没有 eslint**（无配置文件、无 devDependency、无 lint script）。为一个规则引入整套 linter 依赖面，成本远大于收益，且 D5 的两条结构性检查已覆盖同一风险。**记录在案**，若将来引入 eslint 应开此规则。
+**本项目根本没有 eslint**（无配置文件、无 devDependency、无 lint script）。为一个规则引入整套 linter 依赖面，成本远大于收益，当时用 D5 的两条结构检查约束已知写法；后续 H、I 报告证明这些检查不能替代依赖规则或行为测试。**记录在案**，若将来引入 eslint 应开此规则。
 
-### 11.11 本轮新增检查的判别力（全部恢复缺陷后确认测试能够发现）
+### 11.11 本轮新增检查的判别力验证（变异测试均检出对应缺陷）
 
-| 修复 | 恢复缺陷的修改 | 结果 |
+| 修复 | 变异 | 结果 |
 |---|---|---|
 | M-2 | 逐键 clamp 回退 | 5 条失败 |
 | D1 | 四结局折叠回 `credential-rejected` | 失败 |
@@ -371,11 +367,11 @@ bash /tmp/r2ver/mutate.sh                                                       
 
 ## 12. 第四轮：H 报告（独立对抗验证）后的处理完成
 
-**背景**：`docs/audit/H-round3-verification.md`（415 行，独立 agent）对第三轮 10 条 claim 出核查结论：5 CONFIRMED / 3 PARTIAL / 1 部分 REFUTED，并给出**六个"恢复真实缺陷而套件仍 651 全部通过"的恢复缺陷的代码副本**、四条新发现 N1–N4。本轮把它们全部处理完成。
+**背景**：`docs/audit/H-round3-verification.md`（415 行，独立 agent）对第三轮 10 条 claim 出核查结论：5 项充分确认、2 项部分确认、2 项实现成立但检查被绕过、1 项部分驳回，并给出**六个"恢复真实缺陷而套件仍 651 全部通过"的变异副本**、四条新发现 N1–N4。本轮把它们全部处理完成。
 
 ### 12.1 结构性根因（决定了本轮所有修法）
 
-`node_modules` 只有 7 项——**无 jsdom、无 react-dom、无 @testing-library**，`vitest.config.ts` 用 `environment: 'node'`。因此 `AccountPool.tsx` / `WorkBuddyCard.tsx` 的调用关系**无法组件渲染测试**，只能做源码断言。六个未被测试发现的缺陷副本的共同形状就是：**断言用"保留文本的恢复缺陷的修改"仍能满足**（裸 `toContain`、只数出现次数、只看首次出现、从不读初始值、硬编码名字清单）。
+`node_modules` 只有 7 项——**无 jsdom、无 react-dom、无 @testing-library**，`vitest.config.ts` 用 `environment: 'node'`。因此 `AccountPool.tsx` / `WorkBuddyCard.tsx` 的调用关系**无法组件渲染测试**，只能做源码断言。六个未检出的变异副本的共同形状就是：**断言用"保留文本的变异"仍能满足**（裸 `toContain`、只数出现次数、只看首次出现、从不读初始值、硬编码名字清单）。
 
 故本轮把每个检查从"文本存在"升级为**"结构/位置/取值"**。
 
@@ -389,9 +385,9 @@ bash /tmp/r2ver/mutate.sh                                                       
 
 卡片调用 `onSaved={async () => (await refreshUsage(activeRegion)) !== undefined}`。新增双语 `row.poolSavedStaleRefresh`。
 
-### 12.3 六个覆盖缺口 —— 全部补齐（每个都先证明缺口、再用恢复缺陷后的测试测试效果）
+### 12.3 六个覆盖缺口 —— 全部补齐（每个都先证明缺口、再用变异测试验证修订后的断言）
 
-| 缺口 | 原检查为何失察 | 升级后的形状 | 恢复缺陷的代码副本结果 |
+| 缺口 | 原检查为何失察 | 升级后的形状 | 变异副本结果 |
 |---|---|---|---|
 | M-2 调用关系 | 只有纯 helper 被测，无人覆盖 `AccountPool.tsx` 的输入调用关系 | 新增 `intervalEditOnInput(raw) → { text, commit }` 纯函数（`text` 永远是原始击键），卡片经它调用关系；测试断言 `'1' → {text:'1',commit:5}` 与 `not.toMatch(/setIntervalText\(\s*String\(/u)` | KILLED |
 | D2 主机侧 `reason` | `tests/pool-route.spec.ts` 里 `reason` 出现 **0** 次 | 四处 503/500 全部断言 `body()['reason']`；新增 ghost 用例断言 `'no-live-members'` | KILLED |
@@ -404,23 +400,23 @@ bash /tmp/r2ver/mutate.sh                                                       
 
 ### 12.4 N2 —— 已修（参数命名是陷阱本身）
 
-`effectiveMembersOf` 首参原名 `saved`，但 `src/web-status.ts:637` **合法地**传入 roster（为了 store 序）。只因集合运算可交换才正确。改名 `orderedIds`，JSDoc 写明"**顺序取自 `orderedIds`**，调用方传它想要的那个顺序；参数名描述**角色**而非来源"。
+`effectiveMembersOf` 首参原名 `saved`，但 `src/web-status.ts:637` **合法地**传入 roster（为了 store 序）。两个参数确定的集合成员相同，但输出顺序仍由第一个参数决定。改名 `orderedIds`，JSDoc 写明"**顺序取自 `orderedIds`**，调用方传它想要的那个顺序；参数名描述**角色**而非来源"。
 
-### 12.5 N3 —— 已修（委托曾是行为上的空操作）
+### 12.5 N3：收紧委托检查，并更正旧推论
 
-原 `poolMemberAccounts`：`const live = new Set(effectiveMembersOf(saved, new Set(accounts.map(...))))` 后接 `return accounts.filter(a => live.has(a.id))`。**外层 filter 遍历 `accounts`，所以无论 `live` 怎么算，结果都是 `accounts ∩ saved`**——把 `effectiveMembersOf` 的函数体换成 `return []` 也全部通过。改为**规则自身的输出驱动结果**：`return effectiveMembersOf(accounts.map(a => a.id), new Set(saved)).flatMap(id => …)`。
+原 `poolMemberAccounts` 先用 `effectiveMembersOf` 计算 `live`，再用 `accounts.filter(a => live.has(a.id))` 生成结果。结果确实依赖 `live`，将其改为空集合会得到空数组；旧稿“无论怎么计算都相同”的推论错误。旧检查未充分证明调用关系，部分变异仍通过测试，只说明检查存在缺口。后续改为 `return effectiveMembersOf(accounts.map(a => a.id), new Set(saved)).flatMap(id => …)`，直接按共享规则返回的顺序生成账号列表，并加强源码检查。
 
-检查同步改为断言 `return effectiveMembersOf(` 且禁止 `.filter(account => live.has(`。三个恢复缺陷的代码副本（恢复欺骗形状 / 清空规则体 / 内联 saved filter）全部 KILLED。
+检查同步改为断言 `return effectiveMembersOf(` 且禁止 `.filter(account => live.has(`。三个变异副本（恢复欺骗形状 / 清空规则体 / 内联 saved filter）全部 KILLED。
 
 ### 12.6 N4 —— 已修（同一 staleness 类的另一半）
 
 原"generalised"检查只覆盖 **prop** 读取；H-1 的形状是回调闭包读**渲染期派生绑定**（`editDraft` 读 `saved.memberAccountIds` 而依赖数组没有它）。检查扩展为同时核对 10 个派生绑定（`saved`/`active`/`dirty`/`listedIds`/`savedEffective`/`effectiveMembers`/`ghostMembers`/`usable`/`usableMemberSet`/`current`），并排除三种误报：lambda 参数、属性读取（`mounted.current`）、对象字面量键（`{ savedEffective: … }`）。
 
-恢复缺陷的代码副本：`editDraft` 改重新读取 `saved`、`runAction` 改读 `savedEffective` → 均 KILLED。
+变异副本：`editDraft` 改重新读取 `saved`、`runAction` 改读 `savedEffective` → 均 KILLED。
 
-### 12.7 恢复缺陷后确认测试能够发现总表（本轮，工装见 §12.8）
+### 12.7 变异测试检出结果总表（本轮，工装见 §12.8）
 
-| # | 恢复缺陷的代码副本 | 结果 | 决定性断言 |
+| # | 变异副本 | 结果 | 决定性断言 |
 |---|---|---|---|
 | 1 | `M-2-wiring-revert-v2` | KILLED | `to contain 'const { text, commit } = intervalEdit…'` |
 | 2 | `M-D2-drop-reason` | KILLED | `expected undefined to be 'pool-unavailable'` |
@@ -438,9 +434,9 @@ bash /tmp/r2ver/mutate.sh                                                       
 
 **13/13 KILLED**，其中 #7 正是 H 报告证明存活的攻击——**升级前它通过、升级后被杀**，证明本轮升级真的带来了判别力。
 
-### 12.8 用于恢复缺陷并运行测试的脚本（纪律）
+### 12.8 变异测试脚本与执行要求
 
-`/tmp/r4v-mut`（`rsync` 副本 + 软链 `node_modules`）、`/tmp/r4v-pristine`（`src`/`tests` 未修改的源码副本）、`/tmp/r4-env.sh`（六个隔离环境变量，匹配 `vitest.config.ts:39`）、`/tmp/r4-run.sh <label> <mutating-cmd>`：补丁前后对全树 `sha256sum` 对照，相同则报 **NO-OP-PATCH**；否则跑套件，grep `Tests +N failed` → **KILLED**/**SURVIVED**；最后从 pristine `rsync --delete` 恢复。**教训**：恢复缺陷的修改命令必须作为 `r4-run.sh` 的第二个参数传入（写成独立脚本先执行会落在 hash 窗口外，误报 NO-OP-PATCH）。
+`/tmp/r4v-mut`（`rsync` 副本 + 软链 `node_modules`）、`/tmp/r4v-pristine`（`src`/`tests` 未修改的源码副本）、`/tmp/r4-env.sh`（六个隔离环境变量，匹配 `vitest.config.ts:39`）、`/tmp/r4-run.sh <label> <mutating-cmd>`：补丁前后对全树 `sha256sum` 对照，相同则报 **NO-OP-PATCH**；否则跑套件，grep `Tests +N failed` → **KILLED**/**SURVIVED**；最后从 pristine `rsync --delete` 恢复。**教训**：变异命令必须作为 `r4-run.sh` 的第二个参数传入（写成独立脚本先执行会落在 hash 窗口外，误报 NO-OP-PATCH）。
 
 全程**零写入共享仓库**；唯一仓库写入是本文件。
 
@@ -448,13 +444,13 @@ bash /tmp/r2ver/mutate.sh                                                       
 
 - 基线：651 → **655 tests / 29 files 全部通过**；`npx pnpm run check` EXIT=0（typecheck + test + build）。
 - H 报告 10 条 claim 的缺口与 4 个被击败的检查：**全部处理完成**；N1–N4 四项新发现：**全部修复**。
-- 仍成立的方法论教训：**"文本存在"不是"行为存在"**。任何结构性检查都必须能回答"什么恢复缺陷的修改会让它失败"，否则它只是注释。
+- 仍成立的方法论教训：**"文本存在"不是"行为存在"**。任何结构性检查都必须能回答"什么变异会让它失败"，否则它只是注释。
 
 ---
 
 ## 13. 第五轮：I 报告（第二轮独立对抗验证）后的处理完成 —— 从"检查源码文字的测试"转向"组件渲染测试"
 
-**背景**：`docs/audit/I-round4-verification.md`（656 行 / 52 KB，独立 agent）在 655 全部通过 + 两个 tsc 项目 EXIT=0 的前提下，一次性交回**十八个"恢复真实缺陷而套件仍全部通过"的恢复缺陷的代码副本**，并证明第三轮新增的**八个检查源码文字的测试里有六个被"保留文本的恢复缺陷的修改"击败**。报告的结论被采纳：**采用 jsdom 和 react-dom，通过渲染结果验证组件行为。**
+**背景**：`docs/audit/I-round4-verification.md`（656 行 / 52 KB，独立 agent）在 655 全部通过 + 两个 tsc 项目 EXIT=0 的前提下，一次性交回**十八个"恢复真实缺陷而套件仍全部通过"的变异副本**，并证明第三轮新增的**八个检查源码文字的测试里有六个被"保留文本的变异"击败**。报告的结论被采纳：**采用 jsdom 和 react-dom，通过渲染结果验证组件行为。**
 
 ### 13.1 结构性根因（渲染测试的必要性）
 
@@ -487,7 +483,7 @@ bash /tmp/r2ver/mutate.sh                                                       
 
 **修复（已实现）**：`src/client/WorkBuddyCard.tsx:396` 改为 `const stale = usageGuard.current.begin(region)`；`:407` 与 `:415` 都改为 `if (stale()) return undefined`；`:360-388` 新增注释说明极性陷阱。同步把 `tests/pool-e2e.spec.ts:1011-1053` 的正则改为 `/if \(stale\(\)\) return undefined/gu`。
 
-**回归确认**：恢复缺陷的代码副本 POLARITY 把两处翻回 `fresh` 形式 → **5/5 全红，KILLED**。
+**回归确认**：变异副本 POLARITY 把两处翻回 `fresh` 形式 → **5/5 全红，KILLED**。
 
 ### 13.3 同一轮的第二个真实产品缺陷：刷新失败会清空整个面板
 
@@ -521,11 +517,11 @@ setStatusByRegion(prev => {
   另有 `fakeScope(initial = {}, failWrites = false)`、`stubFetch(answer)`、`poolOf` / `accountOf` 夹具。
 - **两个把首次运行全弄红的 jsdom 事实**：(1) React 受控输入需要绕过原生 setter——`Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set` 后 `dispatchEvent(new window.Event('input',{bubbles:true}))`；(2) React 的 `onBlur` **走冒泡的 `focusout`** 委托——必须 `dispatchEvent(new window.FocusEvent('focusout',{bubbles:true}))`。
 - **`tests/pool-render.spec.tsx`（13 用例）**：覆盖 A-4 逐键原文显示（`'1'`/`'12'`/`'120'`）、`'1'` 提交 5 但显示 `'1'`、清空不跳回 5、blur 复显已提交、`9999` blur 只在结束编辑时调整到 `1440` 一次、保存三态、批量成功 `onRefresh` 恰好一次 / 失败从不、ghost 计数、D5 陈旧闭包、H-1 强形状、纯 ghost 池禁用两个批量按钮。
-- **`tests/pool-card-render.spec.tsx`（5 用例）**：挂载真实 `WorkBuddyCard`，按 URL stub fetch；用例分别是"应用取回的 读取到的用量数据（M19）"、"重读失败不得丢弃草稿（M15，并断言 `row.poolTitle`/`row.creditsTotalLabel`/`row.requestFailedHint|message=HTTP 500` 仍在）"、"批量成功后重读（M18）"。
+- **`tests/pool-card-render.spec.tsx`（5 用例）**：挂载真实 `WorkBuddyCard`，按 URL stub fetch；用例分别是"应用读取到的用量数据（M19）"、"重读失败不得丢弃草稿（M15，并断言 `row.poolTitle`/`row.creditsTotalLabel`/`row.requestFailedHint|message=HTTP 500` 仍在）"、"批量成功后重读（M18）"。
 
-### 13.5 本轮恢复缺陷后确认测试能够发现总表（全部串行执行）
+### 13.5 本轮变异测试检出结果总表（全部串行执行）
 
-| 恢复缺陷的代码副本 | 恢复的缺陷 | 结果 | 决定性断言 |
+| 变异副本 | 恢复的缺陷 | 结果 | 决定性断言 |
 |---|---|---|---|
 | POLARITY | `stale` 翻回 `fresh`（我发布的 P0） | **KILLED 5/5** | `to contain 'row.signedIn'` ×4 + `no button containing "row.poolCheckinAll"` |
 | M19 | 读取到的用量数据从不落到 state | **KILLED 5/5** | 同上 |
@@ -546,20 +542,20 @@ setStatusByRegion(prev => {
 1. **SURVIVED 不总是测试弱**。M35 第一次的补丁只是把 `pool` 起个别名 `poolAlias`——**行为上的 no-op**，套件全部通过是**正确答案**。必须先自问"这个补丁真的还原了缺陷吗"，再判定检查失察。
 2. **工装漂移会伪造 SURVIVED**。M24 首轮报 SURVIVED，实因 `rsync -a --exclude node_modules /abs/tests/ tests/` 这种写法**没有完成**（目标副本停留在 09:20，新用例没被拷进去），被测的是旧套件。改成 `rsync -a --delete <src>/ ./<dst>/`（源与目标都带斜杠）并 `grep -c '<新用例名>'` 确认后才得到真结论。
 
-   **任何"恢复缺陷的修改存活"的结论在写进报告前，必须先核对恢复缺陷的修改树里确实含有那个新断言。**
+   **任何"变异存活"的结论在写进报告前，必须先核对变异测试副本里确实含有那个新断言。**
 
-### 13.6 本轮新增的两条覆盖缺口（非恢复缺陷的修改，是缺失的断言）
+### 13.6 本轮新增的两条覆盖缺口（非变异，是缺失的断言）
 
 - **N11 / M24 / M36**：`src/web-status.ts:857` 的 checkin 503 分支此前**没有任何断言**（`tests/pool-route.spec.ts:402` 只传过 `test: undefined`，从未传 `checkin: undefined`）。新增用例 `'answers 503 with an explicit reason when the CHECKIN route is unavailable'`，显式请求 `action=checkin` 并断言 `reason`。**注意**：checkin 与 test 两个分支**故意共用** `'pool-unavailable'`（都表示"这个构建没有该路由"），所以断言的是代码**实际发出的值**，其职责是让该行任何未来改动**大声失败**，而不是发明一个更漂亮的 reason 名。
 - **N12 / M23**：`tests/account-pool.spec.ts` 里原有两个 `effectiveMemberAccountIds` 断言都是**单元素**、且两个"顺序"用例从不真正过滤掉任何 id，因此对"排序实现"**完全免疫**（无元素被过滤时，升序与调用者顺序一致）。新增 `'preserves order ACROSS a filter, not just in an already-listed set (N12/M23)'`，用**不在 listed 集合里的 id** 制造真实过滤，覆盖过滤后相对顺序、降序输入、重复 id 三种形状。
 
-  恢复缺陷的代码副本 M23 使**两个**用例同时失败（含原有的那个）。
+  变异副本 M23 使**两个**用例同时失败（含原有的那个）。
 
-### 13.7 用于恢复缺陷并运行测试的脚本（纪律）
+### 13.7 变异测试脚本与执行要求
 
 `/tmp/r5-mut`（`rsync --delete` 副本 + 软链 `node_modules`）、`/tmp/r5-pristine`（`src`/`tests` 未修改的源码副本）、`/tmp/r5-env.sh`（六个隔离环境变量，匹配 `vitest.config.ts:39`）、`/tmp/r5-run.sh <label> <mutating-cmd> [glob]`：补丁窗口前后全树 `sha256sum` 对照，相同即报 **NO-OP-PATCH**（是**错误**，绝不是通过）；随后串行跑套件，grep `Tests +N failed` → KILLED/SURVIVED；末尾从 pristine `rsync --delete` 恢复；并在前后对照**共享树**哈希，任何变化即 **HARNESS ERROR**（退出码 0=KILLED、3=SURVIVED、4=NO-OP-PATCH、5=harness error）。
 
-**恢复缺陷的代码副本必须串行**——`tests/pool-e2e.spec.ts:403` 对负载敏感，4 路并行下会假失败（N15）。
+**变异副本必须串行**——`tests/pool-e2e.spec.ts:403` 对负载敏感，4 路并行下会假失败（N15）。
 
 所有补丁一律包在 `( cd "$MUT" && … )` 里执行。
 
@@ -569,14 +565,14 @@ setStatusByRegion(prev => {
 
 - 基线 655 tests / 29 files → **676 tests / 31 files 全部通过**；`npx tsc -p tsconfig.json` 与 `npx tsc -p tsconfig.client.json` 均 EXIT=0。
 - 负载敏感的调度器用例连跑三次 `tests/pool-e2e.spec.ts` 均 31 passed，确认前述失败是 N15 假象。
-- I 报告列出的 18 个未被测试发现的缺陷副本中，本轮已确认检出 13 个（含 POLARITY 这个新引入的 P0），并补上 N11 与 N12 两条缺失断言。
+- I 报告列出的 18 个未检出的变异副本中，本轮已确认检出 13 个（含 POLARITY 这个新引入的 P0），并补上 N11 与 N12 两条缺失断言。
 - **仍开放**：D3（`rate-limited` 有 30 分钟冷却而 `unavailable` 没有的修复不对称）、N5–N10 / N13 / N16 / N17；eslint `exhaustive-deps` 一项**有意不做**（本项目根本没有 eslint）。
   - ⚠️ **本行已被 §14（第六轮）取代**：上述 D3 与 N5–N10/N13/N16/N17 已全部处理，N15 亦已修。此处保留原文仅为记录当时的进度。
-- 方法论结论（比单个缺陷更重要）：**"检查读文本"与"缺陷住行为"之间必然有缝**。本轮把这条缝从"六个检查被文本保留型恢复缺陷的修改击败"缩到"十四条断言实打实地红"，代价是引入 jsdom + react-dom 两个依赖——渲染测试可以直接验证用户操作与显示结果之间的关系。
+- 方法论结论（比单个缺陷更重要）：**"检查读文本"与"缺陷住行为"之间必然有缝**。本轮把这条缝从"六个检查被文本保留型变异击败"缩到"十四条断言实打实地红"，代价是引入 jsdom + react-dom 两个依赖——渲染测试可以直接验证用户操作与显示结果之间的关系。
 
-## 14. 第六轮：结清 I 报告尾部、七条检查缺陷与 D3
+## 14. 第六轮：结清 I 报告尾部、九条检查缺陷与 D3
 
-**背景**：§13.8 明确留了四笔账——**D3**（冷却不对称）、**N5–N10 / N13 / N16 / N17**（检查仍然只读文本）、以及 I 报告 18 个未被测试发现的缺陷副本的尾部。本轮把四笔账一次结清。
+**背景**：§13.8 明确留了四笔账——**D3**（冷却不对称）、**N5–N10 / N13 / N16 / N17**（检查仍然只读文本）、以及 I 报告 18 个未检出的变异副本的尾部。本轮把四笔账一次结清。
 
 ### 14.1 先修工装：N15 是"假检出"的来源
 
@@ -590,47 +586,47 @@ AssertionError: expected 0 to be greater than or equal to 1
 
 这正是 I 报告 §5 的 **N15**：`tests/pool-e2e.spec.ts` 的调度器用例对负载敏感，固定 60 次 `setImmediate` 排空在 CPU 争用下不够，读到 0。
 
-**为什么必须先修它**：这类失败的方向恰好是"看起来更强"——用于恢复缺陷并运行测试的脚本把它读成"检查抓住了恢复缺陷的代码副本"，于是**报告出并不存在的覆盖**。也就是说 N15 的修正是**本轮结论成立的前置条件**。不修它，本节其余每一个 KILLED 都不可信。
+**为什么必须先修它**：这类失败的方向恰好是"看起来更强"——用于恢复缺陷并运行测试的脚本把它读成"检查抓住了变异副本"，于是**报告出并不存在的覆盖**。也就是说 N15 的修正是**本轮结论成立的前置条件**。不修它，本节其余每一个 KILLED 都不可信。
 
-修法（正是 N15 的 fix direction）：新增 `flushUntil(settled, turns = 5000)`，**等待实际检查完成后再进行正向断言**为止；负断言给足预算（`flushRealWork` 默认 60 → 600 轮）。复跑 M22 → **SURVIVED**，与 14.5 的等价性分析一致。本节结束后全文扫描：**没有任何一条 round-6 日志再含调度器用例的失败**。
+修法（正是 N15 的 fix direction）：新增 `flushUntil(settled, turns = 5000)`，等待目标条件成立或达到轮数上限，再进行正向断言；负断言给足预算（`flushRealWork` 默认 60 → 600 轮）。复跑 M22 → **SURVIVED**，与 14.5 的等价性分析一致。本节结束后全文扫描：**没有任何一条 round-6 日志再含调度器用例的失败**。
 
 ### 14.2 D3：调度器不再被陈旧的配置阻断（真实产品修复）
 
 **根因**（`src/index.ts` 的 `runScheduledPoolTest`）：它在 `resolveTargetModel(...)` 没有解出 id 时提前 `return`——而"saved target 已离开 catalog"正是产出"无 id"的情形之一。于是一个**显示偏好**的错误冻结了整个区域的测量循环。
 
-**不对称由此成立**：`exclusionOf` 对 `rate-limited` 读 `retryAtMs`，**时钟一到就自动回池**；`unavailable` 只能靠**新的检查请求**覆盖。检查请求不再写入 ⇒ `unavailable` 成员**永久挂起**，直到用户自己发现陈旧模型并手动改正。
+**不对称由此成立**：`exclusionOf` 对 `rate-limited` 读 `retryAtMs`，**时钟一到就自动回池**；`unavailable` 只能靠**新的检查请求**覆盖。检查请求不再写入 ⇒ `unavailable` 成员持续被排除，直到配置被纠正或下一次测试成功更新状态。
 
-**修法**：目标解析仍优先用户保存的模型；**当它陈旧时回落到该区域的免费模型**（`pickFreeModel`）。免费规则原样保留——没有零倍率模型时仍然整轮跳过，绝不在定时器上烧paid模型。
+**修法**：目标解析仍优先用户保存的模型；**当它陈旧时回落到该区域的免费模型**（`pickFreeModel`）。免费规则原样保留——没有零倍率模型时仍然整轮跳过，定时测试不自动选择目录标价非零的模型。
 
-**与手动路径的分工（刻意不同）**：手动批量路由**继续**拒绝陈旧 target（`reason: 'target-model-stale'`，H-6 用例守住）。那里用户明确要求"测这个模型"，替换成别的模型是回答一个没被问的问题；而定时轮次无人提问，它的存在意义就是刷新池子自己的测量，**不该被一个它能绕开且零成本的配置错误饿死**。
+**与手动路径的分工（刻意不同）**：手动批量路由**继续**拒绝陈旧 target（`reason: 'target-model-stale'`，H-6 用例守住）。那里用户明确要求"测这个模型"，替换成别的模型是回答一个没被问的问题；而定时轮次无人提问，它的存在意义就是刷新池子自己的测量，可以在目录中存在零费率模型时继续测试；目录费率不等于对所有额外费用的保证。
 
-**正/负配对**（新增两条 e2e）：`saved target 陈旧 + catalog 有免费模型` → 必须探（正）；`saved target 陈旧 + catalog 只有付费模型` → 必须不探（负）。恢复缺陷的代码副本 `D3-revert` 恢复旧实现 → **KILLED 1**，命中的正是新 e2e。
+**正/负配对**（新增两条 e2e）：`saved target 陈旧 + catalog 有免费模型` → 必须探（正）；`saved target 陈旧 + catalog 只有付费模型` → 必须不探（负）。变异副本 `D3-revert` 恢复旧实现 → **KILLED 1**，命中的正是新 e2e。
 
 **保留的取舍（明确记录）**：账号测试记录里**不含被测模型 id**，所以回落时写下的测量在卡片上仍按"该账号的测量"呈现。这是可接受的：测试提示描述的是**账号**能否服务（"连不上上游"），而不是模型；卡片同时已经在陈旧态显示 `staleTargetModelId` 提示用户改选。
 
-### 14.3 七条检查缺陷的处置（N5–N10 / N13 / N16 / N17）
+### 14.3 九条检查缺陷的处置（N5–N10 / N13 / N16 / N17）
 
 原则沿用 §13.1：**缺陷住在行为里，行为只能由执行来断言**。因此分两类处理——能行为化的**行为化**，纯文本的**按报告给出的 fix direction 收紧**。
 
 | 条目 | 性质 | 本轮处置 | 证据 |
 | --- | --- | --- | --- |
-| **N5** | D5 检查按硬编码名单判派生绑定，别名即绕过 | 真缺陷形式（M12 / M21 / M35 / M41）全部由渲染用例检出；**剩余别名形式 M20/M22 证为等价恢复缺陷的代码副本**（14.5） | M35 KILLED 1、M41 KILLED 1 |
+| **N5** | D5 检查按硬编码名单判派生绑定，别名即绕过 | 真缺陷形式（M12 / M21 / M35 / M41）全部由渲染用例检出；**剩余别名形式 M20/M22 证为等价变异副本**（14.5） | M35 KILLED 1、M41 KILLED 1 |
 | **N6** | M-2 检查只证"调用过"，不证"用了" | 按报告补**正向**断言：`toContain('setIntervalText(text)')` + 禁 `String(`；负断言不再锚在第一个 token 上 | M01 KILLED 4、M38b KILLED 5（渲染用例为主） |
-| **N7** | L-5 检查只查检查**位置**，从不查 `fresh`/`stale` **是什么** | 新增：绑定必须是 `begin(region)` 的**结果**，且禁止 `const stale = () => …` 函数式 | 新恢复缺陷的代码副本 `M19fn`（检查函数，永远报 fresh）→ **KILLED 1** |
+| **N7** | L-5 检查只查检查**位置**，从不查 `fresh`/`stale` **是什么** | 新增：绑定必须是 `begin(region)` 的**结果**，且禁止 `const stale = () => …` 函数式 | 新变异副本 `M19fn`（检查函数，永远报 fresh）→ **KILLED 1** |
 | **N8** | A-8 检查读初值、读先后，**从不读 `catch`** | 新增：`committed = true` 必须**恰出现一次**且位置在 `} catch` **之前** | M16（catch 里置 committed）→ **KILLED 2**（检查 + 渲染双保险） |
 | **N9** | D6 检查 `strip()` 去注释、**不去字符串字面量** | 新增 `stripLiterals()` 连字符串一起去；负断言从**变量名**改为**形状**（`accounts.filter(account => \w+.has(account.id))`） | M28（字符串 + 改名内联过滤）→ **KILLED 1** |
 | **N10** | "恰一次"被重拼调用绕过 | 计数改为对**标识符**：`/onRefresh\s*\??\.\s*(?:\(|call\b|apply\b)/gu` | M39（`finally` 里 `onRefresh?.call(undefined)`）→ **KILLED 3** |
 | **N13** | N1 三态只由源码文本验证 | M15 / M18 已由 `tests/pool-card-render.spec.tsx` 行为检出（§13.5）；本轮复核 M14 亦 KILLED 2（含卡片级用例） | R6-M14 / M15 / M18 |
-| **N16** | D5 跳过规则是 **body-wide**，一个诱饵 lambda 即可关闭对该名的检查 | 决定性恢复缺陷的代码副本 M41 已由**渲染用例**检出。检查残留弱点**不再对应任何未检出缺陷**，因此不再用更复杂的文本分析去追（§13.1） | M41 KILLED 1 |
-| **N17** | D5 检查把**字符串里**提到的派生名当成读 → **正确代码被判红** | `stripLiterals()` 之后不再命中。这是一个**对照**而非恢复缺陷的代码副本：合法代码必须在套件里保持全部通过 | `CONTROL-N17-string` → 679 passed（**必须绿，已绿**） |
+| **N16** | D5 跳过规则是 **body-wide**，一个诱饵 lambda 即可关闭对该名的检查 | 决定性变异副本 M41 已由**渲染用例**检出。检查残留弱点**不再对应任何未检出缺陷**，因此不再用更复杂的文本分析去追（§13.1） | M41 KILLED 1 |
+| **N17** | D5 检查把**字符串里**提到的派生名当成读 → **正确代码被判红** | `stripLiterals()` 之后不再命中。这是一个**对照**而非变异副本：合法代码必须在套件里保持全部通过 | `CONTROL-N17-string` → 679 passed（**必须绿，已绿**） |
 
 **为什么要修 N17 而不是容忍它**：一条会误杀正确代码的检查，下一位维护者触发它时最便宜的改法是**满足它**（把 `saved` 塞进依赖数组）——那既消掉了红，又让真正的陈旧类（N5/N16）保持原样，还留下一条"正在通过"的检查。§13.2 的 P0 就是这条路径的成品。
 
-### 14.4 本轮恢复缺陷后确认测试能够发现总表（全部串行执行）
+### 14.4 本轮变异测试检出结果总表（全部串行执行）
 
 基线：**679 tests / 31 files**，`tsc -p tsconfig.json` 与 `tsc -p tsconfig.client.json` 均 EXIT=0。
 
-| 恢复缺陷的代码副本 | 恢复的缺陷 | 结果 | 决定性断言 |
+| 变异副本 | 恢复的缺陷 | 结果 | 决定性断言 |
 | --- | --- | --- | --- |
 | M01 | A-4 逐键 clamp（三元包裹参数） | **KILLED 4** | `pool-render` A-4 逐键（`expected '5' to be '1'`） |
 | M17 | 字段忽略原始输入（断言的文本只活在注释里） | **KILLED 4** | `pool-render` A-4 |
@@ -646,18 +642,18 @@ AssertionError: expected 0 to be greater than or equal to 1
 | `SELECTALL-deps` | `selectAll` 丢 `pool` 依赖 | **KILLED 2** | 新渲染用例「刷新后全选按新名册」+ D5 prop 检查 |
 | `CONTROL-N17-string` | 合法代码在字符串里提到派生名 | **679 全部通过**（对照，必须绿） | 假阳性已消除 |
 
-**I 报告 18 个未被测试发现的缺陷副本的最终账**：第五轮 11 个（M14/M15/M16/M18/M19/M21/M23/M24/M35/M36/M39）+ 本轮 5 个（M01/M17/M28/M38b/M41）= **16 个已检出**；余 2 个（M20/M22）为**等价恢复缺陷的代码副本**。
+**I 报告 18 个未检出的变异副本的最终账**：第五轮 11 个（M14/M15/M16/M18/M19/M21/M23/M24/M35/M36/M39）+ 本轮 5 个（M01/M17/M28/M38b/M41）= **16 个已检出**；余 2 个（M20/M22）为**等价变异副本**。
 
-### 14.5 两个等价恢复缺陷的代码副本：M20 与 M22（不是覆盖缺口）
+### 14.5 两个等价变异副本：M20 与 M22（不是覆盖缺口）
 
 两者都以"检查看不见的别名"形式存活，但**都没有恢复任何缺陷**，因此**没有任何行为测试能检出它们**——这正是 §13.5 教训 1（"SURVIVED 不总是测试弱"，`poolAlias` 那次补丁是行为 no-op）的第二个实例。证明：
 
-- **M22**（`const regionNow = region`，`runAction` 内 `logStore.set(regionNow, next)`）：`regionNow` 由 `region` 在同一渲染内初始化，而 `runAction` 的依赖数组**含 `region`** ⇒ `region` 变化必然重建回调 ⇒ `regionNow === region` 恒成立。**逐字等价**。
+- **M22**（`const regionNow = region`，`runAction` 内 `logStore.set(regionNow, next)`）：`regionNow` 由 `region` 在同一渲染内初始化，而 `runAction` 的依赖数组**含 `region`** ⇒ `region` 变化必然重建回调 ⇒ `regionNow === region` 恒成立。**在上述依赖条件下行为等价**。
 - **M20**（`const savedNow = saved`，`selectAll` 内追加 `targetModelId: savedNow.targetModelId`）：`saved` 只是 `pool` 的**纯函数**（`AccountPool.tsx:281-295` 只读 `pool?.…`），而 `selectAll` 的依赖数组**含 `pool`** ⇒ `saved` 变化必然重建回调。更进一步，写入的值与 `editDraft` 自身基准给出的相同——`savedRef` 由 `useLayoutEffect` 同步（`:477`），`draftBaseFor(...)` 用的 `savedRef.current` 与 `saved` 在点击时刻必然相等。
 
-  **逐字等价**。
+  **在上述依赖条件下行为等价**。
 
-对照 §13.1 的判别标准：真正致命的是**依赖本身**，而不是读法。因此本轮补的是一条**行为**用例——「刷新后点全选必须勾上新出现的账号」——它验证的正是那个能真坏的依赖：恢复缺陷的代码副本 `SELECTALL-deps`（把 `pool` 从依赖数组里删掉）→ **KILLED 2**。
+对照 §13.1 的判别标准：真正致命的是**依赖本身**，而不是读法。因此本轮补的是一条**行为**用例——「刷新后点全选必须勾上新出现的账号」——它验证的正是那个能真坏的依赖：变异副本 `SELECTALL-deps`（把 `pool` 从依赖数组里删掉）→ **KILLED 2**。
 
 ### 14.6 工装（第六轮）
 
@@ -667,14 +663,14 @@ AssertionError: expected 0 to be greater than or equal to 1
 
 1. **NO-OP-PATCH 是错误，不是通过**（补丁窗口前后全树 `sha256` 对照）。
 2. **共享树哈希前后对照**，任何变化即 HARNESS ERROR（退出码 5）。
-3. **恢复缺陷的代码副本串行**——调度器用例对负载敏感（N15）；本轮还额外验证了"所有日志中都不存在调度器用例失败"。
+3. **变异副本串行**——调度器用例对负载敏感（N15）；本轮还额外验证了"所有日志中都不存在调度器用例失败"。
 
-本轮踩到的一个**新**工装坑，记下来：`rsync` 时 `--exclude docs` 会让 `tests/platform-standing.spec.ts` 因**缺文件**而红（它读 `docs/WINDOWS.md` 等），于是每个恢复缺陷的代码副本都被**无关原因**判红。**一个恢复缺陷的代码副本只有在"失败原因恰好是它恢复的那个缺陷"时才算 KILLED**——所以工装必须包含测试要读的全部只读输入（`docs/` 等），并且每次检出都要核对 FAIL 行。
+本轮踩到的一个**新**工装坑，记下来：`rsync` 时 `--exclude docs` 会让 `tests/platform-standing.spec.ts` 因**缺文件**而红（它读 `docs/WINDOWS.md` 等），于是每个变异副本都被**无关原因**判红。**一个变异副本只有在"失败原因恰好是它恢复的那个缺陷"时才算 KILLED**——所以工装必须包含测试要读的全部只读输入（`docs/` 等），并且每次检出都要核对 FAIL 行。
 
 ### 14.7 状态
 
 - 基线 676 tests / 31 files → **679 tests / 31 files 全部通过**；两个 tsc 项目 EXIT=0（`pnpm run check` 含 build）。
 - **D3 已修**（回落免费模型 + 正/负配对 e2e）；调度器不再被陈旧的显示偏好饿死。
-- I 报告 18 个未被测试发现的缺陷副本：**16 检出 / 2 等价**（M20、M22，附逐字等价证明）。
+- I 报告 18 个未检出的变异副本：**16 检出 / 2 等价**（M20、M22，附相应依赖条件下的行为等价分析）。
 - N5–N10 / N13 / N16 / N17 **全部结清**（见 14.3 表）；N15 从"方法论条目"升级为**工装前置条件**并已修。
 - **仍开放**：`eslint-plugin-react-hooks/exhaustive-deps`——**有意不做**（本项目没有 eslint；D5 的依赖完备性现已由 `tests/pool-render.spec.tsx` 的行为用例覆盖其真实风险面）。

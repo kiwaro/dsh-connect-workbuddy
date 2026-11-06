@@ -1,48 +1,18 @@
 /**
- * The daily check-in, run by the plugin instead of by a button press.
+ * Scheduling rules for the optional daily check-in. Disabled by default; the
+ * Host owns timers, persistence and network calls. This module derives attempts
+ * and progress from plain state.
  *
- * ## Why this exists at all, given the old rule
+ * Only selected non-enterprise pool members are considered. Each attempt reads
+ * check-in state before claiming and retains completed ids for the recorded day.
+ * Concurrent processes or stale upstream state can still produce duplicate
+ * attempts; this code does not establish server-side idempotency.
  *
- * This plugin deliberately shipped with NO automatic check-in, and README and
- * CHANGELOG both said so: claiming a daily reward is a real WRITE on the user's
- * account, and a feature that does it unasked is the plugin making a decision
- * that belongs to its owner. That reasoning is still correct — which is why this
- * is an OPT-IN switch, off by default, and why nothing here runs until the user
- * ticks it (issue #191).
- *
- * What changed is the cost of the alternative. A missed day resets the streak to
- * zero (the reporter was at 32 days), and the check-in itself costs no credits
- * and is idempotent upstream. So the honest framing is not "should the plugin
- * ever do this" but "the user may decide, once, that it should" — and the switch
- * is where they decide.
- *
- * ## The four properties that make it safe
- *
- * 1. **Idempotent by construction.** It calls the SAME `checkinAllAccounts` the
- *    manual button calls, which reads status first and reports `already` WITHOUT
- *    sending a claim. So a restart, a retry, or a duplicate timer tick cannot
- *    claim twice — there is no second code path that could.
- * 2. **Scoped to the pool the user ticked.** Membership is the existing
- *    "yes, spend this account's credits" consent. An account not in the pool is
- *    not checked in, exactly as it is not tested or rotated.
- * 3. **Bounded retries, then stop.** A transient failure retries on a widening
- *    backoff and then settles into a slow poll until the day rolls over. It
- *    never hammers the upstream, and it never gives up for good on the day.
- * 4. **Observable.** The card shows what happened ("N of M checked in today"),
- *    so a background action is never invisible.
- *
- * ## Why the scheduling is pure
- *
- * Every decision — "is it time?", "which accounts?", "what do I report?" — lives
- * in exported functions over plain data. The module holds no timer and reads no
- * clock. `src/index.ts` owns the timer and the disk; this file owns the rules,
- * so the rules can be tested without a Host, a network, or fake time. That is
- * the same split `account-pool-run.ts` uses for the batches, and for the same
- * reason.
+ * Failed attempts use widening backoff followed by a slower retry interval.
+ * Successful rows contribute to the summary displayed by the card.
  *
  * @module dsh-connect-workbuddy/auto-checkin
  */
-
 import type { WorkBuddyPoolCheckinRow } from './account-pool-run.ts'
 import type { WorkBuddyRegion } from './upstream.ts'
 
@@ -112,7 +82,7 @@ export function localDayKey(nowMs: number): string {
  *
  * Persisted so a restart mid-day resumes instead of re-deriving: without it,
  * every restart would treat the day as unattempted and run a fresh batch, which
- * is idempotent but spends one status request per account each time.
+ * repeats the state checks and can attempt claims when the returned state is stale.
  */
 export interface AutoCheckinState {
   /** The local day this state describes; a different day resets everything. */
@@ -252,10 +222,8 @@ export interface AutoCheckinSummary {
 /**
  * Build the card's summary.
  *
- * Takes the STATE alone: the denominator was recorded when the day's first
- * attempt ran (see {@link AutoCheckinState.scopeSize}), so the card's poll needs
- * no credential-store scan and membership edits mid-day cannot silently rewrite
- * the progress it is reporting.
+ * Uses the stored scopeSize supplied to the latest foldAttempt. The summary
+ * itself does not scan credentials; a later attempt can update the denominator.
  */
 export function summarizeAutoCheckin(state: AutoCheckinState): AutoCheckinSummary {
   const inScope = Math.max(0, state.scopeSize)

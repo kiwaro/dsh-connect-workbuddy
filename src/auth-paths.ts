@@ -62,9 +62,8 @@ export const WORKBUDDY_OWN_PREFIX = '.workbuddy-auth'
 export const WORKBUDDY_VAULT_DIRNAME = 'workbuddy-vault'
 
 /**
- * Plugin-owned copy path for one region inside the Harness home. Each
- * region's store refreshes into its own file so two simultaneously signed-in
- * regions never overwrite each other's refreshed token.
+ * Legacy per-region copy path inside the Harness home. Read for migration;
+ * new credential writes go to the unified vault.
  */
 export function workbuddyOwnAuthPath(region: WorkBuddyRegion): string {
   return join(resolveDshHome(), `${WORKBUDDY_OWN_PREFIX}.${region}.json`)
@@ -72,8 +71,7 @@ export function workbuddyOwnAuthPath(region: WorkBuddyRegion): string {
 
 /**
  * Pre-dual-provider single-copy path. Still read as a migration source (a
- * legacy credential serves the region it belongs to until that region's own
- * first refresh writes the per-region file), and removed by `logout`.
+ * legacy credential is filtered by its region; new refreshes write the vault), and removed by `logout`.
  */
 export function legacyWorkbuddyOwnAuthPath(): string {
   return join(resolveDshHome(), WORKBUDDY_AUTH_FILENAME)
@@ -175,9 +173,9 @@ export function defaultDesktopAuthDirs(
      * 理由：README §平台支持写明"其余候选仍未经真机逐项验证"，Linux 从来没有
      * 真机证据；把 data 提到前面会改变"没设 WORKBUDDY_AUTH_FILE 时用哪一个"
      * 这个已经上线的行为，而换来的收益尚无证据。这里只做**加法**：多一个候选，
-     * 不动已有的顺序，老用户的行为一个字节都不变。
+     * 保留已有优先顺序；原先未找到文件时，新增候选可能改变读取结果。
      *
-     * 两个目录都不存在时与以前一致：扫不到，回落 `WORKBUDDY_AUTH_FILE`。
+     * 两个目录都不存在时无法从这些默认位置发现凭据；显式 WORKBUDDY_AUTH_FILE 按指定文件处理。
      */
     const config = nonEmptyEnv(env['XDG_CONFIG_HOME']) ?? join(home, '.config')
     const data = nonEmptyEnv(env['XDG_DATA_HOME']) ?? join(home, '.local', 'share')

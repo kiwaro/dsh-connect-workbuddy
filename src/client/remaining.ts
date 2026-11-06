@@ -1,16 +1,7 @@
 /**
- * How long until a stated recovery time, in the reader's own words.
- *
- * The card has always shown the ABSOLUTE instant the upstream named
- * (`05:23:27`). That answers "when", but it forces the reader to subtract it from
- * the clock in their head — the one mental step that makes a cooldown hard to act
- * on. "约 1 小时后" is the answer to "how long do I wait", and it is derived from
- * the SAME instant, so the two can never disagree.
- *
- * Only ever applied to a time the UPSTREAM stated. Inventing a countdown for an
- * outcome that named none is still forbidden (`cooldownOf` returning `{}` is
- * still rendered as "the upstream gave no time"); this module adds no new source
- * of truth, it only reformats one that already exists.
+ * Format a caller-supplied retry time as an approximate duration.
+ * The caller may supply an upstream reset time or a local waiting deadline.
+ * This formatter does not establish when the service will recover.
  *
  * @module dsh-connect-workbuddy/client/remaining
  */
@@ -30,21 +21,7 @@ const DAY_MS = 24 * HOUR_MS
  */
 const DAYS_AT_MS = 2 * DAY_MS
 
-/**
- * The recovery form of the same duration: "约 2 小时后恢复".
- *
- * The bare duration answers "how long?", but beside a red dot on an account row
- * it left the most important half unsaid: what happens when it elapses. "约 2
- * 小时后" reads equally well as "the limit lifts" and as "it expires into
- * something else", and on a row whose whole job is to say whether the account
- * can serve, that ambiguity is the question the reader came with.
- *
- * Same numbers, same rounding, same empty-string contract as
- * {@link remainingText} — this only appends the verb. Kept as a separate
- * function rather than a parameter so the two callers that must stay verbless
- * (the card's "之后可再用" sentence, which already contains its own verb) cannot
- * accidentally grow a second one.
- */
+/** Format the wait with an explicit retry action; retain the historical export name. */
 export function recoversInText(t: Translate, untilMs: number, nowMs: number): string {
   const left = untilMs - nowMs
   if (left <= 0) return ''
@@ -57,9 +34,8 @@ export function recoversInText(t: Translate, untilMs: number, nowMs: number): st
 /**
  * A short "约 N 分钟后 / 约 N 小时后 / 约 N 天后", or `''` once the moment passed.
  *
- * The empty string is the contract callers depend on: an elapsed cooldown means
- * the account is already back, so appending "in 0 minutes" would assert the
- * opposite of the state the card is showing. Callers append this only when it is
+ * The empty string is the contract callers depend on: an elapsed waiting period no longer
+ * needs a countdown. It does not establish that the next request will succeed. Callers append this only when it is
  * non-empty.
  *
  * Rounding is deliberately coarse — "约 1 小时后" for 69 minutes is what a reader

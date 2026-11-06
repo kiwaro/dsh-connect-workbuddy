@@ -24,7 +24,7 @@ import { describe, expect, it } from 'vitest'
  * So the claim is pinned in two directions:
  *
  * 1. **Closed set.** The slots registered from `src/client/index.tsx` are
- *    exactly the four the design names. A fifth one is not forbidden — but it
+ *    exactly the documented set. Another one is not forbidden — but it
  *    must be a deliberate act, so it fails here first and names the reason.
  * 2. **Conditional contract.** IF the source ever touches the reasoning-body
  *    surfaces, THEN it must also read `rawText`. That is the whole rc.5
@@ -54,6 +54,8 @@ const CLAIMED_SLOTS: Record<string, string> = {
   'shell.quota-notice': 'frame-wide quota notice chain contributor',
   'sidebar.panellist': 'sidebar nav row (order 2) that opens the WorkBuddy full page',
   'main': 'centre-column full page keyed to the sidebar row',
+  'settings.section': 'dedicated WorkBuddy page in DSH settings, independent of sidebar opt-in',
+  'settings.section.icon': 'settings navigation icon with the same id as the WorkBuddy section',
 }
 
 /**
@@ -109,7 +111,7 @@ function filesMentioning(slot: string): string[] {
 }
 
 describe('the plugin claims a closed, documented set of host slots', () => {
-  it('registers exactly the four slots the design names', () => {
+  it('registers exactly the documented settings and conversation slots', () => {
     // A fifth entry here is not automatically wrong. It means this plugin's
     // "which host surface are we on" answer changed, so the rc.5 review's
     // premise has to be re-read before the slot is added. Failing here is how

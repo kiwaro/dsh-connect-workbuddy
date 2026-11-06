@@ -84,12 +84,9 @@ export const KNOWN_ROSTER_SEEN_VERSIONS: readonly number[] = Object.freeze([ROST
 export const ROSTER_SEEN_NEW_WINDOW_MS = 7 * 24 * 60 * 60 * 1000
 
 /**
- * The catalog-size cap. Over it is shape drift (not an eviction queue — see
- * the module note).
- *
- * Matches the sibling plugins' implementations: real catalogs are a few
- * hundred models, and 200 leaves headroom for "this side suddenly returned the
- * whole-site list" accidents.
+ * Maximum catalog size accepted by reconcile. Oversized catalogs are skipped
+ * as possible shape drift rather than truncated. This is a local safety limit,
+ * not a statement of the upstream's maximum number of models.
  */
 export const ROSTER_SEEN_MAX_IDS = 200
 
@@ -123,12 +120,10 @@ export function isKnownRosterSeenVersion(version: unknown): boolean {
 }
 
 /**
- * Normalise a first-seen table: keep only entries whose id is a non-empty
- * string and whose stamp is a finite positive number.
- *
- * Dropping rather than repairing a bad entry is deliberate: a stamp of 0 or
- * negative makes `now - stamp` come out as decades, and that id would count as
- * "new" forever. Better to let it take a real stamp the next time it appears.
+ * Keep entries with nonempty ids and finite positive timestamps.
+ * Invalid entries are dropped. If their model appears in a later reconcile,
+ * it can receive a new first-seen timestamp. Future timestamps remain accepted
+ * by this normalization and can extend the new-model marker's lifetime.
  */
 export function normalizeRosterSeen(raw: unknown): RosterSeen {
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return {}

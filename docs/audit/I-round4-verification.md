@@ -1,5 +1,7 @@
 # Account-pool verification: round 4
 
+Later corrections: E-fix-log §13.2 corrects the fresh/stale polarity. Section 14.5 classifies M20 and M22 as equivalent variants: the 18 survivors comprised 16 subsequently detected non-equivalent variants and two equivalent variants, not 18 restored defects.
+
 Historical scope: this report checks the round-4 source guards and mutation results. The tables retain the measured results from that snapshot; later rendering tests are recorded in [E-fix-log.md](E-fix-log.md).
 
 > Verifier: `round4-verify` (shared task `task-7`), independent of the Lead who wrote the fixes.
@@ -23,7 +25,7 @@ the same name.
 
 But the claim that matters is the one §12.1 makes: that each guard was upgraded from
 "文本存在" to "结构/位置/取值", so that a text-preserving mutation can no longer satisfy it.
-**That claim is REFUTED for 6 of the 8 source-text guards.** I restored 18 real defects with the
+**That claim is REFUTED for 6 of the 8 source-text guards.** I tested 18 surviving variants with the
 suite at `Tests 655 passed (655)`, `Test Files 29 passed (29)` — and **all 18 also survive the full
 `pnpm run check` gate** (`tsc -p tsconfig.json` and `tsc -p tsconfig.client.json` both exit 0), so
 they are invisible to CI, not merely to vitest.
@@ -153,8 +155,8 @@ found by re-reading the cited source rather than trusting my first note:
 | 12 | `N4a-editDraft-reads-saved` KILLED | **PARTIALLY CONFIRMED** | M12 KILLED. The *guard* is defeated by aliasing: **M35 SURVIVED** (`const { memberAccountIds: aliasedIds } = saved`). |
 | 13 | `N4b-runAction-reads-savedEffective` KILLED | **CONFIRMED** | M13 KILLED. |
 
-Tally: **7 CONFIRMED**, **6 PARTIALLY CONFIRMED** (the named mutant dies, but the guard is defeated
-by a nearby respelling), **1 REFUTED**. One of the 7 confirmations carries a *citation* defect rather
+Tally: **6 CONFIRMED**, **6 PARTIALLY CONFIRMED** (the named mutant dies, but the guard is defeated
+by a nearby respelling), **1 REFUTED**. One of the 6 confirmations carries a *citation* defect rather
 than a verdict defect (#7 — see the table).
 
 ### 3.2 The five hardened guards + the new N1/N3/N4 guards, judged as guards
@@ -196,7 +198,7 @@ the M-2 bypass (M38, `error TS2552: Cannot find name 'parseIntervalInput'`) — 
 | **M16** | `src/client/AccountPool.tsx:545` | `} catch (error: unknown) {` + `committed = true` as the first statement of the handler | A-8: a **failed WRITE** discards the draft — real data loss (the draft is the only copy) | clean |
 | **M17** | `src/client/AccountPool.tsx:1090` | `value: intervalText ?? String(active.autoTestIntervalMinutes),` → that line commented out + `value: String(active.autoTestIntervalMinutes),` | the displayed value ignores the raw keystroke entirely | clean |
 | **M18** | `src/client/WorkBuddyCard.tsx:1292` | `onRefresh={() => { void refreshUsage(activeRegion) }}` → `onRefresh={() => {}}` | M-4: the panel never re-reads usage after a batch; pre-check-in credits stay on screen | clean |
-| **M19** | `src/client/WorkBuddyCard.tsx:386` | `const fresh = usageGuard.current.begin(region)` → `const fresh = () => usageGuard.current.begin(region)()` | L-5: every freshness check returns `true`, so a slow stale response always wins | clean |
+| **M19** | `src/client/WorkBuddyCard.tsx:386` | `const fresh = usageGuard.current.begin(region)` → `const fresh = () => usageGuard.current.begin(region)()` | L-5: the wrapper defeats the intended generation check; the fresh/stale polarity is corrected in E-fix-log §13.2 | clean |
 | **M20** | `src/client/AccountPool.tsx:297,575` | `const savedNow = saved` at render scope; select-all also writes `targetModelId: savedNow.targetModelId,` | D5/H-1: a `useCallback` reads the render-scoped `saved` with no dependency | clean |
 | **M21** | `src/client/AccountPool.tsx:561-563` | `const meta = { saved: saved.memberAccountIds }` then `new Set(meta.saved)` in `editDraft` | D5/H-1 through an object-literal value | clean |
 | **M22** | `src/client/AccountPool.tsx:297,385` | `const regionNow = region` at render scope; `logStore.set(region, next)` → `logStore.set(regionNow, next)` | D5: `runAction` reads the `region` prop with no dependency | clean |
@@ -352,7 +354,7 @@ must happen is strictly stronger than one that names what must not.
 `if (!fresh()) return undefined` (must be 2), and checks both occurrences precede their respective
 `setStatusByRegion(` and are split by `} catch`. Every one of those holds under
 `const fresh = () => usageGuard.current.begin(region)()`, which begins a fresh generation on each
-call and therefore returns `true` always. The guard verifies the *call sites* of a predicate it
+call. The original report interpreted this as always returning `true`; E-fix-log §13.2 later corrected the fresh/stale polarity: the factory returns a stale predicate, and the inverted check discards valid responses. The guard verifies the *call sites* of a predicate it
 never evaluates.
 **Repro.** `/tmp/r4-patches/M19-L5B-guard-neutered.json` → 655 green. Note this is a *different*
 defect from M05 (which the guard does catch): M05 moves the check, M19 disables it.
@@ -422,8 +424,7 @@ change and closes the gap exactly.
 **Mechanism.** N2 renamed the parameter to `orderedIds` and documented that "ORDER IS THE
 CALLER'S". The only two assertions on the field are `toEqual([])` and `toEqual([realId])` — both
 single-element, so both order-blind. Swapping the two arguments at `:637` makes the status document
-report the **saved** order where the roster order is intended, which silently changes which account
-a batch runs on first. Nothing notices.
+report the **saved** order where roster order is intended. This establishes a displayed-field order difference; it does not by itself prove a change to batch execution order.
 **Repro.** `/tmp/r4-patches/M23-N2A-arg-order-swap.json` → 655 green.
 **Fix direction.** Add one test with a 3-account roster whose order differs from the saved order,
 asserting the roster order.
@@ -465,8 +466,7 @@ or equal to 1`. 10/10 serial pristine runs green; reproducible under 4-way paral
 matters beyond my own harness: **any future verification that runs mutants in parallel will
 produce false kills**, and it is exactly the kind of failure that gets misread as a guard working.
 **Fix direction.** Loop `flushRealWork()` until a condition holds (with a bounded turn count)
-rather than a fixed 60 `setImmediate`s, or make the assertion `expect(probes).toBeGreaterThanOrEqual(0)`
-with a separate deterministic probe-count test.
+rather than a fixed 60 `setImmediate`s. Keep the positive probe-count assertion, or cover it in an independent deterministic test; a nonnegative-count assertion alone is vacuous.
 
 ### N16 — HIGH — the D5 guard's false-positive suppression is body-wide, so a decoy lambda disables the check for the name it is checking
 **File:** `tests/pool-e2e.spec.ts:1216` (the skip rule) and `:1199-1202` (the hardcoded list);
@@ -517,7 +517,7 @@ rules 1–3, or at minimum require the match to be a genuine identifier position
 ### 6.1 The seams, probed (acceptance criterion E)
 
 Beyond asserting that each guard's own mutant dies, I probed the **seams**: the boundaries where a
-guard stops looking, and where it looks too hard. Four seams were named; two produced findings.
+guard stops looking, and where it looks too hard. The following table records four boundary checks and their results.
 
 | # | Seam | Probe | Result |
 | --- | --- | --- | --- |
@@ -552,13 +552,12 @@ the patterns longer.
 4. **The `latest-wins` guard's real behaviour** under two overlapping fetches — `WorkBuddyCard.tsx`
    is not renderable, so M19's effect is reasoned from `createLatestWins`'s source
    (`src/account-pool.ts:333-344`), not observed.
-5. **Two guards I did not attack at all:** `tests/pool-e2e.spec.ts:282` (batch-callback deps — it
+5. **Two guards without a comprehensive bypass campaign:** `tests/pool-e2e.spec.ts:282` (batch-callback deps — it
    killed M13, and I found no defeat, but absence of a defeat is not a proof) and
-   `tests/pool-e2e.spec.ts:1229` (latest-wins import). They are reported as untested, not as held.
+   `tests/pool-e2e.spec.ts:1229` (latest-wins import). The first has a simple mutation result; neither result establishes resistance to other bypasses.
 6. **Whether any of the 18 mutants would be caught by a *different* consumer** (the real DSH Host,
    the desktop app). Out of scope; the question asked was about this repository's suite.
-7. **The seams are probed, not exhausted.** §6.1 names four; I found defeats at two of them (M41,
-   M43) and a control at a third (M42). The other five guards' seam structure — where their skip
+7. **The seams are probed, not exhausted.** §6.1 records four checks. The separate D5 campaign found M41 and M43 and used M42 as a control. The other five guards' seam structure — where their skip
    rules, word boundaries and slice anchors stop looking — was reviewed but **not** attacked with
    mutants the way the D5 guard was. M41 in particular suggests the general shape to look for
    ("does this guard excuse a name body-wide?"), and I did not complete that sweep over the M-4,

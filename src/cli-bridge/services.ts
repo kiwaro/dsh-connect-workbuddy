@@ -20,18 +20,16 @@ export interface BridgeToolExecution {
   /** Cancels the call; the bridge forwards it to the CLI child process. */
   signal?: AbortSignal
   /**
-   * Reserved by the Host. As of 4.15.x it is NOT populated with the session's
-   * cwd. Kept as an optional read because a future Host may start filling it.
+   * Optional execution directory supplied by DSH. Availability depends on the
+   * execution entry point; sessionDirOf checks the live session projection first.
    */
   cwd?: string
   /**
    * The agent that called the tool.
    *
-   * THIS IS WHERE THE SESSION CWD COMES FROM. The Host does not put a `cwd` on
-   * the execution object, but it does pass the calling agent, and the agent
-   * carries the session header — whose `cwd` the session service guarantees is
-   * absolute. Reading it here is what lets a turn default to the directory the
-   * human is actually looking at instead of demanding one from the model.
+   * Identifies the calling session. sessionDirOf reads its live workingDirectory
+   * projection first, then uses the session creation metadata as a
+   * fallback. The header alone does not track later directory changes.
    */
   agent?: BridgeAgentRef
 }

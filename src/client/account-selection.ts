@@ -4,7 +4,7 @@
  * 参考：DSH 自带插件卡片（`@deepseek-ai/dsh-client-ui-settings-plugins`
  *   的 `CardForm.store()`）— 「写入后重新读取用户层并与写入值比对」这一校验形态，
  *   是本模块 `writeAccountSlot()` 的出发点。
- * 改动：针对账号界面扩展位置重写而非照搬 —— 重新读取的是**解析后的 section**而非 user 层
+ * 改动：针对账号绑定字段调整 —— 重新读取的是**解析后的 section**而非 user 层
  *   （DSH 的 legacy 归属也读它，两者必须同源），并用精确比较区分 `''`（哨兵清除）
  *   与 `undefined`（键缺失），因为后者会让区域重新回退到旧版 `accountId`。
  *
@@ -81,25 +81,10 @@ export type UpstreamSwitchField =
   | 'channelRejectContinue'
 
 /**
- * Whether a save failure is a FILE-CONTENTION refusal.
- *
- * On Windows, replacing a file that another process holds open fails with
- * `EPERM` / `EBUSY` / `EACCES` — an antivirus scanner, a sync client (OneDrive),
- * or an editor with the profile's patch file open. POSIX `rename` replaces
- * outright regardless of open handles, so this branch effectively never fires
- * on macOS/Linux: the diagnosis is Windows-shaped because the failure is.
- *
- * It exists so a save failure can say WHAT TO DO. Without it the card pasted the
- * raw error at the user — `EPERM: operation not permitted, rename
- * 'C:\…\cordis.patch.yml.79498ff8fb27.tmp' -> '…\cordis.patch.yml'` — which
- * names a temp path and no remedy. Measured live against the 3.0.0 host with the
- * file held open: both the `regions` and `accounts` writes came back HTTP 500
- * with exactly that text.
- *
- * Deliberately matched on the message rather than on `WorkBuddySettingsWriteError`
- * alone: a validation refusal is also that class but has nothing to do with file
- * contention, and telling such a user to close their editor would send them
- * chasing a cause that is not there.
+ * Recognize error text consistent with a failed profile-file replacement.
+ * Matching EPERM, EBUSY or EACCES does not prove another process holds the file:
+ * permissions and filesystem restrictions can produce the same codes. Callers
+ * should present file access as a possible cause rather than a confirmed lock.
  */
 export function isFileContentionWriteError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error)
@@ -405,7 +390,7 @@ export function sidebarPanelEnabledOf(configured: unknown): boolean {
  * Write the opt-in DSH sidebar panel switch, verifying it landed.
  *
  * Same two writers and same reasoning as {@link writeCliBridgeEnabled}: the
- * Host endpoint first (it is the authoritative merge and reports its own
+ * Host endpoint first (it merges against current DSH state and reports its own
  * refusal), the settings scope second, because this namespace's browser mirror
  * is documented as stale on the affected 0.1.7 deployments — and a sidebar row
  * that merely *looks* present while the Host disagrees is worse than no row.
@@ -716,7 +701,7 @@ export async function writeAccountSlot(
  *
  * Verification compares the round-tripped `lastCatalog` ids, which is the part
  * of the payload that is both user-visible and cheap to compare; the selection
- * fields ride along in the same object and cannot land separately.
+ * fields ride along in the same object but this id comparison does not verify those other fields.
  *
  * @param scope - the bound settings scope for this plugin's namespace.
  * @param region - the region whose model slot is written.
@@ -736,8 +721,7 @@ export async function writeRegionModels(
   const merged = nextRegionModels(scope.getSnapshot().value, region, payload)
   const next = merged[region] as Record<string, unknown>
   // Compare the round-tripped catalog ids: they are user-visible and cheap to
-  // compare, and the selection fields ride in the same object so they cannot
-  // land separately. A present-but-truncated slot must not pass this check.
+  // compare, and the selection fields ride in the same object but this check does not verify them. A present-but-truncated slot must not pass this check.
   const written = payload.lastCatalog.map(model => model.id)
   await writeField(scope, 'regions', region, next, readBack => {
     const stored = (readBack as { lastCatalog?: { id?: string }[] } | undefined)?.lastCatalog?.map(model => model.id)
@@ -757,7 +741,7 @@ export async function writeRegionModels(
  * then silently reverted — the exact silent-failure mode
  * {@link writeAccountSlot} and {@link writeRegionModels} were written to
  * prevent for their own fields. Routing it through {@link writeField} gives it
- * the same scope-first-then-Host-endpoint path, so the switch either lands or
+ * the same Host-endpoint-first path with scope fallback, so the switch either lands or
  * reports why it did not.
  *
  * The write carries the region's whole slot through untouched — only `enabled`

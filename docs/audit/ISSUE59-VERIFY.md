@@ -1,5 +1,8 @@
 # Issue #59: independent mechanism verification
 
+> 2026-11-06 复核：下文保留 2026-10-18 至 19 日的调查过程、测量值和后续更正。源码可以说明历史推理内容如何转换为文本；报告者的请求计数及密度估算只能支持该样本中的 token 统计解释，不能单独证明实际积分扣费，也不能把已测文本密度视为所有文本的硬下限。本机未重做跨区受控实验，原文中的“定案”“已证伪”“safe”应按此范围理解。
+
+
 Scope: verification on 2026-10-18. The initial findings are followed by the later billing correction; file paths and line numbers identify the investigated snapshot.
 
 Role: independent verifier (teammate `verifier`, shared task-1). Goal: verify the mechanism proposed in issue #59 comment `IC_kwDOUHHjNs8AAAABdD5Afg` (2026-10-18T03:30:08Z, raphael-y7). Date of verification: 2026-10-18, on this machine only.
@@ -59,13 +62,13 @@ grep -rn '0.3518' docs/ src/ README.md CHANGELOG.md /Users/dmh2002/.dsh/body-rep
 | C6 的 `text` 值 741,952 | 按报告者原数复算 | **改为 741,687**（user 69,431 + assistant 672,256；原数重复计了 265） | 报告者自撤；`src/body-report.ts:16`、`tests/issue59-body-report.spec.ts:27`、`docs/audit/ISSUE59-OPTIONS.md` 已同步 |
 | C6 的「residual 0.3%」与「两侧都等于 812,815」 | 记为两个观察 | **同一个恒等式**（字符守恒）：`741,687 + 72,270 − 1,142 = 812,815 = 184,821 + 627,994` | 报告者接受本报告的意见 |
 | `0.3518 tok/char` | 判为「无法复现，勿公开引用」 | **已解释**：分母串了，真分母是 555,724（两区 reasoning 之差），不是 812,815。该系数本身作废 | 报告者自撤；从未进过公开文档 |
-| **C7（计费前提）** | UNVERIFIABLE-LOCALLY | **可定案：reasoning 不计费** —— 但性质是「报告者实测 + 本项目系数复算佐证」，**不是本机实测** | `docs/audit/ISSUE59-BILLING.md`（独立对抗性复核）；`docs/reasoning-investigation.md` 第 5、6 节 |
+| **C7（计费前提）** | UNVERIFIABLE-LOCALLY | **该样本的 token 计数支持 reasoning 未计入输入统计** —— 但性质是「报告者实测 + 本项目系数复算佐证」，**不是本机实测** | `docs/audit/ISSUE59-BILLING.md`（独立对抗性复核）；`docs/reasoning-investigation.md` 第 5、6 节 |
 
 C7 定案的两条算式（详见 `ISSUE59-BILLING.md` 的 A1/A4/Q4）：
 
 1. **同区同模型增量**（报告者的机器）：+416 tok 对 +1,290 reasoning 字符 / +892 其他字符 → 计费读法 0.1907 tok/char，不计费读法 0.4664；后者与我们实测的 tool-result 0.4555 相差 2.4%。
-2. **国际侧自己的账**（纯本项目系数）：tool 块 959,283 字符 × 0.4555 = 436,953 tok = 它 447,306 总账的 **97.7%**，剩下的 10,353 tok 要分给另外 822,343 字符（0.0126 tok/char）——**reasoning 若也计费，这笔账凑不出来**。
+2. **国际侧自己的账**（纯本项目系数）：tool 块 959,283 字符 × 0.4555 = 436,953 tok = 它 447,306 总账的 **97.7%**，剩下的 10,353 tok 要分给另外 822,343 字符（0.0126 tok/char）——**reasoning 若也计费，按该系数无法解释全部字符；系数适用性仍是前提**。
 
-**同时撤回本报告用过的一个说法**：我们曾写「若计费，预测比值 0.697」。那是量纲串了 —— 0.697 是两边非 reasoning 密度的比值，不是计费假设的预测。计费假设下两区计费字符几乎相等（差 0.15%），预测比值 **≈1.00**，而实测 **1.4370**，所以计费假设是**被证伪**，不是被吻合。报告者的这一条批评成立。
+**同时撤回本报告用过的一个说法**：我们曾写「若计费，预测比值 0.697」。那是量纲串了 —— 0.697 是两边非 reasoning 密度的比值，不是计费假设的预测。计费假设下两区计费字符几乎相等（差 0.15%），预测比值 **≈1.00**，而实测 **1.4370**，因此在所用密度假设下，样本不支持 reasoning 全部计入输入 token；这不是实际扣费的受控验证。报告者的这一条批评成立。
 
 **仍然未定的**：报告者预测「单区执行完成再切区跳变接近 0」在本机无法验证（无 `global.jsonl`，`cn.jsonl` 685 条 `promptTokens` 命中 0）；他的字符总数比本项目分块表多出恒定 30,507 / 30,772（一个我们没采集的桶），不要当成本项目的数引用。

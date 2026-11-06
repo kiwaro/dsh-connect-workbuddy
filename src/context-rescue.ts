@@ -82,7 +82,7 @@ export interface ContextRescueDeps {
 
 export interface ContextRescue {
   /**
-   * Fold history until the next request fits the given window.
+   * Attempt bounded history folds toward the local measurement target.
    *
    * @param sessionId - session whose history should be folded.
    * @param window - context window of the route that just overflowed.

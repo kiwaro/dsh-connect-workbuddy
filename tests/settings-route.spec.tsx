@@ -18,6 +18,7 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  WORKBUDDY_SETTINGS_ID,
   PLUGINS_PANEL_ID,
   WORKBUDDY_PACKAGE_NAME,
   openPluginSettingsPage,
@@ -311,10 +312,10 @@ describe('ComposerCredits settings control', () => {
     }
     // The two hints must each name the mechanism. Asserted per-locale so a
     // translation that drops it fails here rather than shipping.
-    expect(en['composer.refreshHint']).toMatch(/probe/i)
-    expect(en['composer.refreshHint']).toMatch(/credit/i)
+    expect(en['composer.refreshHint']).toMatch(/test/i)
+    expect(en['composer.refreshHint']).toMatch(/cost/i)
     expect(zh['composer.refreshHint']).toMatch(/测试/)
-    expect(zh['composer.refreshHint']).toMatch(/积分/)
+    expect(zh['composer.refreshHint']).toMatch(/费用|积分/)
   })
 })
 
@@ -392,5 +393,18 @@ describe('settings control: the shape of the affordance', () => {
     // without it, so the media query only removes motion.
     expect(WORKBUDDY_COMPOSER_CSS).toContain('prefers-reduced-motion')
     expect(WORKBUDDY_COMPOSER_CSS).toMatch(/prefers-reduced-motion[^}]*\{[^}]*transition:none/)
+  })
+})
+
+describe('dedicated settings destination', () => {
+  it('opens WorkBuddy in the settings shell before trying plugin details', () => {
+    const openSection = vi.fn()
+    const openBundle = vi.fn()
+    const get = (name: string): unknown => name === 'slots'
+      ? { entries: () => [{ store: { create: () => ({ actions: { openSection } }) } }] }
+      : name === 'pluginNavigation' ? { openBundle } : undefined
+    expect(openPluginSettingsPage(get)).toBe(true)
+    expect(openSection).toHaveBeenCalledWith(WORKBUDDY_SETTINGS_ID)
+    expect(openBundle).not.toHaveBeenCalled()
   })
 })

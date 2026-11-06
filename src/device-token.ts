@@ -3,10 +3,8 @@
  *
  * ## 为什么只有文件，没有"内联配置值"
  *
- * token 的有效期是分钟级（A 实测 10 分钟，旧值最多 24 小时可复用）。写在配置里
- * 的值是死的：十分钟后它过期，只能靠人去改配置——那是一条每十分钟需要人工介入的
- * 路径，实际上只在一次性排障里成立。文件可以由任何东西刷新（A 自己的
- * `.turing_token_cache.json`、一个 cron、一个脚本），插件按 TTL 重读即可。
+ * 内联值无法自动更新。外部程序可以持续更新 token 文件，插件按本地 TTL 重读。
+ * 该 TTL 只控制读盘频率，不表示上游 token 的有效期；能否继续使用由上游决定。
  *
  * ## 它与 B 的 `device_token.go` 差在哪（三处，都是刻意的）
  *
@@ -34,11 +32,11 @@ import { join, resolve } from 'node:path'
  * 文件大小上限，单位字节。
  *
  * 4 KB 不是随手放的：A 的真实 token 是 1210 字符，B 的 1 KB 上限会误杀它；同时
- * 4 KB 仍然远小于"贴错文件"的量级（把整个 auth.json 指过来会立刻被判过长）。
+ * 4 KB 用于限制意外读取的文件体积；较小的错误文件仍需由内容校验识别。
  */
 export const DEVICE_TOKEN_MAX_BYTES = 4096
 
-/** 默认重读周期。与 A 的磁盘缓存一致（10 分钟 token / 5 分钟重读）。 */
+/** 默认文件重读周期为 5 分钟，与 token 的上游有效期无关。 */
 export const DEVICE_TOKEN_DEFAULT_TTL_MS = 5 * 60 * 1000
 
 /**
@@ -46,7 +44,7 @@ export const DEVICE_TOKEN_DEFAULT_TTL_MS = 5 * 60 * 1000
  *
  * **它不是第二个真源**，而是同一个值的第二种写法：插件配置 `deviceToken.file`
  * 为空时才回落到它，而 `doctor` 只能看到环境变量（它读不到插件配置）。同一个
- * 值、两个读者，因此不会出现"插件在用 A、CLI 报告 B"。
+ * 环境变量可以供两种入口共用；插件配置非空时，插件与 doctor 仍可能读取不同文件。
  */
 export const WORKBUDDY_DEVICE_TOKEN_FILE_ENV = 'WORKBUDDY_DEVICE_TOKEN_FILE'
 
@@ -152,7 +150,7 @@ export interface DeviceTokenReader {
    * device salt is read) would pin an expired value for the whole session.
    */
   current(nowMs?: number): Promise<string | undefined>
-  /** The last read, for diagnostics. Never contains anything but the token itself. */
+  /** The last read result, including the token on success. Diagnostics must omit it. */
   last(): DeviceTokenReadout | undefined
 }
 

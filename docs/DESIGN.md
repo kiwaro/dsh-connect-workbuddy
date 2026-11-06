@@ -30,7 +30,11 @@
 | `conversation.composer.dock` | 输入框下方的积分入口和 CLI 任务状态 |
 | `shell.quota-notice` | 额度提示组件 |
 | `sidebar.panellist` | WorkBuddy 侧边栏入口 |
-| `main` | WorkBuddy 设置页面 |
+| `main` | WorkBuddy 侧边栏主页面 |
+| `settings.section` | DSH 设置栏中的 WorkBuddy 独立页面 |
+| `settings.section.icon` | WorkBuddy 设置栏图标 |
+
+设置栏页面始终注册，不受 `sidebarPanel` 控制。积分面板中的设置按钮优先打开该页面；旧版布局仍可回退到插件详情。
 
 `sidebarPanel` 默认关闭。用户开启后，插件注册侧边栏入口和主页面；关闭后，插件注销这两项注册。
 
@@ -254,7 +258,7 @@ DSH 会根据错误码和消息文本确定最终显示及重试方式。`model_
 
 图片生成、视频生成及 CodeBuddy CLI 默认关闭，由用户在能力分区开启。图片与视频工具使用相应区域的账号，生成费用由 WorkBuddy 扣除。CodeBuddy CLI 使用其账号额度和所设文件权限。
 
-工具参数、执行限制和输出见[图片工具说明](IMAGE_GEN.md)、[视频工具说明](VIDEO_GEN.md)及[CLI 配置](../README.md#51-cli-配置)。会话标题请求可通过默认关闭的 `sessionTitle` 选项改用指定轻量模型。
+工具参数、执行限制和输出见[图片工具说明](IMAGE_GEN.md)、[视频工具说明](VIDEO_GEN.md)及[CLI 配置](../README.md#配置)。会话标题请求可通过默认关闭的 `sessionTitle` 选项改用指定轻量模型。
 
 ## 5. 目录与接口
 
@@ -300,7 +304,7 @@ MIT 来源保留版权与许可声明。Apache-2.0 来源按适用要求保留�
 
 凭据库及导出的账号文件包含敏感登录信息。保存和迁移时需要控制访问权限，文件权限及 Windows ACL 处理见 [WINDOWS.md](WINDOWS.md)。诊断脚本应对身份信息脱敏，并仅输出排查需要的凭据长度或格式。
 
-插件依赖 WorkBuddy 桌面端接口和文件格式。这些接口及加密格式随产品更新可能变化，第三方接入也可能导致账号限制。使用范围及责任说明见[项目说明](../README.md#9-致谢与许可证)。
+插件依赖 WorkBuddy 桌面端接口和文件格式。这些接口及加密格式随产品更新可能变化，第三方接入也可能导致账号限制。使用范围及责任说明见[项目说明](../README.md#许可证)。
 
 ## 8. 插件元数据与中文文案
 

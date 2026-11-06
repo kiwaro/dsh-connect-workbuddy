@@ -5,14 +5,8 @@
  * 参考：workbuddy2api-panel 的「添加账号」弹窗 —— 操作期间用一层蒙版把界面
  *   定住并说明正在做什么，而不是让用户对着没有变化的表格猜。本实现把该形态
  *   抽成可复用组件，供删除、导入、扫码添加三处共用同一套视觉与处理规则。
- * 改动：不只表示「请求还在飞」，而是持续到**列表刷新落地**为止。这两个时刻
- *   之间有一段真空期（Host 已改完、卡片的 读取到的用量数据还没回来），过去这段
- *   真空期就是用户看到的「删了但还在」「导入了但没出现」——把遮罩的关闭条件
- *   绑在刷新完成上，延迟就从「看不见」变成「看着它发生」。
- *
- * 遮罩本身不自己计时：文案由调用方按场景给出（删除中 / 导入中 / 添加中），
- *   超时由调用方控制，这里只负责「显示什么」。这是它唯一需要被共用的事实
- *   来源——各处的场景文案不同，视觉与处理规则必须一致。
+ * 遮罩持续到列表刷新完成，避免服务端已修改数据、页面仍显示旧列表时
+ * 提前解除操作提示。显示文字与超时由调用方控制，本组件负责统一展示。
  *
  * @module dsh-connect-workbuddy/client/BusyOverlay
  */
@@ -56,10 +50,9 @@ function VeilSpinner(): ReactElement {
 }
 
 /**
- * The veil. Deliberately NOT a modal dialog: it carries no focusable control
- * and no dismissal — there is nothing for the user to decide, only a step to
- * wait through. `aria-busy` plus a polite live region state that to screen
- * readers, which is the whole accessibility contract a wait screen needs.
+ * The veil has no focusable control or dismissal button. It announces the
+ * caller's message through a polite status region and marks the region busy.
+ * The caller controls completion and timeout handling.
  */
 export function BusyOverlay({ message, hint, visible }: BusyOverlayProps): ReactElement | null {
   if (!visible) return null

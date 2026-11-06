@@ -100,7 +100,7 @@ PASS saved={"deepseek-v4.1-flash":500000}  UI_200K_checked=false backend_window=
   `applyContextBudgets` 的 `Math.min` 逐一致」以及一张 7 个取值的对照表——
   这就是修复前为假的那条性质。
 
-恢复缺陷后的测试：把 200K 档改回 `?? 200_000` → **6 条测试失败**（含 `tests/context-tiers.spec.tsx`
+变异测试：把 200K 档改回 `?? 200_000` → **6 条测试失败**（含 `tests/context-tiers.spec.tsx`
 里原先验证缺陷本身的那一条，已按新契约改写）；把「原生」档改回写入窗口数字 →
 「保存要删 key」测试失败。全量 3041 passed + 2 skipped；两个 tsconfig 干净；build
 6 个产物齐全，`lib/client.js` 里 `effectiveContextBudget` 出现 4 次、旧的
@@ -188,7 +188,7 @@ PASS saved={"deepseek-v4.1-flash":500000}  UI_200K_checked=false backend_window=
 - 未配置/离线时卡片只列**用户自己保存的目录**（注释里说明：这条钉的是可观察
   契约，不是检查机制本身）。
 
-恢复缺陷后的测试：把 `glm-5.3` 的旧价写回回退表 → 2 条测试失败；把 `hy4-preview` 标回 `0` →
+变异测试：把 `glm-5.3` 的旧价写回回退表 → 2 条测试失败；把 `hy4-preview` 标回 `0` →
 「什么都没保存过」测试失败；删掉路由里的 `await deps.persistModels(...)` → 「刷新写入文件」测试失败；
 把 `strict` 的写入改成 fire-and-forget → 「写失败要报 500」测试失败。
 `tests/catalog.spec.ts` 里「回退表带有抓取时的倍率」那条按新契约改写（改为断言
@@ -241,7 +241,7 @@ Default」）。逐缝核对：
 **测试**：`tests/issue179-default-thinking-effort.spec.ts` 19 → 22 条（新增三条回退与
 常量优先级），`tests/card-panels.spec.tsx` 6 → 8 条（卡片第一项写出解析后的档位；有保存
 选择时第一项仍描述「清除选择后」的答案，而不是回显那个选择）。
-恢复缺陷后的测试：回退改回 `declared[0]` → issue179 一条 + issue90 三条测试失败；卡片解析去掉 →
+变异测试：回退改回 `declared[0]` → issue179 一条 + issue90 三条测试失败；卡片解析去掉 →
 卡片一条测试失败；卡片把保存表传进解析 → 卡片一条测试失败。
 
 全量 3019 passed + 2 skipped；
@@ -278,7 +278,7 @@ Default」）。逐缝核对：
 2. 签到开关的 label **不带** `.dsm-workbuddy-pool-modebar`（缺陷本身），且它的父元素带 switchrow。
 3. 整张卡里**只有一处** `.dsm-workbuddy-pool-modebar`，也就是模式栏自己——主控仍读作主控。
 
-恢复缺陷后的测试：把签到开关改回 `label.dsm-workbuddy-pool-modebar` → **2 项失败**。
+变异测试：把签到开关改回 `label.dsm-workbuddy-pool-modebar` → **2 项失败**。
 
 ### 修复（issue #207：DSML 恢复的三处失效，标记会漏进可见正文）
 
@@ -339,7 +339,7 @@ marker 的**开**标签**。三个设计点：
 
 #### 验证
 
-新增 `tests/issue207-dsml-calls-and-standdown.spec.ts`（17 例）。恢复缺陷后的测试三次：删掉 `calls`
+新增 `tests/issue207-dsml-calls-and-standdown.spec.ts`（17 例）。变异测试三次：删掉 `calls`
 对应规则 → 5 红；去掉 `openerSeen` 的赋值 → 1 红；删掉 `standDown()` 调用 → 2 红。
 
 全量 **2986 passed + 2 skipped**，`typecheck` 干净（两个 tsconfig），`pnpm run build` 6 个声明
@@ -437,7 +437,7 @@ owner=Administrators → 读写全拒，DACL 与事故现场一致），缺陷�
 **验证**：新增 `tests/issue208-acl-harness-home-guard.spec.ts`（7 例），验证：home 被拒且
 零子进程、祖先被拒、三种等价拼写被拒、**真实的 vault 根仍被加固**（防止这项检查静默关掉
 #183 的全部保护）、未限定区域与按区域限定的写入都只加固 vault 根、添加 `vaultDir` 为
-home 时同样被拒。恢复缺陷后的测试两次：去掉 `harnessHomeRefusal()` → 4 红；把写入路径退回
+home 时同样被拒。变异测试两次：去掉 `harnessHomeRefusal()` → 4 红；把写入路径退回
 `dirname(dir)` → 1 红。
 
 ### 文档（安装章节加一节 `ERR_PNPM_IGNORED_BUILDS` 排障）
@@ -519,7 +519,7 @@ issue 结尾的要求补一条 DOM 存在性检查作为前提。
 > await」会让并发调用者拿到 `undefined`）**不适用于本实现**，此处不记为本条的历史——main 上
 > 不存在 `GetOwner` 断言，`protectCredentialDirectory` 记忆的是 in-flight promise 而非布尔标志。
 
-**恢复缺陷后的测试**：3 个恢复缺陷的代码副本，**3 个全部触发测试失败**（各 1 红 / 10 绿，跑 `tests/context-tiers.spec.tsx`）：
+**变异测试**：3 个变异副本，**3 个全部触发测试失败**（各 1 红 / 10 绿，跑 `tests/context-tiers.spec.tsx`）：
 模型行去掉 `flex-wrap:wrap`、预算组去掉 `flex-wrap:wrap`、删掉窄屏 `@media` 那条规则。第一条同时
 证明了一件事——**issue 建议的选择器不是出问题的那个**：只按报告改 `.dsm-workbuddy-model-actions`
 仍然打不红这条检查，因为 radio 组实际包在 `.dsm-workbuddy-model-head` 里。
@@ -538,8 +538,8 @@ CHANGELOG 都写明了理由：签到是真实领取奖励的写操作，不该�
 一次，让插件一直做」——那个开关就是决定的地方。
 
 - **签到前先读取当天状态。** 走的是手动按钮同一条 `checkinAllAccounts`：
-  先 `fetchCheckinStatus`，已签到判 `already` 并**不发领取请求**。所以重启、定时器
-  重复触发、与手动按钮撞车，都不可能重复领取——**没有第二条能领取的代码路径**。
+  先 `fetchCheckinStatus`，已签到判 `already` 并**不发领取请求**。这可以减少重启或定时器重复触发后的领取请求。
+  并发操作仍可能同时读到未签到状态，最终是否重复发奖由上游接口保证。
 - **范围只到勾选进池的账号。** 沿用既有同意边界：没勾的账号不会被签到，正如它不会
   被测、不会被轮换。企业/教育版走既有批次的 `skipped`，海外区域不出现这个开关
   （那边本来就没有签到）。
@@ -554,7 +554,7 @@ CHANGELOG 都写明了理由：签到是真实领取奖励的写操作，不该�
   **不含任何 token**，只有账号 id 与一句失败原因。
 
   读写从不抛异常——最坏是「今天
-  当作没签过」，而那次重新运行是再次执行后保持原结果的。
+  当作没签过」，再次运行会先查询状态，已签到时跳过领取。
 - **定时器永不停。** 一天签完也按 30 分钟重排，因为一个停掉的定时器**注意不到下一个
   本地零点**，功能会悄悄只工作一天。空闲那一跳不做任何 I/O（`isDue` 在枚举前就答
   「没有待办」）。
@@ -564,7 +564,7 @@ CHANGELOG 都写明了理由：签到是真实领取奖励的写操作，不该�
 - **关掉立即停。** 开关写在同一个 volatile 区域槽里，`loader/volatile-update` 上
   重排；关闭时 `clearTimeout` 而不是等下一跳自己发现。
 
-测试：新增 `tests/auto-checkin.spec.ts`（18 例）。其中三条是**恢复缺陷后的测试**过的——
+测试：新增 `tests/auto-checkin.spec.ts`（18 例）。其中三条是**变异测试**过的——
 把 `localDayKey` 换成 UTC、把 `skipped` 计成已签、让失败计数不在有进展时清零，
 各自触发测试失败对应的用例；另有一条端到端用例驱动真实的 `checkinAllAccounts` 断言
 「已签到的账号不发领取请求」，把 `todayCheckedIn` 的短路去掉即触发测试失败。
@@ -603,13 +603,13 @@ CHANGELOG 都写明了理由：签到是真实领取奖励的写操作，不该�
 
 - **叫「刷新」，不叫「测试」或「重测」**：按读者拿到的东西命名（这张表变成最新的），
   而不是按机制命名（机制是一批探测）。但提示里把机制说出来——「刷新」听起来是免费
-  重读，而这个要花积分、要跑一分钟。让人意外掏钱的控件，比标签长一点的控件更糟。
-- **左侧，设置之右**：刷新作用于下面的表（本地、可重复），设置会离开面板。按「刷新」
+  重读，而这个会向模型发出请求，费用和总时长取决于目标模型、成员数量及上游响应。让人意外掏钱的控件，比标签长一点的控件更糟。
+- **位于设置按钮左侧**：刷新作用于下面的表（本地、可重复），设置会离开面板。按「刷新」
   不该可能落到「离开」上。
 - **串行 + NDJSON 流**：DSH 一次只探一个账号（并发探整个池是最快触发游限流的方式），
-  所以每一行**落一个就折进去一个**。等整批结束再渲染，会让用户正在看的那一行在**最慢
+  所以每收到一条结果就更新对应账号行。等整批结束再渲染，会让用户正在看的那一行在**最慢
   的账号**答完之前一直是错的——正是这条流要避免的「死面板」。收尾再按 DSH 自己的存储
-  重读一次，所以折叠只是抄近路，不是记录。
+  重读一次，因此流式更新只用于及时展示，持久化结果仍以 DSH 返回的数据为准。
 - **跑起来时图标转**：900ms 一圈。禁用按钮配一个不动的图标读起来像坏了，而串行批次
   足够长，「我这一下到底按上了吗」是个真问题。`prefers-reduced-motion` 下不转，改为
   图标变暗 + 文案「正在刷新…」——那个文案才是真正的指示，动画只是加强。
@@ -621,15 +621,14 @@ CHANGELOG 都写明了理由：签到是真实领取奖励的写操作，不该�
 测试：`tests/settings-route.spec.tsx` 里那条「头部只有设置一个控件」的用例改写成
 「两个，且刷新在设置左边」；新增端到端用例断言按钮真的 POST 到池的 `action=test` 并
 读取响应流；新增一条文案用例，直接查 `en` / `zh` 两份字典——标签不许再出现「测试」，提示
-里必须写明「探测」和「积分」。恢复缺陷后的测试：换成 credits 路由、调换两个按钮顺序、改掉类名、
+里必须写明「探测」和「积分」。变异测试：换成 credits 路由、调换两个按钮顺序、改掉类名、
 把标签改回「重测」、把提示里的成本说明删掉，各自触发测试失败。
 
 复验：两个 tsconfig 干净；全量 2957 passed + 2 skipped；build 6 产物齐全。
 
 ### 变更（积分面板头部的「一键测试」改成「刷新」）
 
-- 头部原来的「一键测试」删掉过一版，理由是真的：它是一个串行探测批次（真花积分、跑满
-  一分钟），却和旁边一个纯导航的链接挤在同一条 11px 的行里，标签也没说清作用域。
+- 头部原来的「一键测试」删掉过一版，理由是真的：它是一个串行探测批次（会发出模型请求，耗时随账号数量和上游响应变化），却和旁边一个纯导航的链接挤在同一条 11px 的行里，标签也没说清作用域。
 - **现在以「刷新」回来**，因为删掉之后暴露了一个更糟的问题：表里的圆点和「被限流 · 约
   N 小时后」是 DSH 上一次**测量**的结果，而这个面板里再没有任何东西能刷新它——账号恢复了
   红色还在，账号刚开始被限流绿色还在。卡片（账号池）里有逐账号测试，但看这张表的人不在
@@ -675,7 +674,7 @@ CHANGELOG 都写明了理由：签到是真实领取奖励的写操作，不该�
   一条**端到端**用例：真的驱动 `probeModel`，把它真实的输出传给 `probeUpdatesOf`——
   手工构造 `status: 0` 的行在修复前后都会通过，证明不了任何事。
 - **验证方式**：4 条新用例在**没有**修复的源码上全部失败（`4 failed | 75 passed`），
-  修复后全部通过，恢复缺陷的对照版本触发预期失败。
+  修复后全部通过，变异副本触发预期失败。
 - **复验**：`pnpm run typecheck` 干净；全量 `vitest run` **2941 passed + 2 skipped**
   （比 `main` 多 4 条新用例）；`pnpm run build` 6 个声明产物齐全。
 
@@ -690,20 +689,19 @@ CHANGELOG 都写明了理由：签到是真实领取奖励的写操作，不该�
   那行 `continue` 放行了传输超时；而传输失败**不带 `retryAtMs`**（上游什么都没说），
   `retryDue()` 于是回退 `POOL_UNKNOWN_COOLDOWN_MS` = **30 分钟**。
 
-  三环合起来，一次网络
-  发生变化被写成了「关于账号的测量」，而**没有任何东西会重新探测一个已被排除的成员**，
+  三环合起来，一次网络故障被写成了「关于账号的测量」，而**没有任何东西会重新探测一个已被排除的成员**，
   池子只能干等冷却过期。
 - **`isTransportFailure()` 增加 `status === 0` 判定**：请求压根没拿到 HTTP 响应，那是
   传输层的事，不是账号的事。`recordAccountFailure()`（实时请求那条写入路径）有完全相同
   的缺陷，同样跳过 `status === 0`。
-- **`status >= 500` 刻意不一起拦，并写成测试验证。** 5xx 是网关**真的答了**，它的答案
-  是关于这个账号的陈述，必须保留；放宽这一条会把「账号真的坏了」也一起藏起来。
+- **`status >= 500` 刻意不一起拦，并写成测试验证。** 5xx 表示网关返回了 HTTP 响应，当前策略保留该失败记录；
+  但仅凭 5xx 不能断定账号本身异常。
 - **`PROBE_TIMEOUT_MS` 10 s → 30 s。** 真实 25k token 探测体实测首字节 3.47 / 3.57 /
   6.97 秒，10 秒只余不到 3 秒。两个方向的代价不对称：等久点只是批量里一个成员慢 20 秒，
   提前开枪是整个池停摆半小时。**不是**调小 `probeInputTokens` 能解决的——上游按请求体积
   限流，小请求永远「可用」，那正是这个功能要消灭的「测试通过、实际被限」。
 - **测试**：`tests/account-pool-run.spec.ts` 新增 2 例（`status: 0` 的超时与 `fetch failed`
-  两种消息都必须被丢弃；5xx 必须保留）；`tests/upstream.spec.ts` 两条假时钟用例的边界值
+  两种消息都必须被丢弃；按当前策略保留 5xx）；`tests/upstream.spec.ts` 两条假时钟用例的边界值
   跟着从 10 s 改成 30 s。
 - **复验**：`pnpm run typecheck` 干净；全量 `vitest run` **2937 passed + 2 skipped**；
   CI 三条腿（ubuntu / windows / pi-ai 1.1.0）全部通过。
@@ -810,7 +808,7 @@ CHANGELOG 都写明了理由：签到是真实领取奖励的写操作，不该�
 - issue #190：新增 7 例（鸿蒙固定路径、`WORKBUDDY_USER_HOME` 覆盖、空白串当未设置、
   未知平台仍返回空；Linux 两套 XDG 目录的顺序与回落）。改写了 3 条既有的 Linux
   断言——它们断言的是"只有一个候选"，而契约现在是"旧的在前、新的是追加"。
-- issue #189：新增 7 例，见上。**恢复缺陷后的测试两次**：把 `scansOpening` 里的 `assistant`
+- issue #189：新增 7 例，见上。**变异测试两次**：把 `scansOpening` 里的 `assistant`
   去掉 → 触发测试失败 3 例；让 `rewriteChannelFingerprintPhrases` 失效 → 触发测试失败 1 例。
   其中一条断言我改了三轮才对：先按"零宽打断"写（那套机制 2026-10-29 已被网关阻止，
   现在是按句改词），又拿整个 body 做全等比较（`prepareChatBody` 还会补 `stream: true`，
@@ -832,7 +830,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
     「输入图 URL 不可达」——那个 URL 用 `curl` 明明取得到。
   - 即使 HEAD 通过，上游也不吃外链：图生视频与图生图是同一条规则（PR #145 记过
     "image 必须是 data URI，传 COS 原始 URL → invoke model error"）。原样传 URL
-    只是把失败推迟到创建任务之后，那时积分已经扣了。
+    会将失败推迟到上游处理阶段，此时可能已经产生费用。
   - 现在与 `image-tool.ts` 的 `resolveImageInput` 严格对齐：**`GET` 下载并编码成
     data URL**。五种输入形态（路径 / `file://` / `http(s)` / data URL / 裸 base64）
     全部归一成 data URL。`docs/VIDEO_GEN.md` 里那段写反的描述一并改正。
@@ -870,8 +868,8 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
     的建议，而那正是他明确拒绝去做的事。
   - **关闭后连缓存里的旧 token 也不再发**：用户关开关的意思是"别再冒充真实设备"，
     不是"别再取新的、旧的可以继续用"。这条比省一次子进程重要。
-  - 开关**每次现读**，不在构造时求值一次：它是 `asVolatile` 配置项，热更新后会变，
-    而 SDK 句柄活到插件卸载。验证一次会让"关掉"必须重启 DSH 才生效。
+  - 原发布说明称开关会在每次调用时读取。全文复核发现该说法与实现不符：
+    当前 SDK 实例在构造时接收布尔值，修改后需要重载插件或重启 DSH。
   - 卡片在「SDK」分区最上面渲染它，与下面那组诊断用一条边框分开——否则"关掉它"和
     "看它现在的状态"会被读成同一件事。
   - `doctor` 走环境变量专用配置 `WORKBUDDY_DEVICE_SDK_ENABLED`（同样**默认关**，与
@@ -887,7 +885,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 ### 修复
 
 - **macOS 上「真实值」档现在被禁用**，并说明原因。此前它是一个**能点、点了没用、
-  只能靠改用预设设备参数**的选项：SDK 能被发现、`probe` 也答 `ready`，但取 token 那一环会
+  无法获取真实设备参数**的选项：SDK 能被发现、`probe` 也答 `ready`，但取 token 那一环会
   `dispatch_sync` 到 dispatch 主队列，而纯 libuv 子进程永不排空它（`sample` 栈实测）。
   用户切过去看到的是"加载成功"，token 却一直是空的。
   - 判定由 Host 给（设备设置响应里新增 `realTier: { state, platform }`），**界面不猜
@@ -937,7 +935,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   `set()` 加了 `origin` 参数（只有 `'upstream'` 才算 live）。
   - 这条改动**最初没被测试覆盖**：把 `hasLiveRoster()` 改成始终为 true，整套测试仍然全部通过。
     因为 startup 刷新随后会把 live 写回来，而新的等待足够长，看不到中间态。补了 4 例
-    针对 `hasLiveRoster` 的直接单元测试后，该恢复缺陷的代码副本被触发测试失败 2 例。
+    针对 `hasLiveRoster` 的直接单元测试后，该变异副本使 2 条测试失败。
 
 
 - 新增 **25** 例（2909 总例），其中 issue #187 的 9 例：
@@ -962,11 +960,11 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   - **关掉后不再发关之前取到的 token**；
   - 预热在关闭状态下不起进程；
   - 环境变量专用配置，且显式 `enabled` 压过环境变量（插件永远显式传，两边不该打架）。
-- **恢复缺陷后的测试**：把"未传 enabled 时的回落"改成始终为 true → 触发测试失败 2 例（默认关 + 环境变量
+- **变异测试**：把"未传 enabled 时的回落"改成始终为 true → 触发测试失败 2 例（默认关 + 环境变量
   专用配置）；去掉 `current()` 里的开关检查 → 触发测试失败 1 例；`realTierAvailabilityFor` 把
   darwin 也判 available → 触发测试失败 1 例；客户端把未知 state 猜成 available → 触发测试失败 1 例；
   `hasLiveRoster()` 始终为 true → 触发测试失败 2 例（加了单元测试之后；之前存活）。
-  - 其中最后一条**首轮存活**：最初的用例新建了一个 `enabled: false` 的实例去断言它
+  - 其中开关检查的变异副本**首轮存活**：最初的用例新建了一个 `enabled: false` 的实例去断言它
     没有 token，而那个实例的缓存本来就是空的，连"忘了检查开关"都测不出来。已改成在
     **同一个句柄**上切开关，并把这教训留在注释里。
 - 同时修复一条**自欺的断言**：预热用例原本叫 "never starts a prewarm chain while
@@ -1048,7 +1046,8 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 
 ### 测试
 
-- 新增 **17** 例（2879 总例，较本套改动前净增 17）：
+- 当时记录净增 **17** 例、总计 2879 例。下列分组记载合计为 20 例，
+  与净增数不一致；保留原统计供追溯，不将它们作为本轮验证结果：
   - `tests/device-profile.spec.ts` +9：留空 = 自动发现、`undefined` 不动这一项、
     两个控件互不覆盖、坏路径保留不静默回退、缺字段 = 回退开（5.16.0 的文件升级
     即生效）、只有显式 `false` 才关、保存目录不动档位与覆盖值、lookup 暴露两项。
@@ -1116,7 +1115,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   - **macOS 现状如实记录**：probe 能过（实际设备验证），token 取不到——SDK 向
     dispatch 主队列 `dispatch_sync`，纯 libuv 进程永不排空它（`sample` 栈实测，
     见 `native/turing-sdk/README.md`）。mac 上表现为 `ready` 但 token 不可用，
-    真实设备档位按上述规则改用预设设备参数。修它需要排空主队列的伴生原生模块，不在本次范围。
+    当时真实值档没有 token 可发；后续加入了可选的虚拟值回退，见本版本前述变更。修它需要排空主队列的伴生原生模块，不在本次范围。
   - token 10 分钟重取、失败时 24 h 内旧值可用并标 `stale`、**只保存在内存中**；完整值只在用户
     点「显示 / 复制」时经 `POST ?action=reveal` 给一次，其余输出只有掩码与长度。
   - 卡片新增「SDK」分区（与「模型 / 能力 / 诊断」同一行）：连接状态、SDK 目录与运行时、
@@ -1137,7 +1136,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
     约一半的跑法拿到的是上一个值。
   - 改法：`waitFor` 的条件换成"时间戳确实前进了"，断言的仍然是同一件事，只是不再
     假设两个计数器同步；执行完成再确认 `calls` 也变大了（证明不是把时间戳改了个名字）。
-  - 恢复缺陷后的测试：把断言换回旧写法，连跑 4 次红 3 次；换成新写法连跑 6 次全部通过。
+  - 变异测试：把断言换回旧写法，连跑 4 次红 3 次；换成新写法连跑 6 次全部通过。
 
 - **`hasTuringSdkBinding` 的回退不再随 DSH 平台分岔**（Windows 腿上发现的真分岔）。
   - 症状：`tests/turing-sdk.spec.ts` 的 "exposes the binding gate as a
@@ -1151,7 +1150,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   - 改法：回退显式取**另一种**拼法（`platform === 'win32' ? posix.join :
     win32.join`），答案只由参数决定。测试侧补一条反向用例（数据 POSIX、喂 win32
     形状的目录）——两个方向一起断言，这个分岔在**任意 DSH**上都会红。
-  - 恢复缺陷后的测试：把回退改回 DSH `join`，正向断言触发测试失败（1 failed / 28 passed）；
+  - 变异测试：把回退改回 DSH `join`，正向断言触发测试失败（1 failed / 28 passed）；
     恢复后 29 passed。
 - **Windows 11 实际设备全量**（Node 24.22.1）：`typecheck` 通过、`build` 通过、
   **2829 例中 2828 通过**。唯一失败是 `tests/issue12-region-hiding.spec.ts` 的
@@ -1255,11 +1254,11 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   - `/T` 永不出现
   - `doctor` 的四个状态各有一条
   - 记忆化只在**成功**时生效（失败必须让下次写入重试）
-- **恢复缺陷后的测试**：9 个恢复缺陷的代码副本，8 个被触发测试失败。第 9 个（把文件授权改成
+- **变异测试**：9 个变异副本，8 个被触发测试失败。第 9 个（把文件授权改成
   `*:(OI)(CI)(F)`）**首轮 12/12 全部通过**——因为测试当时用
-  `filter(arg => arg.startsWith('*S-1-'))` 取授权，而恢复缺陷的代码副本产生的畸形串根本
+  `filter(arg => arg.startsWith('*S-1-'))` 取授权，而变异副本产生的畸形串根本
   进不了那个过滤器。已把取法改成「取 `/grant:r` 后面的那个值」并断言**恰好 3
-  条**，重新运行后该恢复缺陷的代码副本测试失败。
+  条**，重新运行后该变异副本测试失败。
 
   这条留在注释里，免得下一个人再写出同样取不到的断言。
 - **全仓结果**：2691 例通过（160 文件），类型检查通过。
@@ -1301,7 +1300,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   - **行为级**：渲染出的「最近刷新」时刻必须等于**读者 locale** 对该时刻的写法。
     `lastRefresh` 是「最近一次刷新的时刻」（即当下），所以期望值取渲染前后两个
     瞬间，容许跨过一分钟边界。
-- **恢复缺陷后的测试**：把 locale 改回 `'zh-CN'`，两条用例**同时**测试失败（源码级列出
+- **变异测试**：把 locale 改回 `'zh-CN'`，两条用例**同时**测试失败（源码级列出
   「still pins a locale」，行为级报出实际渲染值 `19:36` 与期望的 `07:36 PM`）。
 - 全仓 **2677** 例通过（159 文件），类型检查通过。
 
@@ -1335,7 +1334,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 改回 `input.left`，整个文件仍然全部通过，而插件会「传入一个界面扩展位置、注册到另一个界面扩展位置」。
 
 现补一条一致性断言：`inject()` 的界面扩展位置名与 `register({ name })` 必须相等，
-并带「检查的检查」（匹配对数 ≥ 3，防止正则失效后空转）。恢复缺陷后的测试：只改
+并带「检查的检查」（匹配对数 ≥ 3，防止正则失效后空转）。变异测试：只改
 `register({ name })`，新用例立刻红并列出两个界面扩展位置。
 
 ### 测试
@@ -1495,7 +1494,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
     最后一条是 POLICY 检查：`docs/DSH-0.2.1-RC5-FOLLOWUP.md` 必须还在、
     且仍写着 `rawText` 与结论。
 
-    恢复缺陷后的测试做了三次：往允许表里加第五个槽 → 第 1 项失败；在 `src/` 里
+    变异测试做了三次：往允许表里加第五个槽 → 第 1 项失败；在 `src/` 里
     引用该槽 → 第 3、4 项失败；引用它并**只**读 `text` → 第 4 条单独红。
 
     复核文档无法自我执行，
@@ -1552,7 +1551,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
     横幅从裸的 `TypeError` 改成「读取账号状态失败：…」+「重试」按钮；新增
     `row.usageErrorHint` / `row.usageRetry`（中英）与 `.dsm-workbuddy-usage-error-block`。
   - **测试**：新增 `tests/issue170-status-retry.spec.tsx`，验证重试等待间隔（3s 后有请求、再 3s 没有、
-    再 3s 才有）、读到即停、「重试」按钮立即读取且不等待等待后重试、空 message 回落到
+    再 3s 才有）、读到即停、「重试」按钮立即读取，不等待自动重试间隔、空 message 回落到
     `row.requestFailed`、以及折叠期间零请求。
 
 - **Web GUI 段落的第二句也是独立指纹，改词表补齐（#167）**
@@ -1593,7 +1592,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   - 生图（`%TEMP%/workbuddy-image-gen`）与视频（`workbuddy-video-gen`）原来只 `mkdir` + `writeFile`，
     仓库内无任何清理路径。新增 `src/temp-files.ts` 的 `pruneTempDir()`，**挂在写入之后**按 mtime
     保留最新 20 个（不是启动时扫一遍：插件可能活在久不重启的 DSH 里，那时恰恰不生成）。
-    能力被丢弃——清理失败绝不能把一次成功的生成变成失败。
+    清理任务独立执行，失败不会改变已经成功的生成结果。
 
 - **请求体超限回 413 而不是 500（#174 ④）**
   - `readBody` 原来 reject 一个裸 `Error`，被外层 catch 写成 `500 internal`。改为具名
@@ -1679,7 +1678,8 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   - **修法**：`withLegacyContext` 在 `alignAssistantIdentities` 之后**无条件**丢弃**跨 provider** 的
     foreign thinking（`api: dsh-foreign`，或 provider 不属于本 bundle 的两条路由）；同一路由内换
     模型（`hy3` → `deepseek-v4.1-flash`）仍由 `dropForeignThinking` 显式开关控制。跨 provider 的
-    思考块没有签名，无法通过 reasoning 字段再次发送，丢弃不改变处理规则；文本与工具调用不动。
+    思考块没有可复用签名，插件主动丢弃这些内容以避免再次发送触发拒绝；这会减少上游收到的历史信息，
+    不能称为语义完全不变。文本与工具调用保持原样。
   - **诊断**：自动丢弃时写一条 warn（仅在开关关闭时），`latestForeignThinking` 仍照旧上报。
   - **测试**：`tests/issue147-foreign-thinking.spec.ts` 新增三条（跨 provider 选中、同路由模型
     切换不选、global 路由对齐后不误伤）；`tests/issue147-model-leg-wiring.spec.ts` 新增两条（两个
@@ -1778,8 +1778,8 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
     22 个定点用例 + 1500 例定种子随机语料对照**字节相等**；并验证耗时 —— 130 KB 在 2 s 内完成，
     320 KB 的中位数在 5 s 内完成（真正线性的实现在该尺寸约 15 ms，旧规则约 15 分钟，两者相差三个数量级，
     所以这个上限既不误报也绝不放过）。
-  - **耗时断言的度量方式本身改过两次，两次都是被 CI / 恢复缺陷后的测试纠正的**：第一版钉 60 KB→120 KB 的
-    **比值 < 8**，恢复缺陷后的测试显示旧规则在该尺寸的比值恰好 **4.0** —— 8 倍把二次方实现**放过去了**，等于没钉；
+  - **耗时断言的度量方式本身改过两次，两次都是被 CI / 变异测试纠正的**：第一版钉 60 KB→120 KB 的
+    **比值 < 8**，变异测试显示旧规则在该尺寸的比值恰好 **4.0** —— 8 倍把二次方实现**放过去了**，等于没钉；
     收紧到 **< 3** 后，**CI 又在正确实现上把它跑红**（ubuntu 实测 60 KB 10 ms、120 KB 34 ms，比值 3.4）——
     在个位数毫秒的样本上，比值量到的是计时粒度、GC 和固定开销，不是被主张的增长。
 
@@ -1805,7 +1805,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   - 保留的正是 #159 真正关心的那一半：**请求还活着时的 11128，三级照跑**。这一半由
     `issue113-channel-gate-evidence.spec.ts` / `issue98-shim.spec.ts` 覆盖，本轮又加了一条同文件内的
     对照用例，防止将来有人以「救援没跑」为名再把门删掉。
-  - 恢复缺陷后的测试：把三处 `&&` 删掉 → 新增的断线用例**变红**（`the shim spent a rescue on an aborted signal:
+  - 变异测试：把三处 `&&` 删掉 → 新增的断线用例**变红**（`the shim spent a rescue on an aborted signal:
     expected 1 to be +0`），对照用例**仍绿**。
 
 ### 未改动（据实说明）
@@ -1820,7 +1820,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 - 端到端对照：同一个 **116,939 字符**的现场形状 body（三段身份句 + 无标点长 prose + 20 轮 assistant
   历史）走完整 shim，三级阶梯全部执行完成后答 200 —— **修复后 29 ms，修复前 144,260 ms（2 分 24 秒）**。
   这一条是本次采用的判据：旧代码可以恢复，但恢复耗时过长。
-- 恢复缺陷后的测试（每条都确认会让对应用例变红）：删掉三处 `&& !controller.signal.aborted` → 新增断线用例
+- 变异测试（每条都确认会让对应用例变红）：删掉三处 `&& !controller.signal.aborted` → 新增断线用例
   **变红**（`the shim spent a rescue on an aborted signal: expected 1 to be +0`）；把密集规则退回 O(n²)
   实现 → **160 KB 实测 204,670 ms**，超过 5 s 上限 40 倍，**变红**；而正确实现在同一尺寸约 15 ms
   （320 KB 在恢复缺陷的修改版上跑满 10 分钟未完成，已终止，未作为判据）。
@@ -1830,14 +1830,14 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 
 > issue #155 的**两个独立 Bug**：**① 业务码按字节匹配 JSON**——`11128`/`14003`/`14018` 用
 > `body.includes('"code":11128')` 判定，于是同一个信封 `{"code":11128}` 认得、多一个空格的
-> `{"code": 11128}` 和写成字符串的 `{"code":"11128"}` 都不认，渠项检查被静默判成 `client`，
+> `{"code": 11128}` 和写成字符串的 `{"code":"11128"}` 都不认，渠道校验被静默判成 `client`，
 > **整条救援阶梯不再运行**（#113 的修复等于被一个空格关掉）；**② 删账号只清内存、不清持久化选择**——
 > 磁盘上 `accounts.cn` 仍写着死 id，下次 `applySelection` 把它读回来，CN 整块变「已保存的账号在本机
 > 已不存在」且账号列表一条不渲染。
 
 ### Fixes
 
-- **渠项检查/限流/耗尽三族业务码按字节匹配，一个空格就漏判（#155）**
+- **渠道校验/限流/耗尽三族业务码按字节匹配，一个空格就漏判（#155）**
   - **现象**：报告者贴回来的那条消息里**自相矛盾**——正文写着 `code 11128`，同一句却带
     `"type":"client"`，收尾是「请按上面的提示调整后重试」。两半出自同一个信封、同一份 body。
   - **根因**：分类器判族用 `body.includes('"code":11128')`——对**一种序列化**做字节测试；上游 JSON 里
@@ -1899,7 +1899,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 
     删除结果需要同步持久化，才能在重启后保持。
   - **修法**：`removeOne` 之后调用 `clearRegionAccountSelection()`，**只在被删账号正是本区持久化 pin 时**
-    写 `accounts[region] = ''`。判定与写入同在一个函数里，调用方无法只挑一半。四条约束都是这条修复的一部分：
+    写 `accounts[region] = ''`。判定与写入同在一个函数里，调用方无法只挑一半。以下五条约束都是这条修复的一部分：
     - **写 `''`，绝不删键**：`''` 是「跟随 App 当前登录」的哨兵（也是全新安装的默认值，所以这是**恢复**而非
       发明状态）；删掉的键含义是「从未配置」，会回落到旧版扁平 `accountId`，把用户**悄悄切到另一个账号**。
     - **只清 pin 了该号的区域**：无关的删除必须零次写入 —— 内存里 `current()` 都拒绝回退到别的账号，
@@ -1930,7 +1930,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 
   单独存在的理由与 `tests/pool-e2e.spec.ts` 相同：纯 helper 用例对着我自己写的 double，摘掉 `index.ts`
   里的调用关系它们全部通过。
-- 恢复缺陷后的测试（每条都确认会让对应用例变红）：分类器退回 `body.includes('"code":N')` → **11 项失败**；删掉
+- 变异测试（每条都确认会让对应用例变红）：分类器退回 `body.includes('"code":N')` → **11 项失败**；删掉
   「本区是否 pin 了该号」的判定 → **4 项失败**；写整个 section 而非 `accounts` 字段 → **4 项失败**；
   `removeOne` 退回只清内存 → **1 项失败**（正是那条延后到重启才现形的链）。
 - 全量：`tsc` 双配置 0 错误，**146 文件 / 2536 通过（2 条按平台跳过）**，`tsdown` 构建通过。
@@ -1969,7 +1969,8 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   - **修法**：第二项检查在拒绝之前先试一次受限纠正（`repairNearMissName`，由 shim 开启）：
     - 候选集**只来自本次请求的 `body.tools`** —— 永远不会选中一个没被提供的名字，更不会凭空造名；
     - 写出名与候选名的**编辑距离必须 ≤ 1**，且**恰好一个**候选落在这个距离内（两个就放弃）；
-    - 双方长度都 **≥ 4**（`cat`/`cut`、`bash`/`dash` 这类三字母的一字之差不是证据）；
+    - 双方长度都 **≥ 4**，排除 `cat`/`cut` 这类三字母近邻；达到长度门槛的
+      `bash`/`dash` 仍需通过唯一候选等其余检查；
     - 写出名若**已精确命中**声明名，直接用它，绝不"纠正"到邻居；
     - **只纠正 `invoke name=`**；`parameter name=` 一律不动（改参数名等于改调用处理规则，比显示正文更糟）；
     - `tool_choice` 的钉选、第四项检查（必需参数缺失即截断）**都在纠正后的名字上照旧生效**。
@@ -1985,7 +1986,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   纯函数用例自己传开关，摘掉 `shim.ts` 里的 `repairNearMissName: true` 时它们全部通过 —— 实测该恢复缺陷的修改只让这条变红。
 - `tests/dsh-line.spec.ts` 新增 1 条（#151）：断言 `peerDependenciesMeta['@earendil-works/pi-ai'].optional === true`，
   且 peer **范围**未因此改动。
-- 恢复缺陷后的测试（每条都确认过会让对应用例变红）：去掉编辑距离判断 → 1 项失败；去掉唯一性判断 → 1 项失败；
+- 变异测试（每条都确认过会让对应用例变红）：去掉编辑距离判断 → 1 项失败；去掉唯一性判断 → 1 项失败；
   去掉两个长度下限 → 2 项失败；忽略 opt-in（默认开启）→ 1 项失败；摘掉 shim 的调用关系 → 1 项失败；移除 `optional` → 1 项失败。
 - 全量：`tsc` 双配置 0 错误，**143 文件 / 2491 通过（2 条按平台跳过）**，`tsdown` 构建通过。
 
@@ -2012,7 +2013,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 - 新增 `tests/issue147-model-leg-wiring.spec.ts`（12 条），补上**调用关系**而不是判据：legacy 与 modern 两个分支 × `stream` / `streamSimple` 两个入口 × 三种状态（换模型时删、同名模型时留、开关关闭时原样），都经过真实 `createWorkBuddyAdapter`，断言 api 收到的上下文里 thinking 块的去留、以及 `onForeignThinking` 是否触发。
   - **这条为什么必须单独存在**：把四处 `prepare(context, model.id)` 全部改回 `prepare(context)`（即修复被静默摘掉），**整套 2467 条测试依然全部通过**——纯函数测试自己调判据，没有任何东西发现 wrapper 没传 id。补上后该恢复缺陷的修改使其中 4 条全红。这与 `tests/adapter.spec.ts` 当初为 issue #24 建的洞同型。
   - 后两种状态是防止「一概删除」也能通过的对照：若判据退化成「凡 assistant 轮次都算外来」，删除会把**当前模型自己的**推理一起删掉（#102 的反向回归），所以同 model 与开关关闭两条必须看到 thinking 保留。
-- 恢复缺陷后的测试：model 腿恒 `false` → 2 项失败；恒 `true` → 3 项失败（含 #147 原有 suite 1 条）；摘掉 `model.id` 传参 → 调用关系测试 4 项失败；把修复整体短路（`if (true) return aligned`）→ 调用关系测试 4 项失败。
+- 变异测试：model 腿恒 `false` → 2 项失败；恒 `true` → 3 项失败（含 #147 原有 suite 1 条）；摘掉 `model.id` 传参 → 调用关系测试 4 项失败；把修复整体短路（`if (true) return aligned`）→ 调用关系测试 4 项失败。
 - 全量：`tsc` 双配置 0 错误，**143 文件 / 2479 通过（2 条按平台跳过）**，`tsdown` 构建通过。
 - 真实会话数据复核（`session-356f6889`，5,158 事件）：同网关换模型场景（80 条本插件自己的轮次）下，旧的两腿调用检出 **0 块**，三腿调用检出 **76 块 / 134,943 字符**，带正文消息 72 → 56，正文字符 195,867 → 60,984；单模型转录检出 0 块并返回同一对象（no-op 契约成立）。
 
@@ -2037,7 +2038,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 ### Tests
 
 - 新增 `tests/issue147-foreign-thinking.spec.ts`（15 条），全部经过**真实 pi-ai 的 `transformMessages`**，而不是桩：缺陷本身可复现、开启后不产生正文、关闭时原对象返回（零改动）、本插件国内外两区轮次都保留 thinking、正文与工具调用不被触碰、redacted 与空块不误报、错误轮次报 `dropped` 变体、顺序必须在 alignment 之后、再次执行时保留原结果。
-- 恢复缺陷后的测试：把 `dropForeignThinking` 改成空操作 → 4 条变红；把判断放宽到所有 assistant 轮次 → 7 条变红。
+- 变异测试：把 `dropForeignThinking` 改成空操作 → 4 条变红；把判断放宽到所有 assistant 轮次 → 7 条变红。
 - 全量：**142 文件 / 2458 通过（2 条按平台跳过）**；两个 tsconfig 均 exit 0。
 
 ## 5.11.0 (2026-10-26)
@@ -2075,10 +2076,10 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
     5.09–5.17 秒，请求 4 秒拿回 4.04–4.46 秒。
 
     `enable_audio: true` 也不保证有音轨。
-- **卡片上按模式验证视频模型（软约束，与显式 `model` 分工明确）**
+- **卡片上按模式指定视频模型（软约束，与显式 `model` 分工明确）**
   - **起因**：国内区每个视频标签组都有 2 个模型（`kling-video-v3` / `minimax-video-h3`），调用方多半省掉 `model`，于是永远拿到目录里的第一个；口头说一次不持久。
-  - **按区、按标签存**：`regions.<区>.preferredVideoModels` 是 `{ [tag]: modelId }`——两种模式可能由不同模型提供，且模型 id 不跨区（`minimax-video-h3` 在国际区不存在）。
-  - **软约束**：显式 `model` 是调用方为这一次写的，写错就报 `NO_VIDEO_MODEL`；卡片偏好是用户以前写的，验证的模型已从目录里消失时**静默回落组内第一个**。两条方向相反的规则各有测试验证。
+  - **按区、按标签存**：`regions.<区>.preferredVideoModels` 是 `{ [tag]: modelId }`——两种模式可能由不同模型提供，且偏好按区域隔离（当时国际区目录没有 `minimax-video-h3`）。
+  - **软约束**：显式 `model` 是调用方为这一次写的，写错就报 `NO_VIDEO_MODEL`；卡片偏好是用户以前写的，指定的模型已从目录里消失时**静默回落组内第一个**。两条方向相反的规则各有测试验证。
   - **清空 = 删 key**，不是写空串；卡片读值先问 Host（`statusByRegion`），浏览器配置读取结果只作回落。
   - **写入走与开关同一条「写后重新读取并核对」路径**（`writeRegionPreferredVideoModels`），不是裸 `scope.set`。
 
@@ -2104,8 +2105,9 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 - **视频工具：`seconds: 1` 被上游 400 退回后还要白等 60 秒（两处真 bug）**
   - **现场**：`Error: workbuddy video: 提交生视频任务失败（HTTP 400）: code 14407: Create video failed with error: unsupported video duration: 1 seconds, supported range: 4-15 seconds`，紧接着第二次调用被挡成「请 38 秒后再试」。用户的判断是「上游返回这种错误，也要等半天」。
   - **根因一（本地时长校验是死代码）**：`src/video-tool.ts` 调 `resolveVideoParams({...})` 时**没传第二个参数 `config`**；而 `src/video-gen.ts` 的 `minSeconds`/`maxSeconds` 校验只在 config 存在时才跑。更上游还有一处：`src/image-gen.ts` 的 `selectMediaModels` 只搬 `{id,name,tags}`，把条目上的 `videoGeneration` 丢了——所以即使传了也拿不到。
-  - **根因二（没花钱的失败也进冷却）**：`describeVideoFailure` 把提交阶段的一切非 401/403/404/429 都归成 `UPSTREAM`，而 `UPSTREAM` 在冷却集合里。可 400 是「建任务之前就被退回」，没有 task、没有扣积分。
-  - **修法**：`selectMediaModels`（video 与 image 两处）保留并原样传递 `videoGeneration`（`readVideoGeneration` 只搬已知字段，缺字段不补默认值），工具把它传给 `resolveVideoParams`——越界时长现在**在本地就被拦下，一次付费请求都不发**；提交阶段其它 4xx 单独归类为 `REJECTED`（不进冷却，错误里明说「没有创建任务、没有扣积分」并保留上游原文）。
+  - **根因二（没花钱的失败也进冷却）**：`describeVideoFailure` 把提交阶段的一切非 401/403/404/429 都归成 `UPSTREAM`，而 `UPSTREAM` 在冷却集合里。可 400 是「建任务之前就被退回」，没有返回 task id，但这不能单独证明上游未创建任务或未计费。
+  - **修法**：`selectMediaModels`（video 与 image 两处）保留并原样传递 `videoGeneration`（`readVideoGeneration` 只搬已知字段，缺字段不补默认值），工具把它传给 `resolveVideoParams`——越界时长现在**在本地就被拦下，一次付费请求都不发**；提交阶段其它 4xx 单独归类为 `REJECTED`（不进冷却，并保留上游原文）。旧提示称「没有创建任务、没有扣积分」过度确定，
+    当前已改为不据此保证零费用。
   - **顺带学会区间**：目录不带 `videoGeneration` 的账号（实测部分国内区账号的 `/v3/config` 条目只有 `{id,name,tags}`）本地无从校验，只能让上游先拒一次；`parseSupportedSecondsRange` 从它的文案里读出 `supported range: 4-15`，按**区域 + 模型 id**记在本次进程里，第二次同样的越界值**零请求、零冷却**直接报「时长必须在 4 到 15 秒之间」。读不出区间（例如拒的是宽高比）就什么都不记——不猜。
   - **验证**：`tsc` 两套配置 0 error；`vitest run` 141 个文件 / **2445 条**通过（`tests/video-gen.spec.ts`
     35→48、`tests/video-tool.spec.ts` 7→12；新增用例验证「提交 400 之后下一次仍会真的发请求」
@@ -2117,10 +2119,10 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
     用户要桌面壁纸、竖屏壁纸时只会得到一张 1024 宽的照片。
   - **2026-10-25 逐档实测（国内区 `hunyuan-image-alpha`）**：`2048x2048`（4.19 MP）、
     `2048x1536`（3.15 MP）、`2048x1152`（2.36 MP）、`2560x1440`（3.69 MP）、
-    `2560x1600`（4.10 MP）**全部成功，输出宽高与请求完全一致**——不是把大图静默压回原生
-    尺寸再放大，画面里的刻度文字与纹理是独立线条。`2560x2560`（6.55 MP）、`3072x3072`
+    `2560x1600`（4.10 MP）**全部成功，输出宽高与请求完全一致**——输出尺寸与请求一致；仅凭画面细节无法排除内部缩放或重采样。`2560x2560`（6.55 MP）、`3072x3072`
     （9.44 MP）、`4096x4096`（16.8 MP）**全部被直接拒绝**，不会退回一个较小尺寸。
-  - **据此定上限**：约 **419 万总像素**，任意长宽比。这**推翻**了流传的判断「原生上限约
+  - **据此定上限**：这些样本中最大成功尺寸为 **419 万总像素**。这支持约 419 万像素的经验边界，
+    但不能证明任意长宽比均可用，也没有精确测定全部成功与失败尺寸之间的阈值。这**推翻**了流传的判断「原生上限约
     1536 长边」——那个数字来自官方 CLI `.describe()` 的三个例子与 bundled OpenAI SDK 类型
     定义的取值范围，从来没有实测过；实测表明 2560 长边是真实可用的。
   - **修法**：`src/image-tool.ts` 的 `size` 描述加入 `2048x2048` / `2048x1536` /
@@ -2147,7 +2149,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   - **起因**：此前文档与代码都写着「只有国内区有生图模型，国际区一条都没有」，工具因此硬编码成 `regionEnabled(config, 'cn')` 才注册。那句话是 **2026-10-21 的观测**，已经过期。
   - **2026-10-25 跨区实测**：国际区 `GET /v3/config` 29 条模型里 `hy-image-3.5` **同时**带 `text-to-image` 与 `image-to-image`；同一份凭据 `POST /v2/images/generations` + `hy-image-3.5` → HTTP 200、`usage.credit = 0.03`、产物是 `ap-singapore` 的 COS 签名 URL。`buildImageBody()` 的「其它」分支（带 `response_format: 'b64_json'`）被原样接受，**协议层一行都不用改**。
 
-    同一轮检查请求确认国际区 `/v2/api-keys` 回 503、`/agenttool/v1/tempkey` 回 500（而国内区后者回 200）——即 3D 那条临时密钥处理过程在国际区整个不存在，与生图无关。
+    同一轮检查请求确认国际区 `/v2/api-keys` 回 503、`/agenttool/v1/tempkey` 回 500（而国内区后者回 200）——这些响应只说明当时的国际区临时密钥请求失败，不能据此认定相关能力完全不存在。
   - **修法（区域选择集中到一处）**：`src/index.ts` 新增 `imageToolRegionOf(config)`——按 `REGION_KEYS`（`cn` 在前）遍历，跳过被关闭的供应商，返回第一个**既启用又打开了「允许模型自主生图」**的区域，都不满足返回 `undefined`。`syncImageTool()` 的注册判定改为 `imageToolRegionOf(value) !== undefined`；`resolveCredential` 改为每次调用时读当前配置、遍历被授权的区逐个 `resolve()`，某区未登录就试下一个区，全失败返回 `undefined`。
 
     **CN 优先是唯一向后兼容的顺序**：升级前这个工具只能走国内区，升级不能悄悄把老用户的支出挪到另一个网关。
@@ -2168,7 +2170,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   - **返回值与 `render` 区分两种模式**：output schema 新增必填 `mode`（`'generate'` | `'edit'`），`render` 显示「改图 · 模型：`xxx`」、markdown alt 由「WorkBuddy 生图」改为「WorkBuddy 文生图/改图」。
   - **上游**：`src/upstream.ts` 新增 `editImage(credential, {model, prompt, size?, image, inputFidelity?})`，`src/image-gen.ts` 新增 `buildEditBody()`（在 `buildImageBody` 之上追加 `image` 数组，`input_fidelity` 仅在非空时写入）。
 - **卡片的「能力」栏新增媒体模型只读清单**
-  - `POST /plugins/dsh-connect-workbuddy/media-models`（`WORKBUDDY_MEDIA_MODELS_PATH`）：405 非 POST → 403 外部 Origin → 503 未调用关系 → `region` 查询参数（缺省 `cn`）→ 200 `{models:[{id,name,tags}]}`。空清单是**合法回答**（网关不发布媒体模型），不是错误——卡片为它单独写了一句话，而不是显示一个失败。
+  - `POST /plugins/dsh-connect-workbuddy/media-models`（`WORKBUDDY_MEDIA_MODELS_PATH`）：405 非 POST → 403 外部 Origin → 503 未提供读取函数 → `region` 查询参数（缺省 `cn`）→ 200 `{models:[{id,name,tags}]}`。空清单是**合法回答**（网关不发布媒体模型），不是错误——卡片为它单独写了一句话，而不是显示一个失败。
   - **为什么单独一条端点**：`models/refresh` 返回的是**聊天**目录，筛选聊天模型时媒体条目被 `selectCliModels` 丢掉，刷新它永远看不到图像模型。
   - DSH 侧 5 分钟缓存（复用 `MEDIA_MODEL_TTL_MS`），`refresh=1` 绕过——刚在上游启用了图像模型的用户不该等 TTL 到期才看见。读失败不写缓存。
   - **只读，不做下拉**：两区今天每个标签组只有 1 个模型，长度 1 的下拉是假选择。切换能力的方式就是工具的 `model` 参数。清单**惰性读取**（只在能力面板打开时读、每区只读一次），失败只落在块内，绝不并进 `statusByRegion`——那会把图像模型写进 `lastCatalog`，adapter 就会拿它当聊天模型。
@@ -2176,12 +2178,12 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 
 ### Fixes
 
-- **超限的 data URL 会绕过 8 MB 与空文件版本检查，被原样发到上游，然后按「已计费失败」冷却 30 秒（本轮合并前审核发现）。**
+- **超限的 data URL 会绕过 8 MB 与空文件检查，被原样发到上游，然后按「已计费失败」冷却 30 秒（本轮合并前审核发现）。**
   - **症状**：`resolveImageInput` 的 `data:` 分支校验完格式就 `return text`，而空文件与 `MAX_INPUT_IMAGE_BYTES` 的检查都在 `encodeInputImage` 里——只有 `http(s)`、裸 base64、本地路径这三条路径会走到它。于是 `data:image/png;base64,<12 MB>`（解码后 9 MB）会被整个塞进请求体发出去；上游拒绝后 `sent` 已是 `true`，再吃一次 30 秒冷却。
   - **与本 PR 自己的声明直接冲突**：工具描述、`docs/IMAGE_GEN.md` 的「输入图的失败不进冷却」小节，以及 `image-tool.ts` 里 `inputImageError()` 的注释都写着「输入图的一切毛病都发生在请求发出去之前，所以统一 `INVALID_ARGS`、不花积分、不进冷却」。四条路径中的一条违背了上述参数处理约定。
-  - **修法**：新增 `assertInputImageBytes(byteLength, source)` 作为唯一的体积/空文件版本检查，`encodeInputImage` 与 `data:` 分支都调它——文案因此只有一份，四条路径不可能再各自漂移。
+  - **修法**：新增 `assertInputImageBytes(byteLength, source)` 作为唯一的体积/空文件检查，`encodeInputImage` 与 `data:` 分支都调它——文案因此只有一份，四条路径不可能再各自漂移。
   - **采用的规则**：体积按**解码后**的字节数比上限，不按 base64 字符串长度。base64 比原始字节长约 4/3，拿字符串长度比会把一张合法的 6 MB 图（8 MB base64 字符）误判成超限，并在错误信息里报出一个虚高的 MB 数。
-  - **验证**：`tests/image-gen.spec.ts` 新增 3 条——超限 data URL 报 `INVALID_ARGS` 且 `editImage` 没被调用、紧接着再调一次**不进冷却**；6 MB 输入（8 MB base64 字符）仍被接受；`data:image/png;base64,====`（形似 data URL 但解码为空）报 `INVALID_ARGS`。恢复缺陷后的测试：把 `data:` 分支改回直接 `return`，前两条与空内容那条中的两条立刻变红。
+  - **验证**：`tests/image-gen.spec.ts` 新增 3 条——超限 data URL 报 `INVALID_ARGS` 且 `editImage` 没被调用、紧接着再调一次**不进冷却**；6 MB 输入（8 MB base64 字符）仍被接受；`data:image/png;base64,====`（形似 data URL 但解码为空）报 `INVALID_ARGS`。变异测试：把 `data:` 分支改回直接 `return`，前两条与空内容那条中的两条立刻变红。
 
 ### Tests
 
@@ -2191,7 +2193,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 
   一条旧断言从「WorkBuddy 生图」改为「WorkBuddy 文生图」——`render` 现在分两种模式。
 - `tests/image-tool-optin.spec.ts`：12 条。新增 `imageToolRegionOf` 四条（都没授权 → `undefined`、供应商关着时勾选不算授权、只开国际区 → `'global'`、两区都开 → `'cn'`），卡片源码断言改为「不再 CN-only」。
-- `tests/web-status.spec.ts`：新增媒体端点 7 条（200 只回 id/name/tags 且 region 原样传递、空清单 200、`refresh=1` 原样传递且 `refresh=0`/缺省读作 false、GET 405、外部 Origin 403、未调用关系 503、上游抛错 500），以及路由顺序断言。
+- `tests/web-status.spec.ts`：新增媒体端点 7 条（200 只回 id/name/tags 且 region 原样传递、空清单 200、`refresh=1` 原样传递且 `refresh=0`/缺省读作 false、GET 405、外部 Origin 403、未提供读取函数时 503、上游抛错 500），以及路由顺序断言。
 - `tests/card-media-models.spec.tsx`（新文件，6 条，jsdom 真渲染）：只在能力面板打开后**每区读一次**、按钮才带 `refresh=1`；行里同时显示 name / 工具要用的 `id` / 翻译过的 tag；空清单读成一句话而不是失败；上游 500 只落在块内、同面板的其它开关照常可用；半形行被丢弃而不是抛异常；列表错误限定在该区块内。
 - 全量 `vitest run`：138 文件 / 2362 条通过（本功能相关的 image-gen 60 + image-tool-optin 12 + card-media-models 6 共 78 条）；两个 tsconfig 的 `tsc` 均 0 错。
 
@@ -2208,7 +2210,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
     另外 `TypeError` 与时刻无关，issue 描述的「只在夜间崩」自相矛盾（13:00 与 23:30 抛的是同一个错）。
   - **但那条路径并非不可达**：`toPersistedWorkBuddyModel` 保留 `promos`，settings 的 `modelConfig` schema 不剥离未知键，`resolveRoster` 原样携带——所以 `lastCatalog` 是一条**真实的第二入口**，且客户端对它**零运行时校验**。这就是补检查而不是「纯纵深防御」的理由。
   - **修法**：签名改 `(value: unknown)`，首行 `if (typeof value !== 'string') return undefined`。**没有**采纳 issue 建议的「数字按当日分钟数解释」：`1380` 确实等于 23:00，但没有任何上游发布过这种形状，为一条上游从未描述过的活动凭空造出时段，正是本模块要防的「说多」。
-  - **验证**：`tests/promo.spec.ts` 新增 2 条——数字端点 `selectPromoBadge` / `selectPromoMultiplier` 均不抛错且返回 `undefined`；`parseWorkBuddyPromos` 对数字端点产出 `dailyUnusable`（「永不运行」）而非「无时段 = 全天」。恢复缺陷后的测试：删掉检查 → 该条变红。
+  - **验证**：`tests/promo.spec.ts` 新增 2 条——数字端点 `selectPromoBadge` / `selectPromoMultiplier` 均不抛错且返回 `undefined`；`parseWorkBuddyPromos` 对数字端点产出 `dailyUnusable`（「永不运行」）而非「无时段 = 全天」。变异测试：删掉检查 → 该条变红。
 
 - **上游的促销变更被冻结在用户保存目录的那一刻（本轮审核发现，影响面大于 #139）。**
   - **症状**：用户只要保存过一次模型目录，`promos` 就被写进 `lastCatalog`，此后**上游的促销变更再也不生效**——徽标与折后价用的都是保存那一刻的读取结果。两个方向都实测过：saved 无 `promos` + live 有 → 徽标**完全不出现**；saved 有旧 `promos` + live 有新 → **旧的赢**。
@@ -2216,7 +2218,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
     极端情形：一条无 `schedule` 的常驻徽标（如「订阅优先」）在上游撤下后仍会**永远**挂在模型行上，因为它没有绝对窗口能让它自己过期。
   - **根因**：`promos` 不在 `LIVE_OWNED_FIELDS`（`src/catalog-sync.ts:77`），而 `overlayLiveCapabilities` 返回 `{ ...saved, ...overlay }`——saved 的 `promos` 原样留下，live 的被整个丢掉。这与 `src/promo.ts` 文件头「徽标是时钟的函数，不是抓取的函数」直接矛盾：它冻在了**保存**时。
   - **修法**：`promos` 改为 live-owned，但**不能**复用 `LIVE_OWNED_FIELDS` 那个循环（它只写 live 有值的字段，无法表达「清除」）。改为在 `overlayLiveCapabilities` 里单独处理：live 有 `promos` 就整体覆盖；live 没有就**按 key 删除** saved 的那份（不能用 `undefined`——显式 `undefined` 会存活 `structuredClone`，并被设置写入路径的严格 JSON codec 整单拒绝，与 `busyLevel` 的处理同理）。
-  - **验证**：`tests/catalog-sync.spec.ts` 新增 5 条覆盖四个方向 + 直接调用 `overlayLiveCapabilities`。恢复缺陷后的测试：让 `promosDiffer` 恒为 false → 4 条变红。
+  - **验证**：`tests/catalog-sync.spec.ts` 新增 5 条覆盖四个方向 + 直接调用 `overlayLiveCapabilities`。变异测试：让 `promosDiffer` 恒为 false → 4 条变红。
   - **已知未改**：`catalogFingerprint` 仍不含 `promos`，`lastCatalog` 里那份 `promos` 现在是纯冗余。持久化形状的调整会牵动严格 JSON codec 的历史教训，留待另议。
 
 - **配置区渲染失败时页面一片空白，无法与「插件没装上」区分（issue #139 的报告者正是被这一点拖住）。**
@@ -2229,7 +2231,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 - **上游发布了活动时段却一条都读不懂时，徽标静默消失，界面上没有任何解释。**
   - **症状**：`dailyUnusable` 让该活动按「永不运行」处理（正确），但用户看到的是徽标不见了——与「活动已结束」无法区分。**这才是上游将来改格式时用户真正会遇到的症状**（不崩，静默消失），而 issue 猜的是崩溃。
   - **修法**：诊断栏的 `row.diagFailures` 行计入 `promoUnreadable`，显示「N 条活动时段读不懂 —— 徽标已隐藏」。`dailyUnusable` 本来就已传到客户端，只是从未显示过。
-  - **验证**：`tests/promo-card.spec.tsx` 新增 2 条（有 `dailyUnusable` 时诊断行出现且不画徽标；全部可解析时该行不出现）。恢复缺陷后的测试：删掉该行 → 变红。
+  - **验证**：`tests/promo-card.spec.tsx` 新增 2 条（有 `dailyUnusable` 时诊断行出现且不画徽标；全部可解析时该行不出现）。变异测试：删掉该行 → 变红。
 
 - **`parseDaily` 丢弃窗口时完全静默，上游改格式在日志里也留不下痕迹。**
   - **修法**：丢弃时打一行 `console.warn`，带活动 id 与端点的 `typeof`（`number` 单独命名，因为它正是未来格式变更可能的样子）。
@@ -2251,12 +2253,12 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
     因此这个修复的**确切收益是「不再发送一个自造的、未经验证的档位值」**，而不是「修好了一个已证实的 400」。
   - **修法**：**不发这个字段**，而不是换一个拼写。依据是 `docs/reasoning-investigation.md` 第 2 节 的两网关实测：请求不带 `reasoning_effort` 时上游返回 **0 个思考字符**——注意那批实测覆盖的是单数 `effort` 形态的模型（deepseek / hy3 / kimi / minimax 一类），**不含 `gpt-6-astra`**，所以对后者「省略即零思考」是合理推断而非已证事实。
 
-    结论上仍然成立：不思考本来就不需要任何拼写，而任何拼写都可能被某个模型拒绝。
+    省略字段可以避免发送未经验证的档位值，但不保证所有模型都关闭思考。
 
     注意这与 `dropRefusedReasoning()` 只是**结论**一致，不是同一段代码——那个函数只对 `REFUSES_OFF_MODEL_IDS` 名单内的模型删字面量 `'off'`，TPS 根本不经过它。
   - **验证**：`tests/tps.spec.ts` 的断言从 `reasoning_effort === 'none'` 改为 `'reasoning_effort' in body === false`，并把模型 id 换成 `gpt-6-astra` 且额外断言 `body.model` 确实进入请求体——这样这条用例描述的是「该模型 + 无该字段」这个组合，而不是任意 id 都成立的巧合。用 `in` 而不是 `=== undefined` 是有意的：后者在「忘了做决定」的 body 上也会通过。
 
-    恢复缺陷后的测试：把字面量加回去 → 该条变红。
+    变异测试：把字面量加回去 → 该条变红。
 
 - **设置卡片的 13 条路由（10 条 POST + 3 条 GET）只校验 `Origin`、不校验 `Host`，DNS-rebinding 页面可以打到其中的读路由。**
   - **症状**：安全缺口，无用户可见现象。**真实的暴露面是 3 条读路由**（`usage` / `account-credits` / `cli-live`）——浏览器对同源 POST 一定带 `Origin`，所以 rebinding 页面打 10 条 POST 时会被旧的 Origin 门拒掉；而同源 GET 不带 `Origin`，旧门直接放行。修复价值真实，但「13 条写路由全可被打」的说法不成立。
@@ -2282,10 +2284,10 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 
     现在 `originIsLoopback(origin, localAddress)` 与 Host 复用同一套 `isLocalHostname` + `hostMatchesListener` 判定（只比 hostname，不比端口——Origin 永远带页面端口而 `localAddress` 不带），LAN 测试的 fixture 也补上了真实浏览器会发的 `Origin`。
 
-    恢复缺陷后的测试：把 Origin 门改回不传 `localAddress` → 该条立即变红。
+    变异测试：把 Origin 门改回不传 `localAddress` → 该条立即变红。
   - **已知限制（未能消除，两条）**：
     1. **任何主机名形式的访问都会 403**，不只是 `trustedHosts` 里的域名——`my-mac.local`（mDNS）、反向代理域名、自定义 hosts 条目都算，因为判据只认 IP 字面量与 `localhost`。插件无从知道某个任意域名指向本机，也不该去猜；要用域名访问就得让插件路由进入 DSH 的信任层，那是另一个改动。
-    2. **Origin 只对照 hostname，不对照端口**。同主机其它端口上的页面会通过 Origin 门。这不是本次能消除的威胁（那需要本机已运行代码，等价于本地权限），且反向代理常常在另一个端口终结 TLS、再转发到本机的本端口，对照端口会误伤这类部署。这一取舍写在 `src/loopback.ts` 的注释里。
+    2. **Origin 只对照 hostname，不对照端口**。同主机其它端口上的页面会通过 Origin 门。同机其他端口提供的页面也可能造成风险，不能直接等同于访问者已拥有本地权限。且反向代理常常在另一个端口终结 TLS、再转发到本机的本端口，对照端口会误伤这类部署。这一取舍写在 `src/loopback.ts` 的注释里。
   - **一处有意的处理规则统一**：空字符串 / 纯空白的 `Origin` 从「拒绝」变成「放行」。旧 `web-status` 只判 `origin === undefined`，而 shim 的实现一直判 `origin.trim() === ''`——两个文件对同一件事有两种答案，正是这次重构要消除的分裂，所以统一取 shim 的处理规则。安全性无变化（浏览器对 http(s) 请求不可能发空 Origin，能发空 Origin 的非浏览器客户端本就伪造得了 Host），在此记录以免日后被当成缺陷。
   - **这不是认证，也没有更硬的第二道防线**：两者都能被本机进程、或被任何能连到该端口的对端伪造。它挡的是「外部页面里的浏览器」（浏览器替我们决定 Origin，rebinding 又过不了 Host 对照），挡不住「已经能对这个端口开 socket 的程序」。**`src/web-status.ts` 里没有任何按路由的密钥**——`req.headers` 只读 `host` 与 `origin` 两个字段。
 
@@ -2296,7 +2298,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 
     另有 `tests/loopback.spec.ts` 29 条单元用例覆盖两个判据本身。
 
-    恢复缺陷后的测试三次：删掉 Host 那一支 → 2 项失败；把判据退回「只认回环」 → LAN 放行那项失败；删掉 Origin 那一支 → Origin 加载检查项失败。
+    变异测试三次：删掉 Host 那一支 → 2 项失败；把判据退回「只认回环」 → LAN 放行那项失败；删掉 Origin 那一支 → Origin 加载检查项失败。
   - **同时修复一个既有缺陷**：`hostnameOfHost()` 对 `[::1]evil.example` 这种「方括号回环前缀 + 任意尾巴」的输入会截成 `[::1]` 并判为回环——也就是说它把**外来源**读成了本机。真实浏览器不会发这种 Host，但这是安全边界，解析器应当 fail closed 而不是抢救前缀。
 
     现在方括号后只允许空或 `:<数字>`，其余一律整串返回（不匹配任何回环名）。这个缺陷此前一直躺在 `shim.ts` 里，抽出共享模块时才暴露出来。
@@ -2318,13 +2320,13 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 
 - **`benefit/claim` 路由的 disposer 从未被调用，热重载一次之后卡片上一半按钮永久 405 空响应（issue #86 的真正触发条件）。**
   - **症状**：设置卡里点「一键签到」「一键测试」「删除」「扫码登录」「保存」等按钮，报「批量操作接口没有应答（HTTP 405，无响应体）」，或扫码登录报 `登录失败: Failed to execute 'json' on 'Response': Unexpected end of JSON input`。模型本身照常能用——坏掉的只有卡片上的这些接口。
-  - **判定**：插件每个 handler 都回 JSON，**包括它自己的 405**（`json(res, 405, {error:'method not allowed'})`，带 `Content-Type` 与 body）；DSH HTTP 层回的 405 **没有 body**。所以「405 + 空 body」= 该路径在 DSH 路由表里根本不存在。
+  - **判定**：插件每个 handler 都回 JSON，**包括它自己的 405**（`json(res, 405, {error:'method not allowed'})`，带 `Content-Type` 与 body）；DSH HTTP 层回的 405 **没有 body**。这与当时 DSH 的未注册路由响应一致。仅凭 405 空响应不能排除代理层等其他来源。
   - **根因**：`registerWorkBuddyStatusRoute()` 里 13 条路由都写成 `const disposeXxx = ctx.webServer.register({...})`，**唯独 `benefit/claim` 那条声明了 `disposeBenefitClaim` 却没把它放进 cleanup 列表**（`tsc` 不报错：`noUnusedLocals` 未开）。DSH `WebServer.register()` 对同一 `(kind, path)` 第二次注册**直接抛错**（`webserver: duplicate exact route "…"`，已核 `@deepseek-ai/dsh-host-webserver/lib/index.js:328`），且路由只在 disposer 运行时才从表里移除。
 
     于是：第一次挂载 → `benefit/claim` 泄漏；热重载再挂 → 按注册顺序走到它触发重复路径 → 抛错 → 整个 `ctx.effect` 回调中断 → 排在它后面的 8 条路由（`models/refresh`、`probe`、`tps`、`pool`、`__save`、`oauth`、`transfer`、`cli-live`）一次都没注册上。
   - **这解释了 issue #86 里「具体触发条件未复现」的那一格**：触发条件是**发生过一次热重载**——只有第二次挂载才会触发第一次的泄漏。所以「重启即恢复」只是把泄漏的那一份清掉，下次热重载再复发，这正是它看起来像「偶发」的原因。
   - **修法**：把 `disposeBenefitClaim()` 补进 cleanup 列表，与其余 12 条对称。一处一行。并在 cleanup 列表处补注释说明「每条注册都必须在此出现」，因为这个缺陷会使后续挂载时部分路由注册失败。
-  - **验证**：新增 3 条回归用例（`tests/web-status.spec.ts` → `registerWorkBuddyStatusRoute re-mount (issue #86)`），用一个**按 DSH 真实处理规则**的 `webServer` 替身（同路径第二次 `register` 抛错、只有 disposer 才移除）——宽松的替身会带着 bug 一起通过，所以这条属性必须照抄。恢复缺陷后的测试：注释掉 `disposeBenefitClaim()` → 2 条变红并复现同一句 `webserver: duplicate exact route "/plugins/dsh-connect-workbuddy/benefit/claim"`。
+  - **验证**：新增 3 条回归用例（`tests/web-status.spec.ts` → `registerWorkBuddyStatusRoute re-mount (issue #86)`），用一个**按 DSH 真实处理规则**的 `webServer` 替身（同路径第二次 `register` 抛错、只有 disposer 才移除）——宽松的替身会带着 bug 一起通过，所以这条属性必须照抄。变异测试：注释掉 `disposeBenefitClaim()` → 2 条变红并复现同一句 `webserver: duplicate exact route "/plugins/dsh-connect-workbuddy/benefit/claim"`。
   - **代价**：无。请求路径、provider 注册、凭据、计费与换号规则一律未变。
 
 ## 5.8.3 (2026-10-24)
@@ -2344,7 +2346,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 
 - 新增 [`tests/card-upstream-switches.spec.tsx`](tests/card-upstream-switches.spec.tsx)（9 条）：三个开关按**已提交值**渲染、缺省一律读成 OFF（不是「truthy 就算开」）、翻动只写**本字段**、`sessionTitle` 写入保留 `model`（它的字段是对象，退化成布尔就会把用户设的目标模型抹掉）、POST 到 Host 端点、以及重载提示必须在屏上。读取器另有 3 条单独测（volatile 的 `{get()}` 解包、`sessionTitle` 的缺省/畸形回退、前缀列表的去空去重与非数组防御）。
 - [`tests/web-status.spec.ts`](tests/web-status.spec.ts) 增 3 条端点用例：四个字段各自只写自己的路径、白名单外的字段被 400 拒绝且不触达设置服务、期望对象的字段收到标量时拒绝。
-- 恢复缺陷后的测试：把 `sessionTitle` 的写入退化成裸布尔 → 1 项失败；把「缺省读 OFF」改成「缺省读 ON」→ 4 项失败；把新开关的 class 改回 `.dsm-workbuddy-pref-check` → `card-credits-switch` 5 项失败（它按「卡片里只有一个」读那个类）。
+- 变异测试：把 `sessionTitle` 的写入退化成裸布尔 → 1 项失败；把「缺省读 OFF」改成「缺省读 ON」→ 4 项失败；把新开关的 class 改回 `.dsm-workbuddy-pref-check` → `card-credits-switch` 5 项失败（它按「卡片里只有一个」读那个类）。
 - 完整套件 **2268 通过 / 2 条按平台跳过**（此前 2256），`typecheck` 与 `build` 通过。
 
 ### Docs
@@ -2361,16 +2363,16 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   - 该槽是 `kind: "single"`，`SlotCore.register()` 对同一优先级上的第二次注册**直接抛错**：`single slot "conversation.input.model.label" already has a registration at priority 0 … (lowest renders)`。两个插件都用默认 `0`，谁后注册谁抛。实测是本插件抛——应用自己的崩溃日志里逐字记着这句，以及本插件的 `model label slot failed to register`。
 
     因为 `catch` 只 `console.error`（刻意的：标签失注册不该让整页挂掉），页面上**只是徽章不见了**，没有任何可见报错，所以一直没被发现。
-  - 修法只做一件事：**换一个不碰撞的优先级**。`-0.5`（分数优先级合法）与 DSH 的默认 `0`、以及 `dsh-connect-qoder` 占用的 `-1` 都不碰撞，三个插件于是排成 `-1`（qoder）→ `-0.5`（本插件）→ `0`（DSH 1017）。取值只要求「不与别人碰撞」，不需要知道别人用了几。
+  - 修法只做一件事：**换一个不碰撞的优先级**。`-0.5`（分数优先级合法）与 DSH 的默认 `0`、以及 `dsh-connect-qoder` 占用的 `-1` 都不碰撞，三个插件于是排成 `-1`（qoder）→ `-0.5`（本插件）→ `0`（DSH 1017）。该取值避开了当时已知的两个优先级；若其他插件也使用 -0.5，仍可能冲突。
   - **刻意不引入插件之间的联动**（始终遵守的处理规则，见 [`docs/DESIGN.md`](docs/DESIGN.md) §1）：不读 `slots.entries(...)` 枚举同槽的其它注册、不把别家的行「转交」给别的插件的组件渲染、不为对方合成 `t` 席位、不依赖别人的优先级。曾经的转交方案能算「更客气」，但它要代渲染器合成对方的 props（`t` 来自对方注册时声明的 `locale:` 命名空间），还得约定一条跨插件转交方向否则递归——实测两个插件都转交时同一行被来回传递，直接 `RangeError: Maximum call stack size exceeded`。
 
     这不是本插件该承担的责任，整体撤除。
   - **代价（已接受并记录）**：该槽是 `single`，一个界面扩展位置只显示一个组件。「最低优先级渲染」意味着 `-0.5` 实际上**优先于**DSH 的 `0`，因此本插件被选为该界面扩展位置的组件时，别的插件在**它自己的行**上的装饰不会被合成（DSH 的「1017」徽章不会出现在本插件渲染的那一行）。不是自己的模型行，一律给 DSH 契约的下限 `model.name`。这是**放弃联动换来的确定性**，不是待修缺陷；要改成联动，先改 `DESIGN.md` §1。
   - **取值 `-0.5` 的定夺依据（不需要用户来选）**：DSH 一方早有书面立场——`dsh-client-ui-deepseek-model-label-1017` 的 README「Known Limitations and Deferred Work」逐字写着「the two presentations do not compose automatically」，并把处置办法写成**在 profile patch 里禁用它**（配置层，不是运行时协商）。
 
-    所以「两个徽标不合成」是 DSH 的官方立场，本项目的 §1 每次执行都应满足的条件与之一致。
+    这说明当时该官方示例没有实现自动合成，本项目的 §1 每次执行都应满足的条件与之一致。
 
-    其余三条：1017 的 package description 就是「**Temporary** 1017 release badge」，README 承诺结构化发布标签上线后移除该包；它只装饰**一个**模型（`DeepSeek-V4.1-Flash`，限 `deepseek-official`/`deepseek-account` 两条线路），而本插件装饰**自己全部 WorkBuddy 模型行**（负载等级、促销价、夜间折扣、新模型标记）；`single` 槽「最低优先级渲染」，`-0.5` 实际优先于 DSH 的 `0`——但选它是为了**不碰撞**而非谦让，且 1017 被移除后本插件自动成为该格唯一占用者。
+    其余三条：1017 的 package description 就是「**Temporary** 1017 release badge」，README 承诺结构化发布标签上线后移除该包；它只装饰**一个**模型（`DeepSeek-V4.1-Flash`，限 `deepseek-official`/`deepseek-account` 两条线路），而本插件装饰**自己全部 WorkBuddy 模型行**（负载等级、促销价、夜间折扣、新模型标记）；`single` 槽「最低优先级渲染」，`-0.5` 实际优先于 DSH 的 `0`——但选它是为了**不碰撞**而非谦让，1017 移除后仍须考虑其他插件的注册，不能保证本插件是唯一占用者。
 
 ### Docs
 
@@ -2380,7 +2382,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 ### Tests
 
 - 新增 [`tests/model-label-slot-coexistence.spec.tsx`](tests/model-label-slot-coexistence.spec.tsx)（6 条），跑**真实的 `SlotCore`**：DSH 1017 在场时注册不抛错、优先级与 `-1`/`0` 均不碰撞、自家行仍有徽章；外加「不做联动」一组——别家行只给纯目录名（**即使**另一个贡献者就在界面注册记录上）、源码不得出现 `slots.entries(...)` / 渲染别家组件 / `locale.bind`、注册只声明自家常量。
-- 恢复缺陷后的测试：把 `MODEL_LABEL_PRIORITY` 改回 `0` → 多项失败并**复现同一句崩溃原文**；把注册换成会读界面注册记录的写法 → 「不做联动」那组红。
+- 变异测试：把 `MODEL_LABEL_PRIORITY` 改回 `0` → 多项失败并**复现同一句崩溃原文**；把注册换成会读界面注册记录的写法 → 「不做联动」那组红。
 - `tests/dsh-line.spec.ts` 里「已知预发布悬崖」的注释按实测订正归因（断言本身不变，仍钉「裸 semver 判 false」）。
 - 完整套件 **2225 通过 / 2 条按平台跳过**（此前 2219），`typecheck` 与 `build` 通过。
 
@@ -2431,7 +2433,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
     默认关的理由见下。
   - 同一个开关下，**chat** 路径的会话身份三件套改为 **UUIDv7 的 32 位小写十六进制**形态并补 `X-Request-ID`（与 `X-Conversation-Message-ID` 同值，官方客户端也是同值）：网关把这个 id 回显成 SSE 的 `id` 并写进用量页，此前带连字符的 v4 让同一账号的记录看起来像两种客户端。三件套在任何形状下都是**每请求现生成**、互不相同。
 
-    **生图路径不受这个开关影响**，保持它 2026-10-21 实测过的带连字符 v4：#132 只测了 chat，而生图的 id **格式**从来不是那项检查问的事，不为了用量页好看把它扫进没人测过的形状（这条分界经恢复缺陷后的测试确认能失败）。
+    **生图路径不受这个开关影响**，保持它 2026-10-21 实测过的带连字符 v4：#132 只测了 chat，而生图的 id **格式**从来不是那项检查问的事，不为了用量页好看把它扫进没人测过的形状（这条分界经变异测试确认能失败）。
   - 新增 `keepPromptLast`（默认 `false`）：用量页的「请求」列取自 body 里**最后一条** `user` 消息，而 DSH 把时间采样、`Current runtime context.`、`<system-reminder>` 追加在真实 prompt **之后**，于是那一列记的是自动添加的提示段而不是用户输入。开启后把这些自动添加的提示段**搬到真实 prompt 之前**——消息数、角色、正文都不变，只有顺序变。
 
     唯一的正文改动是剥掉**被记录那一条** prompt 的前导 `<acp …>mNNNNN</acp>` 标记（不剥的话那一列仍然以标记开头，也就没修好），而更早的消息**保留各自**的标记：模型靠它们引用历史，而「正在回答的这条」的编号是唯一不可能被引用的。
@@ -2454,11 +2456,11 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
     清除轮换后标记随 `current()` 回到用户自己的选择，轮换本身仍然从不写设置。
   - 面板里还有第二处同源分裂：行的**底色**读 credits 端点的 `selected`（保存的选择），**「当前选用」文字**读池文档的 `current`（被计费的账号）。池子一轮换，两者就指向不同行——报告者看到的「底色在一个号、文字在另一个号」。现在整行（底色、文字、切换按钮的禁用态）都读同一个答案；`selected` 只在没有池文档时才作为回退。
 - **新增 `sessionTitle` 开关：把每个新会话的标题请求改到隐藏轻量模型（#132/#133，报告者实测；本插件未复现）。**
-  - DSH DSH 每个新会话发一次标题生成请求，走与对话相同的 provider，按主付费模型费率计费。开启 `sessionTitle.enabled` 后，识别为标题请求的 body（DSH 标题模板 `Generate the session title from this JSON array of human messages:` 打头、整条 body 只有这一条 user 消息、无 assistant/tool 消息）被改写到 `sessionTitle.model`（默认 `wb-lite`），并删除 `reasoning_effort` / `reasoning` 字段。
+  - DSH 每个新会话发一次标题生成请求，走与对话相同的 provider，按主付费模型费率计费。开启 `sessionTitle.enabled` 后，识别为标题请求的 body（DSH 标题模板 `Generate the session title from this JSON array of human messages:` 打头、整条 body 只有这一条 user 消息、无 assistant/tool 消息）被改写到 `sessionTitle.model`（默认 `wb-lite`），并删除 `reasoning_effort` / `reasoning` 字段。
 
     报告者实测该模型对这类请求 **0 积分**，但仍是真实上游请求、计入请求数、仅新会话首条触发一次。
   - 识别依据是**本机安装的 DSH 桌面端 0.2.1-rc.2 `app.asar` 的字节级取证**：请求构造与 DSH 自己的格式校验器都断言这一模板与单 user 消息形状；DSH `GenerateOptions.purpose: 'session-title'` 不随 OpenAI 线上协议传输，body 形状是 shim 唯一可用的判据。识别 **fail-closed**：DSH 改模板则改写静默停止、回到原计费，普通对话不可能命中（模板前缀须从文本开头匹配，正文引用模板的对话不会被改写——各有测试验证）。
-  - **默认 `false`**，与 #132 两项同一理由：这笔请求无论改写与否都会发出，但改写改变的是上游把这笔记进哪个计费桶（0 积分 vs 主模型费率），升级后不该静默变化；且 wb-lite 是隐藏模型、能过渠项检查是报告者账号级的实测。目标模型可配置（`sessionTitle.model`），防 id 变化或区域差异；上游拒绝时仅该会话标题失败一次，不影响主对话。
+  - **默认 `false`**，与 #132 两项同一理由：这笔请求无论改写与否都会发出，但改写改变的是上游把这笔记进哪个计费桶（0 积分 vs 主模型费率），升级后不该静默变化；且 wb-lite 是隐藏模型、能过渠道校验是报告者账号级的实测。目标模型可配置（`sessionTitle.model`），防 id 变化或区域差异；上游拒绝时仅该会话标题失败一次，不影响主对话。
 
     识别先用模板的纯 ASCII 头做预过滤（真实标题 body 必含、普通对话几乎不含），开关开启时普通请求不再为识别付一次全量 JSON 解析；预过滤只跳过工作，不改判定（含模板引用的对话仍由完整检测拒绝）。
 
@@ -2502,7 +2504,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 ### Tests
 
 - 新增 11128/11140 分类与账号限制切分（含按信封读码、转义/断行措辞、混合体归属三组反向测试）、企业标记贯穿三个池内转发点与 Web 账号行、领取 409 拒绝、保存后草稿丢弃与陈旧刷新提示（两条 UI 测试原先验证的正是缺陷本身，已改正）、以及「`selected` 必须跟随 `current()` 的轮换优先级」两条（轮换中只许一个标记、轮换指向已消失账号时回落）；会话身份三件套一节 9 条（默认形状不变 / 开启后的 v7+`X-IDE-*`+`X-Request-ID`+`User-Agent` 不变 / 生图不受开关影响）；`keepPromptLast` 一节 10 条（默认不动、搬移正确、`system-reminder` 与 `<acp>` 形状、**取自真实会话的组合自动添加形状**、**不重排普通对话**这条反向测试、system 仍居首、只剥离被记录那一条的前导标记、array content 两种形状、无自动添加的提示段时不剥离）。
-- 完整套件 **2205 通过 / 2 条按平台跳过**，`typecheck` 与 `build` 通过。所有「检查能失败」的说法都做过恢复缺陷后的测试，逐条结果：X-IDE 或三件套改成「无视开关」→ 默认形状测试变红；开关改成永不生效 → 对齐测试变红；生图 `'image'` 改成 `'chat'`、或删掉 `shape === 'chat'` 判据 → 生图检查变红（这条只有把 identity 真正传进 `imageHeaders` 之后才成立——`shape` 曾经是空转参数，那时改它不会变红，是真的假阳性，已修）；删掉 `isFailoverWorthy` 里的 `account_restricted` → 新增的 shim 换号测试变红（此前全部通过）；把 11140 的码判定退回紧凑字面量或退回裸 `11140` 文本 → 新增的「按信封读码」测试变红（分别命中 `spaced: client` 与十六进制假阳性）；让 `accounts()` 重新忽略轮换标记 → 新增的「标记跟随被计费账号」测试变红；把面板的底色改重新读取 `selected` → 新增的「底色与文字指向同一行」测试变红。
+- 完整套件 **2205 通过 / 2 条按平台跳过**，`typecheck` 与 `build` 通过。所有「检查能失败」的说法都做过变异测试，逐条结果：X-IDE 或三件套改成「无视开关」→ 默认形状测试变红；开关改成永不生效 → 对齐测试变红；生图 `'image'` 改成 `'chat'`、或删掉 `shape === 'chat'` 判据 → 生图检查变红（这条只有把 identity 真正传进 `imageHeaders` 之后才成立——`shape` 曾经是空转参数，那时改它不会变红，是真的假阳性，已修）；删掉 `isFailoverWorthy` 里的 `account_restricted` → 新增的 shim 换号测试变红（此前全部通过）；把 11140 的码判定退回紧凑字面量或退回裸 `11140` 文本 → 新增的「按信封读码」测试变红（分别命中 `spaced: client` 与十六进制假阳性）；让 `accounts()` 重新忽略轮换标记 → 新增的「标记跟随被计费账号」测试变红；把面板的底色改重新读取 `selected` → 新增的「底色与文字指向同一行」测试变红。
 - `tests/cli-bridge.spec.ts` 增 7 条（该文件 82 条全过）：会话状态记录优先于 header、会话状态记录为空回退 header、非绝对路径的会话状态记录被忽略、不得退到 Host 进程目录（`defaultDirectory`）、`/codebuddy` 跑在会话当前工作目录里、会话状态记录与 header 都为空时拒绝，加一条时序回归（runtime 先建、会话状态记录后发布、不重挂也不改设置，下一回合仍须落在会话当前工作目录——把 runtime 接回 build 时的读取结果值，这条就落回 `header.cwd`，当场变红）。
 
   本条并入本版后在 Windows 上重新运行：完整套件 **132 files / 2214 tests 全过、0 跳过**（上面两条记录的 2205 与 2 条按平台跳过都落在同一批：那 2 条在本平台不跳），`typecheck`（`tsconfig.json` + `tsconfig.client.json`）与 `tsdown` 构建通过。
@@ -2549,7 +2551,8 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 
     **测量本身不丢**：`modelId`、`atMs`、`source` 都保留，只是不再附一个不存在的等待。
   - **文案层也设了一项检查**：`availabilityLine()` / `availabilityMark()`（卡片与输入框面板共用的那一条规则）遇到 `outcome: 'ok'` 一律只输出判定，不再拼「之后可再用」。这样即使将来又有写入方带进一个时间，用户看到的仍然只是 `✓ 可用`。
-  - **没有动的地方**：真实限流（`rate-limited`）、模型繁忙、积分耗尽三条路径的恢复时间**完全不变**——它们的时间是上游明确说的「什么时候能再用」，是有用信息。本次只摘掉「成功」上的时间。
+  - **没有动的地方**：真实限流（`rate-limited`）、模型繁忙、积分耗尽三条路径的重试时间保持原策略。
+    其中既有上游声明的时间，也有插件设置的本地等待期，均不能保证届时请求成功。本次只摘掉「成功」上的时间。
   - **测试**：`tests/probe.spec.ts` 增 2 条（`cooldownOf` 对 `ok` 忽略 `Retry-After` 与 quota-refresh；`probeModel` 端到端在 200 带 `Retry-After` 时不产出 `retryAtMs`）；`tests/account-pool-store.spec.ts` 增 3 条（旧 `ok`+时间被读时治愈、新 `ok` 不继承旧时间、仍限流的账号照旧继承）；`tests/account-state.spec.ts` 增 3 条（卡片与面板都只印判定、限流行仍印时间）。
 
 ## 5.6.2 (2026-10-23)
@@ -2594,10 +2597,10 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 
 - **错峰时段的积分倍率跟随打折，卡片与模型选择器一起变（#120）**
   - **报告**：模型行戴着「夜间折扣」徽标，旁边的数字还是原价 `x0.11`；真实折后价要去 WorkBuddy 客户端才看得到。徽标与价格来自**同一份** `/v3/config`、同一条促销条目，但插件只解析了 `badge`，把 `discount` 整个丢掉了。
-  - **修法**：`src/promo.ts` 新增 `WorkBuddyPromoDiscount` 与 `parseDiscount()`，读 `discount.discountedCredits`（`"0.06x"` 这种**把单位粘在值里**的字符串，`Number("0.06x")` 是 `NaN`，必须剥掉末尾 `x` 再转）+ `displayMode`；`factor` 只在字符串读不出时回退，两者不一致时**字符串胜**——它才是用户实际被扣的那个数。
+  - **修法**：`src/promo.ts` 新增 `WorkBuddyPromoDiscount` 与 `parseDiscount()`，读 `discount.discountedCredits`（`"0.06x"` 这种**把单位粘在值里**的字符串，`Number("0.06x")` 是 `NaN`，必须剥掉末尾 `x` 再转）+ `displayMode`；`factor` 只在字符串读不出时回退，两者不一致时**字符串胜**——它是上游给出的明确展示值；实际扣费仍需结合结算记录核对。
   - **何时生效**：新增 `selectPromoMultiplier()`，只让**此刻正在运行**的促销打折。夜间折扣在上游是**两条条目**：一条带折扣 + 夜间时段，另一条是白天的常驻徽标（同款徽标、互补时段、无折扣）。白天那条只配画徽标、**不许改价**，否则卡片会把夜间价挂一整天。绝对有效期（`validFrom`/`validUntil`）也一并管住，活动过期即恢复原价。
   - **两处渲染**：卡片模型行（`WorkBuddyCard.tsx` 的 `effectiveRate()`）与 DSH 模型选择器的标签（`WorkBuddyModelLabel.tsx`，同时显示 `· x0.06`）都用同一套判定；选择器原来根本不显示倍率，现在补上了——那一屏正是「现在到底多少钱」最该看到的地方。
-  - **README**（中英各一句）：模型名里的倍率是**实付价**——活动时段显示折后价，窗口关闭自动回原价，不需要重启。
+  - **README**（中英各一句）：模型名里的倍率是上游目录或促销声明的当前展示倍率——活动时段显示折后价，窗口关闭自动回原价，不需要重启。
   - **测试**：新增 `tests/issue120-promo-discount.spec.ts`（10 条）——`"0.06x"` / 裸数字 / `"0x"`（免费不等于缺失）/ `factor` 回退 / 非有限值与非负值拒绝 / 未知 `displayMode` 忽略 / **白天常驻条目不降价** / 无折扣条目返回 `undefined`（保留目录价）/ 过期恢复 / 多条同时打折取最高优先级。
 
 - **企业版（`type: ultimate`）账号读企业计费表，姓名显示真名（#124）**
@@ -2608,7 +2611,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   - **宁可报错也不报 0**：企业端点若回不出两个数字，抛错而不是返回 `total: 0`——后者正是 #124 报告的症状，等于把 bug 当作修复。
   - **姓名修法**：新增 `preferredAccountName()`，顺序是 `displayName` → `enterpriseUserName` → `nickname`（登录别名垫底），空白串跳过。企业凭证的 `nickname` 是登录别名，把它放第一位会让卡片看起来在管别人的账号。`displayName` / `enterpriseUserName` 从桌面 auth 文档的 `account` 节点读，并随 DSH 凭证一起写入文件。
   - **跨次读取不丢**：新增 `mergeCredentialDisplayNames()`，`scanAll()` 合并同账号的两份副本时把姓名**双向带过去**——桌面 App 不总重写这两个字段，整条替换会静默退回别名，让 #124 的症状自己回来。
-  - **签到不再浪费请求**：企业网关没有引用位置签到（对成员一律回 `10001`）。`WorkBuddyPoolTarget` 新增 `enterprise`，批次直接跳过并在日志里说「企业账号无每日签到」（新增 `skipped` 状态与新文案，中英各一条）；跳过的行**不占批次间隔**——间隔是给请求留的。
+  - **签到不再浪费请求**：企业成员不适用每日签到（对成员一律回 `10001`）。`WorkBuddyPoolTarget` 新增 `enterprise`，批次直接跳过并在日志里说「企业账号无每日签到」（新增 `skipped` 状态与新文案，中英各一条）；跳过的行**不占批次间隔**——间隔是给请求留的。
   - **测试**：新增 `tests/issue124-enterprise-credits.spec.ts`（14 条）——姓名优先级三级 + 空白跳过 + 合并保留/覆盖；企业端点被用而个人端点不被用、`limitNum - credit`、超额不为负、`Data` 包裹也能读、读不出余额即抛错、`cycleResetTime` 本地时间解析、非企业凭证仍走个人表。`tests/account-pool-run.spec.ts` 增 2 条（跳过企业账号、跳过的行不计间隔）。
 
 ## 5.5.2 (2026-10-23)
@@ -2625,7 +2628,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   - **修法二：回填只碰尾部窗口**。`attachUsage()` 改成 `open(file, 'r+')` + 读最后 `USAGE_ATTACH_TAIL_BYTES = 1 MB` + 窗口内定位目标行 + 从该行偏移写回 + `truncate` 到新长度；窗口前一个字节都不读不写，500 MB 文件在这里只花 1 MB 堆。窗口起点用**一字节回看**判定行边界：回看字节是 `\n` 说明窗口正好起在行边界、首行完整（必须保留——丢掉等于从文件里删一行）；否则首行是上一条的残尾，从搜索与写回里都排除。
 
     窗口外的目标行**不再回填**：标注只是 #59 对比的便利，不是正确性要求（发送侧计数早在盘上）。
-  - **README 补警告**（中英各一句）：会持续追加、32 MB 滚档、排查完请关从检查到修复的完整流程境变量并删除报告文件。
+  - **README 补警告**（中英各一句）：会持续追加、32 MB 滚档、排查完请关闭该环境变量并删除报告文件。
   - **测试**：新增 `tests/issue118-body-report-bounded.spec.ts`（6 条）——滚档与「只留一份旧档」、滚档后活文件是新行、不滚空文件与未超上限、大于一个窗口的文件里近期行仍被标注且窗口前逐字节不变、**窗口恰好起在行边界**（用迭代法把追加行尺寸钉到正好 1 MB：`model` 字段被原样抄进行里是唯一的尺寸旋钮，而 `bodyBytes` 的位数会随填充自增，一步算不准；断言三行都在、前两行未被标注也未被删）、目标行被推出窗口后文件不被截断或切碎。
 
     原有 `tests/issue59-body-report.spec.ts` 26 条全部通过（含「标注只加在原有行上、不新增行」）。
@@ -2654,14 +2657,14 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 
   改成读草稿的 `active.enabled`：箭头描述的是草稿，就该跟着草稿走（报告运行中的池仍然是 `poolRunning`，那个值没有动）。
 
-  恢复缺陷后的测试：改回 `pool.enabled`，新增用例立刻红（期望 4 个箭头、实际 0 个）。
+  变异测试：改回 `pool.enabled`，新增用例立刻红（期望 4 个箭头、实际 0 个）。
 - **`regionsMapOf()` 会跳到更深一层，读到同名区域的过期副本。** 旧规则是「只要有 `regions` 键就往下跳」，理由是可以同时接受「整份 settings」和「regions map」两种入参。但 regions **map 自己也可能有 `regions` 键** —— 本机真实 profile 里 `config.regions` 下就躺着 `accounts` / `regions` / `cliBridge` 三个旧写入留下的兄弟键。
 
   一旦跳下去，读到的就是**另一份更旧的同名区域**：实测同一份文档，「按 section 读」得到 `['c','a','b']`，「按 map 读」得到 `[]`（正是「排序明明存了却读不出来」）。
 
   现在改为**按形状判定**：外层对象只要含有区域 id（`cn` / `global`）就是 map，直接用它；否则才是 section，才往里跳。
 
-  恢复缺陷后的测试：把判定换回无条件跳，新增用例立刻红。
+  变异测试：把判定换回无条件跳，新增用例立刻红。
 - **「账号池状态重启就失效」的根因：目录修复把整份 settings 写进了 `regions` 字段。** 上一条修的是**读**，这一条修的是**造出那份脏数据的写**。`writeRegionCatalog()` 用 `{ op: 'set', path: ['regions'] }` 写回目录，所以它的值必须是 `regions` **字段**；但它把 `describe().value`（**整份 section**：`{authFile, accounts, regions, cliBridge, …}`）交给了 `mergeRegionCatalog()`，而后者把入参当字段读、又原样展开写回。
 
   结果每次开机目录修复都把 section 写进字段：真正的区域表被推到下一层 `regions` 键里，`accounts` / `cliBridge` 成了两个假区域槽，于是 DSH `regionStateOf(config, 'cn')`（只读一层）读到的是**空** —— 账号池开关、成员、手动排序、目标模型、模型选择全部「看起来没保存」，下次保存再把这份空写回去。
@@ -2678,7 +2681,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 
     快路径的成立条件写在代码注释里（只有**字段本身**是 volatile，槽内是普通数据），并用同引用断言（`toBe`）验证，防止以后被顺手删掉。
   - **实测（本机真实 profile）**：修复前该字段 5 层嵌套、103 KB；用新 `mergeRegionCatalog()` 对同一份 section 重算，输出恰为 `['cn','global']`，13 KB；`cn` 保住 `pool.enabled=true` / `step-5-preview` / **8 个成员**，`global` 从下层捞回 `pool.enabled=true` / `deepseek-v4.1-flash` / **3 个成员**与 27 个模型目录。另有「主动清空」的保护：外层已显式写成 `null`（schemastery 把 `{}` 简化成 `null`）时不再从下层捞，否则会把用户清掉的池子复活。
-  - **恢复缺陷后的测试（六处，逐个改回旧行为都必红）**：①`mergeRegionCatalog()` 改回「把入参当字段」→ `catalog-write.spec.ts` 红 4 条；②`regionStateOf()` 改回单层裸读 → `region.spec.ts` 红（`global` 读成空）；③`__save` 改回对原始字段合并 → `web-status.spec.ts` 红（写回的值里出现 `regions` 兄弟键、`global` 消失）；④卡片写路径改回直接展开原始读取结果 → `client-account-selection.spec.ts` 红；⑤删掉快路径 → `region.spec.ts` 的同引用断言红；⑥删掉开机清洗的脏判断 → `catalog-write.spec.ts` 的「干净字段不写」红。
+  - **变异测试（六处，逐个改回旧行为都必红）**：①`mergeRegionCatalog()` 改回「把入参当字段」→ `catalog-write.spec.ts` 红 4 条；②`regionStateOf()` 改回单层裸读 → `region.spec.ts` 红（`global` 读成空）；③`__save` 改回对原始字段合并 → `web-status.spec.ts` 红（写回的值里出现 `regions` 兄弟键、`global` 消失）；④卡片写路径改回直接展开原始读取结果 → `client-account-selection.spec.ts` 红；⑤删掉快路径 → `region.spec.ts` 的同引用断言红；⑥删掉开机清洗的脏判断 → `catalog-write.spec.ts` 的「干净字段不写」红。
 
     新增 24 条测试（`catalog-write.spec.ts` 13 条、`region.spec.ts` 8 条、`web-status.spec.ts` / `client-account-selection.spec.ts` / `manual-order.spec.ts` 各 1 条）。
 
@@ -2686,7 +2689,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 
 - **写明负载徽标仅在国内版：国际网关没有这条接口（实测，非推断）。** 2026-10-22 用插件自己的凭据与客户端对 `www.workbuddy.ai` 实测：`POST /v2/chat/busy` 回 **404 `{"error_msg":"404 Route Not Found"}`**，另试 `/v3/chat/busy`、`/v2/models/busy`、`/v2/chat/model/busy`、`/v1/chat/busy`（POST + GET 各一次）**12 个组合全是 404**；同一份凭据读该网关的 `/v3/config` **200、28 个模型**，且这 28 个模型的**全部字段名里没有任何**含 busy / load / queue / wait / level / pressure 的字段。
 
-  结论：**不是路径写错、不是身份不对、不是权限问题 —— 上游国际版从未提供这个事实**。
+  结论：**当时测试的路径、身份与权限组合均未取得国际区的负载数据，尚不能据此判断上游是否提供其他读取方式**。
 
   行为保持不变（检查请求失败仍被 `withBusyLevels` 捕获、记一条 warn、模型目录照常下发，卡片渲染为「没有徽标」），本次只补文档与代码注释，**故意不按区域门控检查请求**：真门控等于把「上游将来补上」这件事也一并关掉，而今天多付的代价只是每轮一次 404。
 
@@ -2799,7 +2802,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 ### Tests
 
 - 重做版补的 8 条：`cliEntryCandidates()` 的四条布局断言（Windows 的 npm 前缀下直接是 `node_modules`、**没有 `lib` 层**；POSIX 前缀仍拼 `lib/node_modules`；pnpm / yarn 的全局仓本身就是模块根；同一个目录只被探测一次）；Windows 上 pnpm / yarn / fnm 三个仓库位置一条（fnm 那条要真造一个版本目录，否则「按版本展开」根本没被执行）；`parseCommandInput` 的 `--edit` 一条（带正文 → `acceptEdits` 且正文剥掉前缀）；配额拒绝后临时目录不残留一条；以及一条**反向约束**：指令的 hint 里不得出现默认权限模式跑不起来的示例。
-- **实时胶囊的测试（新增）**：`tests/cli-bridge-live.spec.ts`（12 条）锁 DSH 侧 live board —— 开/退休告、失败回合也退休、指令与工具两个入口的标签、`elapsedMs` 由 DSH 时钟算、无 board 时不告警、以及「目录校验拒绝的调用**不得**留下胶囊」（公告发生在所有前置条件之后，所以没开始的工作不会闪一下）；`tests/cli-bridge-live-pill.spec.tsx`（19 条）锁客户端 —— 空闲渲染 `null`、标签含工具数与秒数、`starting`/`finishing` 不显示秒、`+N`、**秒数在两次轮询之间本地前进且请求数不变**、DSH 时钟偏移校正、路由失败/畸形文档/没有 `fetch` 都不抛、**`serverTime` 不是数字时整份文档作废（否则标签会印出 `NaNs`）**、**单条回合缺数字时只丢那一条**、**连续三个周期失败后胶囊自己退场**、目录只进 tooltip 不进标签、**只描述本会话的回合**（别会话的行既不出现在标签里也不计入 `+N`）、**只有别会话在跑时渲染 `null`**、**DSH 标不成会话的行照样保留**、**界面扩展位置不给 `sessionId` 时不过滤**，以及 `readLive` 的并发合并与缓存过期。
+- **实时胶囊的测试（新增）**：`tests/cli-bridge-live.spec.ts`（12 条）锁 DSH 侧 live board —— 回合开始时发布、结束时移除、失败回合也退休、指令与工具两个入口的标签、`elapsedMs` 由 DSH 时钟算、无 board 时不告警、以及「目录校验拒绝的调用**不得**留下胶囊」（公告发生在所有前置条件之后，所以没开始的工作不会闪一下）；`tests/cli-bridge-live-pill.spec.tsx`（19 条）锁客户端 —— 空闲渲染 `null`、标签含工具数与秒数、`starting`/`finishing` 不显示秒、`+N`、**秒数在两次轮询之间本地前进且请求数不变**、DSH 时钟偏移校正、路由失败/畸形文档/没有 `fetch` 都不抛、**`serverTime` 不是数字时整份文档作废（否则标签会印出 `NaNs`）**、**单条回合缺数字时只丢那一条**、**连续三个周期失败后胶囊自己退场**、目录只进 tooltip 不进标签、**只描述本会话的回合**（别会话的行既不出现在标签里也不计入 `+N`）、**只有别会话在跑时渲染 `null`**、**DSH 标不成会话的行照样保留**、**界面扩展位置不给 `sessionId` 时不过滤**，以及 `readLive` 的并发合并与缓存过期。
 
   另在 `cli-bridge-runner.spec.ts` 补一条「板子上的 `sessionId` 必须是 DSH 会话 id，不得被 CLI 自己的 uuid 覆盖」——**先证明它会红**才留下：把那一行临时加回去，报 `expected 'cli-session-uuid' to be 'session-dsh'`。
 - **会话续接的 7 条**（`cli-bridge-runner.spec.ts` 4 条 + `cli-bridge.spec.ts` 3 条）：第二轮真的带上第一轮报回的 `--session-id`、**第一轮不带**（没有可续接的就不该传）、显式 `session_id` 盖过记忆、`off` 时两轮都不带、两个 DSH 会话互不串（记忆按会话分别保存）、设置的默认值与错值回退、以及记忆本身的写入/覆盖/清空/空值不覆盖/256 条上限。跨会话那条第一版用的是固定 key，被记忆污染后改成每例独立 key + `forgetCliSession` —— 该测试暴露了用例之间的状态隔离问题。
@@ -2812,11 +2815,11 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 
 ## 5.4.0 (2026-10-22)
 
-> 少数版本：修四处真实缺陷，**请求路径、provider 路由、计费与凭据一律未变**。其中三处是「代码写好了但没被走到」的缺陷——功能早就存在，只是有一整类真实报文从未进入它们。
+> 次版本：修四处真实缺陷，**请求路径、provider 路由、计费与凭据一律未变**。其中三处是「代码写好了但没被走到」的缺陷——功能早就存在，只是有一整类真实报文从未进入它们。
 
 ### Fixes
 
-- **模型目录不再被陈之前读取的数据锁死（#114 + #115，同一处缺陷的两面）**
+- **模型目录不再被旧目录数据锁死（#114 + #115，同一处缺陷的两面）**
   - **病因**：`configuredModels()` / `displayModels()` 把「已保存目录 `lastCatalog`」当作第一优先级，而它**唯一的写入者**是卡片保存、写回的又是**它自己读到的目录**——保存时不断沿用旧目录，实时目录被永久压制。于是上游新增的模型（CN 的 `deepseek-v4.1-flash`）永远进不来；更糟的是**首次加载时保存默认目录**会在上游尚未应答时把静态回退表写进 `lastCatalog`，而那张表**不含 `reasoning`**，每个模型因此以 `reasoning: false` 发布，DSH 只给 `Default` / `Off`。
   - **修法**：目录解析改为「**实时 > 已保存 > 静态回退**」。已保存目录只承担**名字与勾选**，能力字段（`reasoning` / `creditMultiplier` / `supportsImages`）一律取自实时目录（新增 `src/catalog-sync.ts`）。上游已撤回但用户仍在用的模型继续保留（#32 的规则不变）。
   - **自愈**：实时目录到达后按**内容指纹**对照回写 `lastCatalog`，只在真有差异时写、再次执行时保留原结果（新增 `src/catalog-write.ts`），所以升级后无需手动清 profile。与回退表逐项相同且不含能力字段的之前读取的数据被识别为「从未配置」，不再当真。
@@ -2928,7 +2931,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 
 - **`killTree()` 不再把 `pid ≤ 1` 当进程组 —— 这条测试曾经会把评审者的整个登录会话打死。** 原来只挡 `pid === undefined`，而 `process.kill(-pid)` 拿到的 `pid` 一旦是 `1`（测试里为了区分两个假子进程写的 `fakeChild(1)`）就退化成 `kill(-1)`：会**给当前用户有权发送信号的所有进程发 SIGTERM**，一秒后还升级成 SIGKILL。
 
-  实测（macOS）跑 `vitest run tests/cli-bridge-runner.spec.ts` 会让 launchd 记录 `node[<pid>]` 向 Finder / Dock / WindowManager / ControlCenter / 用户正开着的微信 / DSH DSH 同时发 SIGTERM；DSH 的 renderer 作为受害者退出后又被 `DesktopFatalRecovery` relaunch，用户视角就是「DSH 反复重启，还把微信一起关了」。
+  实测（macOS）跑 `vitest run tests/cli-bridge-runner.spec.ts` 会让 launchd 记录 `node[<pid>]` 向 Finder / Dock / WindowManager / ControlCenter / 用户正开着的微信 / DSH 同时发 SIGTERM；DSH 的 renderer 作为受害者退出后又被 `DesktopFatalRecovery` relaunch，用户视角就是「DSH 反复重启，还把微信一起关了」。
 
   现在 group-kill 只对 `Number.isInteger(pid) && pid > 1` 开放，其余退化成单进程 `child.kill()`；测试里的假 pid 从 `1/2` 改成 `51_001/51_002`，并新增回归用例（spy `process.kill`，断言永不出现非正数信号目标）。
 
@@ -2975,11 +2978,11 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 - 新增 2 条：DSH 真实形状（`api:'dsh-foreign'` + 无签名 thinking）能保住 thinking（修复前必红）；provider 已对齐时 `dsh-foreign` 仍被单独修好（防止两个字段的修复互相短路）。
 - 已验证：撤回 `src/adapter.ts` 的改动后，新增用例立刻测试失败（2 failed / 12 passed）。
 - `tests/composer-credits-render.spec.tsx`（+3 条，`issue #108` 分节）：用**真实中文 locale**（不是回显 key 的桩）断言面板打印的是 `✗ 网关拦的是提示词` 且长度 < 20；完整解释仍在行 `title` 里（含「第三方 agent 过滤」）；样式表里 mark 一栏必须 `white-space:normal` + `overflow-wrap:anywhere`。
-- 恢复缺陷后的测试：撤回 `account-state.ts` + `styles.ts` 的改动 → 2 条立刻测试失败；单独把 locale 里的长文案改短（模拟「删掉解释」）→ 第 2 条测试失败。三条都真的在检查，不是空转。
+- 变异测试：撤回 `account-state.ts` + `styles.ts` 的改动 → 2 条立刻测试失败；单独把 locale 里的长文案改短（模拟「删掉解释」）→ 第 2 条测试失败。三条都真的在检查，不是空转。
 - 全量：**111 文件通过 / 1 跳过；1819 通过 / 2 跳过**；两个 tsconfig 均 exit 0；build 成功。
 - `tests/remaining.spec.tsx`（+2 条）：`recoversInText()` 与 `remainingText()` 对同一批时刻给出**相同数字与单位**（只差前缀）；过去时刻返回空串。
 - `tests/composer-credits-render.spec.tsx`：`WAIT` 正则改指 `row.recovers*`；跨界面契约用例改为比较「时长」而非「key 名」，并注明卡片为何不该加「恢复」。
-- 恢复缺陷后的测试：把 `availabilityMark` 里的 `recoversInText` 换回 `remainingText` → 上述 2 条立刻测试失败。
+- 变异测试：把 `availabilityMark` 里的 `recoversInText` 换回 `remainingText` → 上述 2 条立刻测试失败。
 
 ## 5.2.3 (2026-10-22)
 
@@ -3011,7 +3014,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
     现在该响应带上 `x-should-retry: false`（两个客户端都**先**看这个头，再看状态码）与 `retry-after: 0`。
   - **不转发上游的 `retry_after`**：7 秒也清不掉 9021 位的队，转发它只会让客户端先等一会再收到同一个答复。
   - **`retryAfterSec` 字段一并删除**：它只用来喂那句倒计时，现在没人读。留着解析但不用的数据，等于给这个承诺留了条回头的路。
-  - **其他 429 仍然可以重试**：`model_busy`（14003）是模型级限流，确实约一分钟就恢复，DSH 重试正是对的处置。只把排队这一类标成终局，不是一刀切。
+  - **其他 429 仍然可以重试**：`model_busy`（14003）是模型级限流，确实使用本地约一分钟的等待策略，DSH 可以按重试规则再次请求，但不保证届时上游已经恢复。只把排队这一类标成终局，不是一刀切。
 
 ### Tests
 
@@ -3041,7 +3044,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 | **三段全改成 `DSH`** | **200** ✅ |
 | 插件当前（零宽扰动） | **200** ✅ |
 
-也就是说**必须三段全部改**才有效，只改一段不够 —— 这份方案之所以在那个用户的机器上「可用」，是因为他改了三段。而插件的扰动方案不需要用户改任何东西。
+在这组对照中，三段全部修改后请求成功，表中其他组合仍被拒绝。这不能证明所有请求都必须修改三段，也不能据此推断报告者实际改了哪些内容。插件的扰动方案不要求用户手工修改提示词。
 
 对照请求进一步确认：门 B 的触发条件为**特定句子组合**。单独 `source` 段 200、单独 `web` 首句 200、单独 `web` 次句 200，但**两段一起**就 400；而 `web` 次句末尾的**句号**决定成败（改成感叹号则 200）。所以这是一条**内容指纹**规则，不是长度规则 —— 也再次确认 #105 里那个「需要 15,196 字符」的结论不成立。
 
@@ -3054,7 +3057,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 - **一键测速 / 单模型测速：输出速度（issue #92）** —— 倍率不再是选模型的唯一依据了。DSH 会把模型当**子代理并行派发**，每个子任务还有多轮往返，所以**输出速度会乘进整个任务的实际耗时**：一个便宜但慢的模型，总耗时可能超过贵但快的。issue 报告者实测同倍率（x0.08）的四个模型，中位输出速度差 **3.8 倍**。
   - **已有检查请求为什么给不出这个数**：现有可用性探测发 25,000 输入 token、输出上限 **1 个**（`PROBE_MAX_TOKENS = 1`），它的 `elapsedMs` 是**首字延迟**，没有生成跨度可除。测速需要相反的请求形状：极小输入 + 长输出。所以这是**独立的路由**，不是给老路由加字段。
   - **成本比可用性探测低一个数量级**：这个网关按**输入**计价。可用性探测实测 `credit 0.72`；测速实测 **0.01–0.15**（取决于模型倍率）。每次 3 轮，也就是单模型约 0.03–0.45。
-  - **3 次取中位数，不是均值**：实测 `glm-5.3-flash` 五次是 110 / 105 / **177** / 103 / 109 tok/s —— 均值 121 被离群值拉高，而四次都在 103–110。中位数 109 才是它真实的位置。所以轮数取**奇数**（偶数中位数要平均两个中间值，等于把离群值的影响又请回来）。
+  - **3 次取中位数，不是均值**：实测 `glm-5.3-flash` 五次是 110 / 105 / **177** / 103 / 109 tok/s —— 均值 121 被离群值拉高，而四次都在 103–110。这组样本的中位数为 109，更接近其中四次测量的范围。默认取三轮以控制成本；奇数样本的中位数直接取中间值，偶数样本的中位数也具备抗离群能力。
   - **失败的轮次丢弃，不记 0**：一个模型两次跑到 400 tok/s，不会因为第三次超时就变慢；差距体现在 `samples`（"3 次"变"2 次"）而不是速率上。
   - **测不出就报测不出，绝不编**：分块太少（整个答案一次到达）→ 报「无法测速：分块太少」；上游没报 token 数 → 报「上游没报 token 数」。绝不拿 `elapsedMs` 倒推一个速率。
   - **结果带时间戳**：速度随负载变，一个过期的数字比没有更糟。行里显示 `· 10-22 02:31 测`。
@@ -3078,7 +3081,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 
 ### Fixes
 
-- **global 区的历史思考不再被改为正文（issue #102）** —— 这是本项目最严重的一个 bug，而且它被一条假绿的测试盖了四个版本。pi-ai 只在「记这条消息的 provider / api / model 三者都等于当前请求」时才把历史 通过 thinking 字段再次发送历史推理，否则整块摊平成 `text`。
+- **global 区的历史思考不再被改为正文（issue #102）** —— 这是本项目最严重的一个 bug，而且它被一条假绿的测试盖了四个版本。pi-ai 只在「记这条消息的 provider / api / model 三者都等于当前请求」时才通过 thinking 字段再次发送历史推理，否则整块摊平成 `text`。
 
   DSH 的 agent loop 写消息时用的是**路由名**（`source.provider = request.provider` → `workbuddy-global`），而插件给模型盖的章是**共享 identity**（`workbuddy`），两者永远不等。
 
@@ -3131,7 +3134,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 
 - `tests/locale-meta.spec.ts` 那条从「标题**不**等于包名」改为「两种语言的标题**都**等于包名」，并把理由写进用例：这是一个决定，不是一个默认值。
 - `tests/client-host-contract.spec.ts` 新增 1 条检查：`.dsm-workbuddy-model-list` 的规则里**不得**出现 `max-height` 或 `overflow-y`，同时**必须**保留 `overflow:hidden`（只断言「没有上限」会让人以后把裁剪也顺手删掉，而那是圆角所依赖的）。
-- `tests/catalog.spec.ts` 新增 4 条 `withoutRouters` 用例：过滤之前读取的数据里的路由、CN 的 `auto` 与国��的 `default-model` 都被认出、`fast`/`balanced`/`primary` 不受牵连、不修改入参；并把「两个区的 fallback 名册都不含各自的路由」从只查 `auto` 扩到两个 id。
+- `tests/catalog.spec.ts` 新增 4 条 `withoutRouters` 用例：过滤之前读取的数据里的路由、CN 的 `auto` 与国际版的 `default-model` 都被认出、`fast`/`balanced`/`primary` 不受牵连、不修改入参；并把「两个区的 fallback 名册都不含各自的路由」从只查 `auto` 扩到两个 id。
 - `tests/upstream.spec.ts` 新增 4 条 `selectCliModels` 用例：两个区各自的 `auto` 都被丢掉、**旧配置里仍写着 `auto` 时不会借 `keepIds` 复活**、真正的「已下架但你在用」的模型仍然被保住（issue #32 那一半不能被这次过滤破坏）。
 - `tests/native-modality.spec.ts` 的路由用例扩成两个 id，并明确 `fast`/`balanced`/`primary`/`deep` 不算路由。
 - 全量 `npx vitest run` = **107 文件 / 1760 测试全部通过**；`tsc` 两个 project 均 exit 0；`npm run build` 成功。
@@ -3156,7 +3159,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 - **设置卡片按「账号 / 模型 / 诊断」分栏** —— 这张卡片原来是一条 3538 像素的长页，把两类提交处理规则完全不同的事情混排在一根竖线上：账号改动点一下立刻生效，目录改动是草稿、必须按「保存」，而用户在第 1 屏勾完模型后要滚三屏才能找到那个按钮。
   - **三栏**：**账号**（地区说明、积分开关、凭据类错误、账号池的切换/签到/导入导出/日志）、**模型**（模型表、保存/放弃）、**诊断**（只读事实表：区域、上游域名、当前服务的账号名、登录有效期、目录模型数、已启用数、上游最近一次错误的原文）。地区的「国内版 / 国际版」两个 tab 原样保留在最上面，它是这三栏共同的作用域。
   - **切栏不重新拉、不丢草稿**：非活动栏用 `hidden` 留在页面里而不是卸载，所以改了几个勾、切去看一眼余额、再切回来的改动还在，账号池的日志也不重建。`hidden` 同时把非活动栏移出无障碍树，`role="tabpanel"` 的处理规则成立（用 CSS `display:none` 反而会被后续样式覆盖）。
-  - 模型表**全部展开，不设内部滚动**。（5.0.0 原本写成 `max-height: 520px` 内滚，5.0.2 改掉：见该版说明。）
+  - 模型表**全部展开，不设内部滚动**。（5.0.0 原本写成 `max-height: 520px` 内滚，5.0.1 改掉：见该版说明。）
   - **签出态不画分栏**：没有登录时这张卡片就是一屏说明，套三个空 tab 只会把唯一的说明藏起来。
   - **诊断栏没有任何控件**，它存在的唯一理由是能被整段贴进问题反馈：账号显示**名字**而不是 id（测试里专门断言不出现 id），上游错误是原文引用、不翻译不概括。
 
@@ -3175,7 +3178,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
     `package.json` 的 `description` **保持中文**：它同时是 npm 包页面的简介、GitHub 的仓库简介，和「万一 locale 读不到」的最后回退——英文文案住在 `locale/en.json` 里，那才是能覆盖回退的那一份。
 
 - **新增生图工具 `workbuddy_draw_image`（国内区，默认关闭，需显式授权）** —— 把 WorkBuddy 官方 CLI 的文生图能力暴露成一个 DSH agent 工具，模型可以按用户的描述直接画一张图。
-  - **为什么它是 opt-in，而其他功能不是**：这是本插件唯一「由模型决定花钱」的能力。聊天请求是你发的，「测试」按钮是你点的，而工具调用是模型自己发起的——约 5.71 积分一张，DSH 又没有逐次确认的机制。所以开关归你：`regions.cn.imageToolEnabled`，默认 `false`，关着时工具不注册。这与 3.0.0 给账号池的处理是同一个道理（能改变账单落点的功能必须显式打开）。
+  - **为什么它是 opt-in，而其他功能不是**：这是该版本新增的「由模型决定花钱」的能力。聊天请求是你发的，「测试」按钮是你点的，而工具调用是模型自己发起的——约 5.71 积分一张，DSH 又没有逐次确认的机制。所以开关归你：`regions.cn.imageToolEnabled`，默认 `false`，关着时工具不注册。这与 3.0.0 给账号池的处理是同一个道理（能改变账单落点的功能必须显式打开）。
   - **读侧刻意与同槽其他开关相反**：`regionImageToolEnabledOf` 用 `=== true` 而不是 `!== false`。卡片上的积分读数与供应商开关都是 opt-out（缺省即开，因为藏一行或撤一个 provider 都可以再点回来），而这一项是**授权读取**，缺省必须是关——升级、配置读取失败、手写了个 `"yes"` 都不能被当成同意。
   - **为什么是工具而不是又一个按钮**：生图是「一句话 → 一张图」的能力，用户的自然表达是「帮我画一只在窗台上晒太阳的猫」，不是「打开某个面板、填三个字段、点提交」。做成 agent 工具，模型自己就能决定什么时候画、画什么。
   - **端点与协议照抄官方 CLI 的 ImageService**：`POST {chatBase}/v2/images/generations`，请求体只有 `model` / `prompt` / `size`（`hunyuan-*` 额外带 `n: 1`，`gemini-*` 什么都不加，其它模型带 `response_format: 'b64_json'`）。国内区 `chatBase` 为 `https://copilot.tencent.com`。
@@ -3195,7 +3198,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 
 ### Fixes
 
-- **触发排队时不再先把整个账号池试一遍** —— 上游用三个业务码表达排队（`6020` 等待、`6021` 队列满、`6022` 已达上限）。它们在错误分类里此前**没有任何分支**，于是按承载它的 HTTP 状态落成 `server`(500) 或 `soft_rate`(429)——两者都是换号worthy。
+- **触发排队时不再先把整个账号池试一遍** —— 上游用三个业务码表达排队（`6020` 等待、`6021` 队列满、`6022` 已达上限）。它们在错误分类里此前**没有任何分支**，于是按承载它的 HTTP 状态落成 `server`(500) 或 `soft_rate`(429)——两者都是会触发换号的错误。
 
   实测：`HTTP 500` + `code 6020` → `kind=server` → `failover=true`。结果是一次排队会先把账号池挨个试一遍、每个账号都烧一次真实请求，最后才告诉用户「你排在第 8777 位」；而队列跟随的是模型和平台级队伍，换个账号拿到的还是同一个位次。
   - **`model_queue` 成为自己的错误类别**，分类放在状态分支**之前**（排队是业务码，承载它的状态是偶然的：实测同一条件在 200/429/500 三种信封下都出现过）。
@@ -3223,7 +3226,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 
 ### Notes
 
-- **README 顶部新增「风险提示」，文末「免责声明」同步重写**（中英双份）。提示本身说两层：① 上游已开始限制非官方客户端请求，本项目**不保证接口长期可用**、上游收紧时可能失效，请自行评估账号风险，官方客户端始终最安全；② 这个插件的目的很普通——**省掉在 WorkBuddy 客户端和 DSH 之间来回切换的麻烦**，接的是你自己机器上已有的登录态，不提供账号、不共享凭据、不绕过计费，每次调用都按上游倍率真实扣费、从不修改账号状态，也不带任何提权或刷额度的能力。
+- **README 顶部新增「风险提示」，文末「免责声明」同步重写**（中英双份）。提示本身说两层：① 上游已开始限制非官方客户端请求，本项目**不保证接口长期可用**、上游收紧时可能失效，请自行评估账号风险，官方客户端始终最安全；② 这个插件的目的很普通——**省掉在 WorkBuddy 客户端和 DSH 之间来回切换的麻烦**，接的是你自己机器上已有的登录态，不提供账号、不共享凭据、不绕过计费，请求费用由上游按其规则结算；插件不会修改上游计费规则，但签到等功能会改变对应账号状态，也不带任何提权或刷额度的能力。
 
   它依赖客户端自身的接口（非官方开放 API），所以上游调整时需要跟着调整——这是这类工具的常态，也是这条提示存在的理由。
 
@@ -3245,7 +3248,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
     - 在这段外面加前缀或后缀**不影响**结果 ⇒ 精确子串匹配，不是开头规则；
     - 段落里的**单句**各自发都是 200 —— 所以按「开头」设计的格式转换永远看不到它。
   - **为什么之前的两级都救不了**：前缀格式转换与强制中性头都只动「开头」，而这次命中的是提示词**中间**的一段。
-  - **改法**：新增 `perturbChannelFingerprints()` —— 在被扫消息（`system` / `assistant`，含每个 text part）的**句读处**插入 U+200B 零宽空格。对读者不可见、对模型无意义（词一个都没改），但任何跨句的指纹都会被截断。**只在网关已经拒绝之后**使用，正常请求逐字节不变。
+  - **改法**：新增 `perturbChannelFingerprints()` —— 在被扫消息（`system` / `assistant`，含每个 text part）的**句读处**插入 U+200B 零宽空格。普通显示时通常不可见，但会改变模型输入和分词，不能保证模型行为不受影响；它可以打断经过插入位置的精确文本匹配。**只在网关已经拒绝之后**使用，正常请求逐字节不变。
   - **重试阶梯**（同一个账号，`channel_reject` 仍不换号）：首次失败 → ① `forceNeutralHead`（无处可改就跳过）→ 仍失败 → ② `perturbChannelFingerprints`（无处可改就跳过）。回复里会写明用了哪几级（「并已用强制中性头与一次不可见扰动重试过」）。
   - **代价**：被拒的那一轮最多多两个请求；账号池不记这两次失败（拒的是请求，不是账号）。
 
@@ -3287,7 +3290,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 
   - **它解释了 issue #98 的每一条症状**：只要会话里有一条 `assistant` 消息**开头**是被拦的身份（模型把系统提示词原样复述出来、恢复会话并重新发送历史消息、折叠摘要留下的痕迹），**这个会话之后的每一轮**都会被拒——「单轮跑到 7 分钟多才第一次报错」「继续仍报同一个错」「同一账号另一个会话正常」「重启后 1 分 22 秒失败」都是这一条的形状。换账号、换区域、重装官方客户端都不能改变它，因为被拒的是**请求里的那一行历史**。
   - **改了什么**：`neutralizeChannelFingerprints()` 现在对 `system` 与 `assistant` **两种角色**做同一件事（字符串 content 或 parts 数组里的**每个** text part，命中已知指纹就在最前面补一行中性头）。此前只处理 `system`，所以 `assistant` 里那一行**原样发出**。
-  - **为什么可以改历史消息**：这是唯一能救活会话的做法——那一行在**DSH 的历史里**，插件只能改它发出去的那一份。改动只有一行前缀，`user` / `tool` / `tool_calls` 结构与工具配对一律不动；DSH 自己的会话记录也不改（插件只重写请求体）。
+  - **为什么可以改历史消息**：本次在插件请求构建阶段采用此方法处理会话中的受影响历史——那一行在**DSH 的历史里**，插件只能改它发出去的那一份。改动只有一行前缀，`user` / `tool` / `tool_calls` 结构与工具配对一律不动；DSH 自己的会话记录也不改（插件只重写请求体）。
 
 - **`system` 的 content 是 parts 数组时，4.13.0 的格式转换一个字节都没生效**
   - 格式转换只认 `typeof content === 'string'`，于是数组形态的 system 消息（多段文本、图文混排）整个跳过。实测：命中放在**第 2 个** text part 照样 400；每个 part 都补中性头才 200。
@@ -3314,7 +3317,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 
 ### 评估后**没有**采纳：把中性头换成腾讯自家产品身份
 
-- **提议**（issue #98 末尾）：把 `You are a helpful assistant.` 换成 `You are CodeBuddy, Tencent's official AI coding assistant.`。理由成立——腾讯不会把自家客户端写进黑名单，这条「结构上安全」。
+- **提议**（issue #98 末尾）：把 `You are a helpful assistant.` 换成 `You are CodeBuddy, Tencent's official AI coding assistant.`。该方案假设腾讯自家产品身份能够通过渠道校验，但这一假设不能保证请求成功，也不能证明采用该身份安全。
 - **实测代价**（同一天、同一账号、同一份 DSH 提示词，**只换开头一行**，问「你是哪个产品的助手？」）：
 
   | 中性头 | 回答 |
@@ -3323,9 +3326,9 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   | `You are CodeBuddy, Tencent's official AI coding assistant.` | 我是腾讯云 CodeBuddy 的 AI 编程助手。 |
   | `You are WorkBuddy, an AI agent developed by Tencent.` | 我是腾讯 WorkBuddy 的 AI 助手。 |
 
-  前者不改变模型对自身身份的表述，后两者会**串味**——这是所有请求都要付的质量代价，不只是被拦的那几次。
+  这组样本中，中性头保留了原有身份表述，另外两个开头改变了回答。该结果说明提示词可能影响模型的身份回答，不能推断每次请求都会出现同样变化。
 - **它也不解决 issue #98**：真正被拦的是**会话里的 `assistant` 历史**，不是开头那一行；中性头当时实测仍是 200，报告者把它当成「被拦的行」是插件的回显造成的误解。
-- **结论**：默认不变。「强制中性头」+「不可见扰动」已经覆盖了两类风险，且不必冒充。若将来中性头本身被拉黑，最小改动是把中性头**做成可配置**（默认仍为中性），而不是默认冒充——这留待届时有证据再评估。
+- **结论**：默认不变。「强制中性头」与「不可见扰动」处理了当时已复现的两类拒绝，但不保证覆盖后续规则变化。若将来中性头本身被拉黑，最小改动是把中性头**做成可配置**（默认仍为中性），而不是默认冒充——这留待届时有证据再评估。
 
 ### Tests
 
@@ -3389,9 +3392,9 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
     | `CLI/2.63.2 CodeBuddy/2.63.2`（插件此前用的） | 5 键、35 模型、**无** `modelPromotions` / `modelTiers` |
     | `WorkBuddy/5.8.3 WorkBuddy/5.8.3 CLI/2.161.0`（App 身份） | 22 键、62 模型、**8 条促销 + 1 条等级标记** |
     CLI 通道的答案是 App 通道的**严格子集**，恰恰不发布那两个活动数组——所以国内版此前一枚徽标都画不出来，而 WorkBuddy 客户端在同一个账号上是有的。
-  - **这个身份不是插件自造的**：桌面端 `app.asar` 的 `buildVlmGatewayHeaders` 拼的就是 `WorkBuddy/<app> WorkBuddy/<app> CLI/<cli>`，其自身日志也记录了这一次请求（`fetch cloud product from url:https://www.workbuddy.cn/v3/config success`）。版本号是**惰性**的（`WorkBuddy/1.0.0 …` 与 `WorkBuddy/5.8.3 …` 答案一致），决定答案形状的是**头里声明的通道**。
+  - **这个身份不是插件自造的**：桌面端 `app.asar` 的 `buildVlmGatewayHeaders` 拼的就是 `WorkBuddy/<app> WorkBuddy/<app> CLI/<cli>`，其自身日志也记录了这一次请求（`fetch cloud product from url:https://www.workbuddy.cn/v3/config success`）。在这组测试中，版本号差异未改变响应（`WorkBuddy/1.0.0 …` 与 `WorkBuddy/5.8.3 …` 答案一致），决定答案形状的是**头里声明的通道**。
   - **聊天仍以 CLI 身份发送**：会话身份三元组（conversation id / request id / message id）绑定在聊天通道上。`PRODUCT_UA` 只出现在 `fetchModels` 的两处目录读取；聊天、检查请求、token 刷新全部保持 `CLIENT_UA`，计费路径本就不带 User-Agent。**计费归属与凭据暴露面均未变。**
-  - **换取名单的变化**：国内区 App 身份的 `cli` 名单相对 CLI 身份只差一项——**多 `auto`、少 `minimax-m2.7`**，其余 19 个模型同名同价。两个模型都实测可对话（`auto` 被上游解析为 `hy4-preview`）。国际区两种身份答案相同，零回归。
+  - **换取名单的变化**：国内区 App 身份的 `cli` 名单相对 CLI 身份存在两项差异：**多 `auto`、少 `minimax-m2.7`**，其余 19 个模型同名同价。两个模型都实测可对话（`auto` 被上游解析为 `hy4-preview`）。国际区两种身份答案相同，零回归。
 
 ### Fixes
 
@@ -3406,7 +3409,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 
     **修法**：新增 `schedule.dailyUnusable`，区分「上游没说时段」（24 小时活动）与「说了但一条都解析不出」（**永不运行**，不画徽标）。
 
-    同时 `minutesOfClock` 接受 `24:00`（=1440，仅作终点）——上游现在把「全天」写成 `0:00–23:59`，在 23:59 与零点之间留了 1 分钟没有检查到目标行为。
+    同时 `minutesOfClock` 接受 `24:00`（=1440，仅作终点）——上游现在把「全天」写成 `0:00–23:59`，在 23:59 与零点之间留下了 1 分钟的活动空档。
   - **常驻 tier 能顶掉正在跑的促销**：无 `schedule` 的等级标记对「此刻是否运行」恒为 true，被算进「正在运行」候选，于是高 `priority` 的「订阅优先」会盖掉 `priority` 更低、但时窗真的开着的夜间促销——文档承诺「正在运行优先」，实现成了「priority 最高优先」。国际区实测促销与等级标记的 `priority` 都是 200，这个组合会真的发生。
 
     **修法**：第一步只考虑**带 `schedule`** 的条目（无 schedule 的只会「常驻」、不会「正在运行」）；第二步补上「解析不出时段的条目不得常驻」。
@@ -3421,7 +3424,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 
 ### Tests
 
-- **`tests/promo.spec.ts`（21 条）**：解析丢弃污染项与 `enabled:false`、读出徽标/文案/生命周期、tier 无 schedule、**候选全保留不冻结**、attach 按模型分组且 priority 降序、生命周期边界（`validUntil` 排他）、`schedule.daily` 按上游时区读取（跨零点、起点含终点不含）、运行中的促销优先、过期即无徽标、运行中的促销优先于常驻 tier、常驻徽标在时段外仍在但过期即消失；以及本轮新增的**七条**：畸形窗口三种形状均判「永不运行」且不常驻、无时长条目不与解析失败混淆、`24:00` 无没有检查到目标行为、`end === start` 为整天、真在跑的促销压过无 schedule 的高 priority tier、tie-break 与输入顺序无关。
+- **`tests/promo.spec.ts`（21 条）**：解析丢弃污染项与 `enabled:false`、读出徽标/文案/生命周期、tier 无 schedule、**候选全保留不冻结**、attach 按模型分组且 priority 降序、生命周期边界（`validUntil` 排他）、`schedule.daily` 按上游时区读取（跨零点、起点含终点不含）、运行中的促销优先、过期即无徽标、运行中的促销优先于常驻 tier、常驻徽标在时段外仍在但过期即消失；以及本轮新增的**七条**：畸形窗口三种形状均判「永不运行」且不常驻、无时长条目不与解析失败混淆、`24:00` 可覆盖至当天结束、`end === start` 为整天、真在跑的促销压过无 schedule 的高 priority tier、tie-break 与输入顺序无关。
 - **`tests/promo-card.spec.tsx`（6 条，jsdom）**：渲染上游文案、颜色经自定义属性下发、悬停含上游文案、无促销不渲染、过期不渲染、多条只画 priority 最高的一条。
 - **`tests/promo-badge.spec.ts`（7 条，新增）**：结束日取最后一天（不为右开边界所骗）、日期按上游时区渲染（三个 locale 逐一核对）、时段按上游时区展示、无时段条目只输出上游原文、语言回退、颜色白名单。
 - **`tests/upstream.spec.ts`（+6 条）**：两区都发 App 身份、国内区换身份后仍以 CLI 身份聊天、活动数组随模型带出、回落路径在两种身份下名单一致、`selectCliModels` 的并集保住用户已勾选模型。
@@ -3443,12 +3446,12 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
     1. **归类错了**：11128 落在 `client` 回退类，读者拿到的是「按参数拒绝，换账号也没用」——这句本身没错，但**它没说是什么参数被拒**，于是提示词从来不在嫌疑名单上；而「不是官方客户端发出的」那句托词被原样转述，用户信了它。
     2. **证据没有回显**：被拒的证据在**我们刚发出去的请求**里，不在上游的回复里。插件手上明明有那几行字，却只转述了上游的托词。
     3. **检查请求那一侧也退化成通用失败**：检查请求用的是中性 system 提示（`probeRequestBody`），所以「测试能过、聊天被拒」正是这个闸的特征，而卡片当时把同一种拒绝印成「✗ 测试失败」——那一句在账号旁边，读者只会去换账号。
-  - **修法一：把「提示开头命中」这一道单独归类（`channel_reject`）**。判据是**两半都要**：body 里同时有 `"code":11128` **和** msg 的措辞（`unapproved channel` / `illegal api invocation`，大小写不敏感）。只看 code 会连另外两道门一起注册使用——那会让读者去改写一条根本没问题的 system 提示，比通用回复更糟；所以另外两道门（`conversation id missing`、`first message is not system prompt`）被**显式排除**。
+  - **修法一：把「提示开头命中」这一道单独归类（`channel_reject`）**。判据是**两半都要**：body 里同时有 `"code":11128` **和** msg 的措辞（`unapproved channel` / `illegal api invocation`，大小写不敏感）。只看 code 会连另外两类拒绝一起归入此类——那会让读者去改写一条根本没问题的 system 提示，比通用回复更糟；所以另外两道门（`conversation id missing`、`first message is not system prompt`）被**显式排除**。
 
     **只认 `msg`、绝不认 `displayTips`**：那句托词是全族共用的，认它等于把三道门混成一道。
 
     判据放在 `classifyUpstreamError()` 里**策略拒绝之后、429/14003 之前**，所以真正的内容拒绝（`11140`）仍走它更具体的回复。
-  - **修法二：回显被拒的那一行**。新增 `systemOpeningsOfBody()`：从**实际发出去的 body**（`prepareChatBody` 格式转换之后的那一份）里取每条 system 消息的**第一行非空内容**，最多回显 3 条、每条截到 120 字符，取的是**上真实发送的字节**（所以命中已知指纹时回显的是插件加的那行占位语，不是 DSH 原文——这正是「证据」二字的含义）。读不出 body 时不编造，直接省略这段，但结论句仍然成立。
+  - **修法二：回显被拒的那一行**。新增 `systemOpeningsOfBody()`：从**实际发出去的 body**（`prepareChatBody` 格式转换之后的那一份）里取每条 system 消息的**第一行非空内容**，最多回显 3 条、每条截到 120 字符，取的是**实际发送的字节**（所以命中已知指纹时回显的是插件加的那行占位语，不是 DSH 原文——这正是「证据」二字的含义）。读不出 body 时不编造，直接省略这段，但结论句仍然成立。
   - **修法三：三条行为跟着这个归类走**，因为它们都属于「上游拒的是提示词，不是账号」这一件事：
     - **不再换号**（`isFailoverWorthy`）：网关读的是**每条 account 都会发的那同一句提示**，换到下一个账号只会晚一轮拿到同一个 11128，而每换一次就烧一次真实额度、还往一个从没出问题的凭据上记一笔假账。
     - **不把账号踢出池**（`exclusionOf`）：与 `policy-rejected` 同处理——测量照记（卡片要能解释发生了什么），但账号仍是候选。把它 bench 掉既浪费一个好账号，又把真正的解法（改提示词）藏起来。
@@ -3462,13 +3465,13 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 ### Tests
 
 - **`tests/issue90-channel-reject.spec.ts` 新增 24 条用例**（含 3 组）：把「认得这道门」与「**认错**这道门」分开钉，后者才是本版的真正难点：
-  - **认门（6 条）**：真实 CN 网关的 11128 报文逐字节捕获 → 归为 `channel_reject`（修复前是 `client`）；只认 `msg` 不认 `displayTips`（三道门共用的那句托词不足以注册使用任何一道）；另外两道 11128 门**保持原分类**（认错会让读者去改一条没问题的提示）；code 与措辞**两半都要**（换个业务码引同样的英文短语不是这道门）；真正的内容拒绝（`11140`）仍走它更具体的回复；请求 id 里恰好含 `11128` 不被误认。
+  - **认门（6 条）**：真实 CN 网关的 11128 报文逐字节捕获 → 归为 `channel_reject`（修复前是 `client`）；只认 `msg` 不认 `displayTips`（三道门共用的该通用提示不足以区分具体拒绝原因）；另外两道 11128 门**保持原分类**（认错会让读者去改一条没问题的提示）；code 与措辞**两半都要**（换个业务码引同样的英文短语不是这道门）；真正的内容拒绝（`11140`）仍走它更具体的回复；请求 id 里恰好含 `11128` 不被误认。
   - **检查请求与账号池（2 条）**：检查请求把这个拒绝报成 `channel-rejected`（后者在卡片上是「✗ 测试失败」，是唯一会引人去换账号的标签）；`exclusionOf()` 对它返回 `undefined`——账号不被踢出池。
   - **回显取什么（6 条）**：每条 system 消息各取第一行；**取的是格式转换之后真正上线的字节**（已知指纹回显的是占位行，不是 DSH 原文）；病态长行截到 120 字符而不是把整个提示倒出来；最多 3 条；读不出来的 body 一律返回 `[]` 且**不抛**（丢掉测量不是可以接受的代价）；`content` 是数组而非字符串的消息被跳过。
   - **渲染出来的回复（6 条）**：真的挂起 **shim**（真 body 准备 + 真失败渲染），只把上游应答换成固定报文：回复里有被拒的那一行、有 `code 11128`、有 `requestId`、有「换账号或换区域也不会改变结果」、有「误导性文案」，并且**没有**旧那句「换账号也不会改变结果，请按上面的提示调整后重试」；回显的是**格式转换后**的内容；DSH 没给 system 消息时回显插件补的那行占位语（`ensureSystemHead` 保证有头，所以这是离「没有提示可引」最近的一种）；**没有把一次换号花掉**（failover 回调被调用 0 次，且回复不声称「已尝试 N 个账号」——那是 issue #78 的老坑）；DSH 面拿到的是 400 + `channel_reject`。
   - **卡片文案（2 条）**：中英文都与「策略拒绝」「通用失败」不同（共用字符串会让「测试能过、聊天被拒」读成内容拒绝，而那有完全相反的下一步）；**所有 `row.probe*` 文案里不含 `**` 粗体标记**——检查请求结论是当作纯文本渲染进 `<p>` 的，带标记就会在屏幕上显示成字面的星号。
   - **DSH 那一侧（2 条，issue #84 的做法）**：用**真实 pi-ai 客户端**打**真实 shim**，再问**DSH 自己的判定函数**——`isQuotaExceededError()` 必须为假（为真则 DSH 会用自己的「额度已用尽」顶掉插件的句子，正是 issue #84 的那个坑），且文本里必须有「命中的 system 提示开头」与「换账号或换区域也不会改变结果」，**且不能有**「请用官方版本重新发送」那句托词。
-  - **恢复缺陷后的测试**：`git checkout src/upstream.ts src/shim.ts` 回退修复后，本文件 **17 条**失败（归类回 `client`、回显消失、换号又发生、检查请求退回 `failed`、DSH 侧被判成额度失败）；仍然通过的 7 条正是保护检查（另外两道 11128 门的原分类、`11140` 的原分类、账号不被踢出池、不浪费换号、卡片文案互不相同、文案不带 `**`）。
+  - **变异测试**：`git checkout src/upstream.ts src/shim.ts` 回退修复后，本文件 **17 条**失败（归类回 `client`、回显消失、换号又发生、检查请求退回 `failed`、DSH 侧被判成额度失败）；仍然通过的 7 条正是保护检查（另外两道 11128 门的原分类、`11140` 的原分类、账号不被踢出池、不浪费换号、卡片文案互不相同、文案不带 `**`）。
 
 ## 4.13.1 (2026-10-21)
 
@@ -3484,7 +3487,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   - **引入时间**：`git log -S 'reasoning: WORKBUDDY_DEFAULT_EFFORT'` 只指向 `1801b01`（v4.11.0，issue #83 的修法）。在那之前路由默认是缺省的，pi-ai 会自己选择最接近且受支持的档位（`clampThinkingLevel()` 不抛），所以这个回归是 **4.11.0 起的**。
   - **修法：在插件自己的 adapter 层做「按模型」的档位格式转换，不动路由默认。** 新增 `EffortNormalizingAdapter extends PiAiAdapter`（`src/adapter.ts`），判据 `effortCapable(model)` = `catalog.current().some(info => info.id === model && workBuddyThinkingLevelMap(info) !== undefined)`——与 `toPiModel()` 用的是同一个判据，且读**活目录**，所以目录刷新后自动生效，不需要重建 adapter。对判据为假的模型：
     - `resolveModel()` / `prepareCall()` 返回的模型信息补上 `reasoning: { efforts: [{ id: 'off', name: 'Off' }] }`——这正是 pi-ai 认为它唯一支持的档位，于是 DSH 的门①放行，`'off'` 也成为用户在界面上唯一能选到的档位（此前这类模型只有「Provider default」一个不可选项）；
-    - `prepareCall().stream` 与 `stream()` 把 `options.reasoningEffort` 归一成 `'off'`，于是门②放行，而 `profileOptions()` 又把 `'off'` 翻成「不下发 reasoning 字段」，pi-ai 侧 `model.reasoning === false` 也保证 `openai-completions` 不会写 `reasoning_effort` ⇒ **上游收到的请求体与修复前完全一致**（修复前是「没收到」）。
+    - `prepareCall().stream` 与 `stream()` 把 `options.reasoningEffort` 归一成 `'off'`，于是门②放行，而 `profileOptions()` 又把 `'off'` 翻成「不下发 reasoning 字段」，pi-ai 侧 `model.reasoning === false` 也保证 `openai-completions` 不会写 `reasoning_effort` ⇒ **请求仍不携带 `reasoning_effort`**；修复前这类请求在本地被拒，上游未收到请求，不能比较两者的实际请求体。
   - **一个必须记下的坑：添加的 `reasoning` 不能带 `defaultEffort`。** DSH `prepareCall()` 会把 `defaultEffort` **物化**进每一个「没带档位」的请求（`resolvedConfig.reasoningEffort = effective`），随后用 `callConfigEquals()` 各字段对照调用方的 config，不一致就抛 `INVALID_PREPARED_CALL`。补 `defaultEffort: 'off'` 会让 DSH 给这类请求凭空加一个字段，正好触发这条校验——所以只给 `efforts`，让 DSH 保持「调用方没给就是没给」。
   - **刻意不改的行为**：显式请求一个该模型做不到的档位（例如给 `glm-5.0` 选 `high`）仍然被 DSH 拒，消息如实说明原因。那是 DSH 自 v4.11.0 之前就有的契约，直接改用其他档位会把一次真实的配置错误藏起来。同理，`profileFor()` 的路由默认**一个字符都没动**：issue #83 靠它才成立（缺省默认在 pi-ai 眼里等于 `off`，`/compact` 因此 100% 400 / 11133），`tests/issue83-profile-default.spec.ts` 的三条断言也照旧全部通过。
   - **代价与边界**：判据来自目录的 `reasoning` 元数据；上游哪天给 `glm-5.0` 补上元数据，插件下一次目录刷新就会自动改走正常档位路径（新测试第 6 条钉的就是这个）。反过来，若上游漏报元数据而模型其实支持档位，这类模型会停在 `off`——与 4.11.0 之前的行为一致，不会更糟。
@@ -3498,7 +3501,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   - 有元数据模型不带档位 → body 里 `reasoning_effort === 'high'`（issue #83 的保护检查，确保这次没把它修坏）；
   - `resolveModelInfo()` 对无元数据模型严格返回 `{ efforts: [{ id: 'off', name: 'Off' }] }`（**没有** `defaultEffort`），对有元数据模型仍是 `['low','high','max']` + `defaultEffort: 'high'`；
   - 目录补上元数据后（改写 `liveConfig` + 发 `loader/volatile-update`）→ 档位自动回到 `high`，证明判据读的是活目录。
-  - **恢复缺陷后的测试**：`git checkout src/adapter.ts` 回退修复后，6 条里 **4 条失败**（三条报 `+ "code": "UNSUPPORTED_REASONING_EFFORT"`，一条报 `expected undefined to deeply equal { efforts: [ { id: 'off', … } ] }`）；仍然通过的 2 条正是「显式 high 必须被拒」与「有元数据模型档位必须上线」——它们在修复前后行为一致，是保护检查而非修复证据。
+  - **变异测试**：`git checkout src/adapter.ts` 回退修复后，6 条里 **4 条失败**（三条报 `+ "code": "UNSUPPORTED_REASONING_EFFORT"`，一条报 `expected undefined to deeply equal { efforts: [ { id: 'off', … } ] }`）；仍然通过的 2 条正是「显式 high 必须被拒」与「有元数据模型档位必须上线」——它们在修复前后行为一致，是保护检查而非修复证据。
 
 ## 4.13.0 (2026-10-21)
 
@@ -3526,13 +3529,13 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   - **报告**：点「一键签到所有账号」后卡片报「批量操作失败 —— 没有执行：批量操作被拒绝（HTTP 405）。请确认插件是最新版本后重试。」，而插件**已是最新版本**。重启 DSH 后恢复。
   - **真实原因：那条路由在 DSH 进程里根本没注册。** 405 是 DSH HTTP 层回的，不是插件回的。判定依据是两种 405 的形态完全不同：插件自己的拒绝是 `json(res, 405, {error:'method not allowed'})`，带 `Content-Type: application/json` 与 body；而实测 `POST /pool` 的 405 **没有 Content-Type、没有 body**。
 
-    插件每个 handler 都回 JSON，所以「405 + 空 body」只可能来自 DSH HTTP 层，也就是路径没匹配上任何插件路由。
+    插件每个 handler 都回 JSON，因此这次本机排查将「405 + 空 body」定位为 DSH HTTP 层未匹配路由；其他部署环境还需排除代理和中间层。
   - **同一次排查里所有路由的实测**（同一进程内，`GET` / `POST`）：`usage` 200/405、`benefit/claim` 405(带 JSON)/400、`models/refresh` 404/405、`probe` 404/405、`pool` 404/405、`oauth` 404/405、`transfer` 404/405。注册顺序是 usage → account-credits → accounts → checkin → benefit/claim → models/refresh → probe → pool → diag → oauth → transfer，所以断点落在 `benefit/claim` 与 `models/refresh` 之间。
   - **这不是「插件版本旧」**：这些路由的引入时间都远早于出问题的构建（`pool` 是 3.0.0 / 09-30，`probe` 是 2.3.0 / 09-29，`models/refresh` 更早），任何已发布版本都包含它们。是那次启动时注册中途失败了；具体触发条件未复现，重启即恢复。**记在这里是为了不再把它误判成版本问题**——按「更新插件」去查会一无所获。
   - **修法：客户端区分这两种 405。** `poolFailureText` 的第三层（按状态码回退）新增一条前置判断：响应体不是 JSON 且状态是 405 时，改用新文案「批量操作接口没有应答（HTTP {status}，无响应体）—— DSH 进程很可能还在跑旧版插件代码，这个接口没有注册上。请完全退出 DSH 再重新打开后重试。
 
     」四个调用点（批量签到/测试、行内测试、行内删除、福利领取）都传入 `bodyUnreadable: body === undefined`。
-  - **只有 405 走这个分支，这是刻意的**：客户端这里只会 POST，未注册的路径只可能以 405 回来；一个**没有 body 的 500/502 是真实的服务端故障**，把它改写成「重启试试」会让人放弃真正该查的东西。结构化 `reason` 仍然优先于两种状态码回退——未来 DSH 若在不可解析的 body 旁带 `reason`，本地化的原因严格更有信息量。
+  - **只有 405 走这个分支，这是刻意的**：客户端这里只发送 POST，本次未注册路径返回了 405；其他版本和中间层可能返回不同状态；一个**没有 body 的 500/502 仍需按服务端或中间层故障排查**，把它改写成「重启试试」会让人放弃真正该查的东西。结构化 `reason` 仍然优先于两种状态码回退——未来 DSH 若在不可解析的 body 旁带 `reason`，本地化的原因严格更有信息量。
 
 ### Tests
 
@@ -3572,7 +3575,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   - 关键断言检查 DSH 的分类结果：测试用**真实的 pi-ai `stream()`**（DSH 用的同一个客户端）打到**真实的 shim**（真的开 socket），把 pi-ai 产出的 `errorMessage` 交给**DSH 自己的** `isQuotaExceededError()`。重新实现一份分类器只能证明两份正则今天一致；而决定文案的是 DSH 那份。
   - 四条用例覆盖两种失败的两侧：`model_busy` **不是** quota 且文案里带「与积分、额度无关」；`hard_credit`（真实 14018 报文）**仍是** quota；`soft_rate`（真实 6004 报文）**仍是** quota 且保留上游的重置时刻——「不该改的那半边别一起扫掉」。
   - **重试那条断言读的是 adapter 自己发布的策略**（`config.profiles()` 的 `retryPolicy`，也就是 DSH 经 `providerRetryPolicy` 读到的同一个对象），不是 `resolveRetryPolicy(undefined)` 的默认值：后者在 adapter 干脆不再发布策略时**依然会绿**。断言含 `RATE_LIMIT` 在内、`QUOTA` 不在内、`maxRetries` 有界（>0 且 ≤10，即「适当次数」而不是无界循环）。
-  - **恢复缺陷后的测试**：把 `model_busy: 'quota_exceeded'` 加回 `KIND_HOST_CODE`，`issue84` 的第一条与 `shim-failover` 的对应用例**当场变红**；恢复后全部通过。`shim.spec.ts` 的「只有 soft_rate 需要翻译」那条清单把 `model_busy` 也收了进去，且注释写明它会红在哪。
+  - **变异测试**：把 `model_busy: 'quota_exceeded'` 加回 `KIND_HOST_CODE`，`issue84` 的第一条与 `shim-failover` 的对应用例**当场变红**；恢复后全部通过。`shim.spec.ts` 的「只有 soft_rate 需要翻译」那条清单把 `model_busy` 也收了进去，且注释写明它会红在哪。
   - **改了两条既有断言**：`tests/shim.spec.ts`（`model_busy` 现在也属于「按自己的名字拼写」那一组）与 `tests/shim-failover.spec.ts`（`"code":"quota_exceeded"` → `"code":"model_busy"`，并新增 `not.toContain('quota_exceeded')`）。两条都是原先在**验证缺陷**的断言，不是回归。
 
 ## 4.11.0 (2026-10-20)
@@ -3595,7 +3598,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 
 ### Features
 
-- **卡片上如实标注拒绝 `off` 的行**：名单内模型（以及进程内实测被拒的模型）的「可关闭思考」显示为**勾选但禁用**，旁边多一枚 `拒绝 off` 标记，tooltip 说明「实测两个网关都回 400 / code 11133，勾选后所有未指定档位的请求（尤其压缩摘要）都会失败」。**不禁用、不隐藏**这个勾选框：旧版本可能已经把勾存下来了，藏起来等于把用户保存的状态和失败原因一起藏掉。
+- **卡片上如实标注拒绝 `off` 的行**：名单内模型（以及进程内实测被拒的模型）的「可关闭思考」显示为**勾选但禁用**，旁边多一枚 `拒绝 off` 标记，tooltip 说明「实测两个网关都回 400 / code 11133，勾选后所有未指定档位的请求（尤其压缩摘要）都会失败」。**不移除、不隐藏**这个勾选框：旧版本可能已经把勾存下来了，藏起来等于把用户保存的状态和失败原因一起藏掉。
 
   判定值 `offRefused` / `refusesOff` 由 DSH 给出，卡片不自行推断。
 
@@ -3603,11 +3606,11 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 
 - **`tests/issue83-off-refusal.spec.ts`：钉请求体，而不是钉函数返回值**
   - 用**真实 pi-ai `openai-completions`** 经**真实 adapter** 构建请求，传入 `fetch` 捕获 body，再断言 `reasoning_effort` 不在其中——「盖了章」不等于「没发出去」，只有 body 能证明。模型描述符取自 adapter 自己的目录（声明 `canDisableThinking: true`，与上游对这 9 个 id 的声明一致），所以手写描述符绕过的 profile 级修复在这里藏不住。
-  - 另外三条守 `prepareChatBody`：名单内摘除、名单外保留、其他档位一格不动、原本没有档位就不补。
+  - 另外四条检查 `prepareChatBody`：名单内摘除、名单外保留、其他档位一格不动、原本没有档位就不补。
 - **`tests/issue83-profile-default.spec.ts`**：profile 的默认档位是 `'high'` 而不是 `undefined`/`'off'`，且**每一个注册键**都一致（issue #75 的身份键也算）。
 - **`tests/off-thinking.spec.ts` / `off-thinking-runtime.spec.ts` / `off-thinking-card.spec.tsx` 改了三条断言**：此前它们断言「用户勾选优先于名单」，而那正是 issue #83 的成因。现在改为断言墙生效、名单外仍然尊重勾选、以及卡片对 DSH 标记的行渲染成「勾选但禁用 + 有标记」。
 - **`tests/upstream-error-copy.spec.ts` 加了 4 条**：11133 且 `param` 指向档位时列出档位与处置；`param` 为空时**不**归因到档位；拒绝被上报（含被请求命名的 `modelId`，不是账号别名）；非参数类失败不上报。
-- **恢复缺陷后的测试**：单独回退「多处限制关闭思考的检查」→ 1 项失败；单独回退「adapter 名单判断」→ 2 项失败；单独回退「显式默认档位」→ profile 那 2 项失败。撤回其中任一层都有测试当场报错。全量 1536 passed / 2 skipped，`pnpm run typecheck` 与 `pnpm run build` 均干净。
+- **变异测试**：单独回退「多处限制关闭思考的检查」→ 1 项失败；单独回退「adapter 名单判断」→ 2 项失败；单独回退「显式默认档位」→ profile 那 2 项失败。撤回其中任一层都有测试当场报错。全量 1536 passed / 2 skipped，`pnpm run typecheck` 与 `pnpm run build` 均干净。
 
 ## 4.10.1 (2026-10-20)
 
@@ -3620,13 +3623,13 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   - **根因**：`readAtRestKey()` 只缓存**成功**。当凭据字段是 `$wbEncrypted` 而桌面端又不在候选目录里时，每次探测都会重新运行整套发现；`scanAll()` 是**逐文件**调用的，一次打开页面又要读多次，两个乘数叠在一起。
   - **第二个乘数**：`SCAN_SHARE_WINDOW_MS` 从扫描的**开始**时刻计窗——比窗口更慢的那次扫描**在完成时就已经过期**，永远无法服务它之后的读取。现在从**完成**时刻计窗，并单独保留 `invalidateScan()` 供写入路径强制刷新（写完再读不会看到旧列表）。
   - **两处顺手的去重**：`findWorkbuddyAppExecutableWithSource()` 会在默认布局 → 注册表 → `findWorkbuddyAppExecutable()` 的回落链里对同一个答案问两遍注册表，现在只问一遍；失败结果带上过期时间缓存，所以「先不装、后装 App」的用户**不需要重启**就能被看见。
-  - **代价**：第一次真正的读取仍付一次探测的钱（3 次 `reg`），此后每一轮读取都是 0。
+  - **代价**：第一次真正的读取仍付一次探测的钱（3 次 `reg`），缓存有效期内的后续读取不再启动注册表查询，过期后会重新探测。
 
 ### Tests
 
 - **`tests/issue77-at-rest-key-cache.spec.ts`：用「子进程次数」验证，不靠计时措辞**
-  - `process.platform` 影子成 `win32` + `execFileSync` 在模块边界打桩，于是**任何 DSH（含 CI 的 macOS/Linux）**都会真的走进 Windows 分支并把 `reg` 调用数出来：一次探测恰好 3 次、5 个加密凭据文件的一轮读取（`accounts` → `status` → `current` → `accounts`）仍是 3 次、失败结果被记住、过期后重新探测。
-  - **恢复缺陷后的测试**：把修复回退后这两条断言分别报 **15 ≠ 3** 与 **9 ≠ 3**；三个用例在修复后全部通过。写入后再读的用例在前修复/后修复两种状态下都绿——它守的是「共享窗口不得变成 TTL」，是回归保护检查而非修复证据。
+  - `process.platform` 影子成 `win32` + `execFileSync` 在模块边界打桩，于是**各平台上的测试进程（含 CI 的 macOS/Linux）**都会真的走进 Windows 分支并把 `reg` 调用数出来：一次探测恰好 3 次、5 个加密凭据文件的一轮读取（`accounts` → `status` → `current` → `accounts`）仍是 3 次、失败结果被记住、过期后重新探测。
+  - **变异测试**：把修复回退后这两条断言分别报 **15 ≠ 3** 与 **9 ≠ 3**；三个用例在修复后全部通过。写入后再读的用例在前修复/后修复两种状态下都绿——它守的是「共享窗口不得变成 TTL」，是回归保护检查而非修复证据。
   - 文件里的凭据夹具用**真实的加密字段形状** `{$wbEncrypted: 1, envelope: "<base64>"}`；写成嵌套对象会被 `isEncryptedFieldWrapper()` 判为「未加密」，让整条用例静默走错分支（写测试时踩到过，在夹具注释里记下）。
 
 ## 4.10.0 (2026-10-19)
@@ -3661,7 +3664,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 
 - **裁剪福利说明不再撑破积分列**：福利文案与按钮曾被挤成竖排「领取」二字并压住右侧目标模型列；胶囊改为 `white-space:nowrap` + 固定 19px 高 + `flex:none`，让列宽只能压缩文字、压不了按钮。
 - **「领取」二字的视觉居中**：无头 Chrome 像素扫描测得 CJK 字形墨迹比行盒中心偏低约 1px，用 `padding-top:1px` 补偿（`transform` 与 `padding-bottom` 两个方向都试过，都会把墨迹推得更低，已弃用）。
-- **CHANGELOG 结构：补回丢失的 `## 4.9.5 (2026-10-19 · 未单独发布，并入 4.10.0)` 标题**。`6bf825a`（feat: 单账号领取福利按钮）把顶部标题改写成 4.9.6 时，把 4.9.5 那一节的正文留在了下面却没有版本标题——于是 4.9.5 的 Features 看起来像是 4.9.6 的一部分，而 `git tag` 与 npm 上它确实是一个独立版本。现按 `cad9ec3`（chore(release): 4.9.5）的原样恢复标题。
+- **CHANGELOG 结构：补回丢失的 `## 4.9.5 (2026-10-19 · 未单独发布，并入 4.10.0)` 标题**。`6bf825a`（feat: 单账号领取福利按钮）把顶部标题改写成 4.9.6 时，把 4.9.5 那一节的正文留在了下面却没有版本标题——于是 4.9.5 的 Features 看起来像是 4.9.6 的一部分，而 Git 中保留了独立版本标签；本条与上文记录一致，未单独发布到 npm。现按 `cad9ec3`（chore(release): 4.9.5）的原样恢复标题。
 
 ## 4.9.6 (2026-10-19 · 未单独发布，并入 4.10.0)
 
@@ -3810,7 +3813,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 
     报告者实测：同一份字节相同的历史，一侧 708K、另一侧 1.374M（1.94×），为其中一侧算出的压缩请求因此永远塞不进另一侧的窗口。
   - **改了什么**：新增 `WORKBUDDY_MODEL_IDENTITY = 'workbuddy'`（`src/adapter.ts`），`toPiModel` 盖在模型上的 `provider` 字段两边都用它，`isSameModel` 于是成立。**路由 id 一个都没合并** —— 注册键仍是 `workbuddy` / `workbuddy-global`，各自指向自己的 shim、目录与凭据；`tests/issue59-cross-region-thinking.spec.ts` 断言「同一个 model 身份 + 各自的 baseUrl + 各自的路由键」三件事同时成立。
-  - **为什么能这样做而不出问题**：pi-ai 的查表本来就分两件事 —— `getModel(provider, id)` 是 `providers.get(provider).getModels()` 里按 id 找（`models.js:116–118`），**键**是路由 id，**盖在返回对象上的 `provider` 字段**是 provider 自己写的。本插件不注册 `fetchModels`，没有任何下游从该字段反推路由；openai-completions 的 api 只用它取厂商特例（都不匹配这两个 id）和错误信息里的标签。
+  - **当时的论证（后被 #75 推翻，见 4.9.2）**：pi-ai 的查表本来就分两件事 —— `getModel(provider, id)` 是 `providers.get(provider).getModels()` 里按 id 找（`models.js:116–118`），**键**是路由 id，**盖在返回对象上的 `provider` 字段**是 provider 自己写的。当时仅核对了 `getModel`，漏查了聊天派发和凭据查询中使用该字段的路径；openai-completions 的 api 只用它取厂商特例（都不匹配这两个 id）和错误信息里的标签。
   - **没有一并「修」掉的**：同区内换模型仍将历史推理内容改为普通文本（那是真的换了模型，thinking 签名对新模型未必有效，保留才是错的）；升级前录进历史的消息带旧的按区域 id，再次发送历史消息时仍按旧规则将历史推理内容改为普通文本，但只会越聊越少，不影响新录的消息。真正的修法仍在上游：`isSameModel` 应当能读「provider 等价组」声明，而不是让插件去伪装身份。
   - **测试如何证明**：`transformMessages` 上跑了两组对照 —— 旧的一对按区域 id 复现出 `[text, text]`（这正是报告的成因），新的一对给出 `[thinking, text]` 且正文原样保留；另有一条断言**不同 model id 仍然将历史推理内容改为普通文本**，防止这次修复被误读成「任何模型都算同一个」。本地 pi-ai 0.85.1 与 DSH 1.1.0 在这条判据上的行为已分别核对一致。
 
@@ -3861,7 +3864,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 
     DSH 侧已按 deepseek-ai/deepseek-harness#9814 提交，上面两处即该 issue 的 A、B 两点。
   - **本版做的事**：适配器在溢出错误**仍然持有 session id** 的那一刻接手，用 DSH**自己的**压缩事务（`ctx.compaction.compactRegion`）把历史折回去，而不是另发一次摘要请求。
-    - 分块上限 = 模型窗口的 **35%**，因此摘要请求本身**按构造**一定装得下（DSH 默认那一次是 131%）。
+    - 分块上限 = 模型窗口的 **35%**，为摘要提示和其他输入留出余量；估算与上游计数可能不同，仍需处理摘要请求溢出（原样本中 DSH 默认摘要请求为窗口的 131%）。
     - 折叠目标是窗口的 **60%**，逐块折叠直到低于目标；块边界来自 DSH 自己的 `tokenMeter`。
     - **绝不折掉当前请求携带的那条消息**（`nodes.at(-1)` 永远保留）。
     - DSH 拒绝某个区间（切断了 tool call 与 result 的配对、或正有压缩在跑）时，把尾边向内收一格重试；仍是拒绝就放弃，绝不空转。
@@ -3871,9 +3874,9 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 
 ### 已知未修
 
-- **跨区 prompt token 计数漂移**（#59 前半）：同一份 3.6 MB 请求体，CN 计 642,800、GL 计 447,306。这不是网关数错 —— 历史里的 thinking 块按上游当初实际返回的字段名（`reasoning` / `reasoning_content`）使用原字段再次发送（DSH `pi-ai` 0.85.1 `openai-completions.js:428` → `:1006`），同一批字节因此落进不同计费桶。
+- **跨区 prompt token 计数漂移**（#59 前半）：同一份 3.6 MB 请求体，CN 计 642,800、GL 计 447,306。该差异不能单独证明网关计数有误。后续调查发现历史里的 thinking 块按上游当初实际返回的字段名（`reasoning` / `reasoning_content`）使用原字段再次发送（DSH `pi-ai` 0.85.1 `openai-completions.js:428` → `:1006`），历史推理可能因字段转换成为普通正文，改变实际请求中的内容分布；仅凭总字节数近似相同，不能证明两份请求逐字节相同或计费正确。
 
-  归属 DSH，本插件没有改写历史的权限，详见 #59 与 `src/body-report.ts` 头部说明。
+  当时将问题提交给 DSH；插件后续也在请求构建阶段修正了历史消息身份字段，见 4.9.0、4.9.2、5.1.0 与 5.3.0。分析依据及限制见 #59 与 `src/body-report.ts` 头部说明。
 
 ## 4.7.0 (2026-10-17)
 
@@ -3904,7 +3907,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   - **★ 检查为什么一直没抓到**：`tests/adapter-outgoing-body.spec.ts` 是唯一断言「线上 body 真的带 tools 与 system」的用例，却被 `it.skipIf(piAiRuntimeInfo().generation !== 'legacy')` 限死，**modern 分支零覆盖**；而作者 checkout 解析到 0.85.1，它一直是绿的。`adapter.spec.ts` 也帮不上忙——它 mock 了 api，只断言「交给 wrapper 的 context」，这个断言恰好**认证**了缺陷。
   - **本版把检查扩成 2×2 矩阵**：{legacy, modern} × {原始信封, 已整理字段的 transcript} 四格都断言 `body.tools` 与首条 system 文本。在原用例的基础上补了「modern × 原始信封」这一格——**它就是本缺陷的回归钉**。另加重复执行后结果相同的用例与「只有 tools、没有 systemPrompt」用例。
   - **本机与 CI 的代际约束（写在用例注释里）**：legacy 两格只能在 0.85 checkout 上跑（1.x 的 api 读不了 0.85 扁平形状）；modern 两格只能在 0.87+/1.x 上跑（0.85 的 `estimateMessageTokens` 会对 system 消息的**字符串**逐字符迭代并读 `block.name.length` 而崩溃，即 #24 的崩溃）。用例按**已安装版本**选格，不会让任何一代完全无人看管。
-  - **恢复缺陷后的测试**：把 modern 分支改回 `return api` → 新增的「FOLDS a raw seam envelope」用例**红**（1 例）。验证后已还原。
+  - **变异测试**：把 modern 分支改回 `return api` → 新增的「FOLDS a raw seam envelope」用例**红**（1 例）。验证后已还原。
   - **实机验证**：临时把 checkout 的 `node_modules/@earendil-works/pi-ai` 换成 1.1.0（连同 1.1.0 新需要的 `typebox`/`partial-json`/`openai`），modern 四格**全部通过**；legacy 两格如预期红（1.1.0 读不了扁平形状）。验证后已完整还原 0.85.1 与依赖树。
 
 - **「可关闭思考」的模型被锁成不可关闭，不可关闭的反倒可关（`adapter.ts` 既有缺陷，非本次升级引入）**
@@ -3912,15 +3915,15 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   - **实际后果**：上游声明 `canDisableThinking: true` 且用户没取消勾选 → `off` 被置 `null` → 关闭思考**不可选**；上游声明 `false`/未声明 → 不置 `null` → `off` 落成字符串 `'off'` → **反而可选**。与 `offDefaultFor()` 的处理规则正好相反。
   - **为什么一直没发现**：`tests/adapter.spec.ts` 只探了 `canDisableThinking: false` 那半边，而写反的形式在那半边也恰好通过；另外两条对 `true` 的用例把期望值写成了「没有 off」或「off 缺失」，**把缺陷当成了规格**。
   - **改了什么**：改为 `canDisableThinking === true ? 'off' : null`，并把三条用例的期望值改正，新增「能力未声明时不给 off」一例。
-  - **恢复缺陷后的测试**：把判断改回 `!== true` → 2 项失败。
+  - **变异测试**：把判断改回 `!== true` → 2 项失败。
 
-- **DSH DSH 线检查的 semver 比较器是错的：判 `0.2.1-rc.1` 通过，而 npm 实算是 false**
+- **DSH 线检查的 semver 比较器是错的：判 `0.2.1-rc.1` 通过，而 npm 实算是 false**
   - **根因**：`tests/dsh-line.spec.ts` 自写的 `satisfiesRange()` 只做朴素 `>=` / `<` 比较，没有实现 semver 的**预发布悬崖**——预发布版本只有当同一比较器集合里存在**同一 `major.minor.patch` 元组**上的预发布比较符时才被放行。`>=0.1.7-rc.1` 只对 `0.1.7-x` 开口，`<0.3.0-0` 排除整个 `0.3.0` 元组，`0.2.1-rc.1`（元组 `0.2.1`）两条都不满足。
   - **为什么夹具没触发**：原夹具是 `['0.1.7-rc.1','0.1.7-rc.2','0.2.0-rc.1','0.2.0-rc.9','0.2.0','0.2.1','0.2.99']`——恰好跳过真实发布的 `0.2.1-rc.1`；而 `0.2.0-rc.1` / `0.2.0-rc.9` 被断言成 admitted，那本身也是错的（npm 判 false）。
   - **改了什么**：比较器按规范重写（`parseVersion` / `compareParsed` / `sameTuple` + 悬崖规则），夹具拆成「正式版放行」与「已知预发布偏差」两组，并新增 5 条照抄 npm 实际输出的悬崖用例。
   - **新增的「已知偏差」用例**：显式断言 `0.2.1-rc.1` 与 `0.2.0-rc.1` 在现声明下 **不** admitted、而 `0.2.1` GA admitted。于是偏差是**被记录、被解释**的，而不是被错比较器掩盖；将来若改清单，这条会提醒同步更新说明。
   - **为什么可以暂不改清单**：详见下一条。DSH `evaluatePluginCompatibility()` 只校验 `@deepseek-ai/dsh*` 命名空间，本机 profile 用 `link:` + 默认不自动装 peer，rc DSH 上插件照常加载；等 DSH 发 `0.2.1` GA，现声明立即转发。
-  - **恢复缺陷后的测试**：去掉悬崖规则 → 2 项失败。
+  - **变异测试**：去掉悬崖规则 → 2 项失败。
 
 ### Changed
 
@@ -3942,7 +3945,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 
     修法是一处**有注释的** `transcript<T>()` 断言，理由写在函数上：调用点已经完成 `normalizeContext` 的职责，而 `normalizeContext` 在 0.85 不存在、不能导入。
 
-    **恢复缺陷后的测试**：去掉该断言 → 1.1.0 上 `tsc` 报 4 个 `TS2345`。
+    **变异测试**：去掉该断言 → 1.1.0 上 `tsc` 报 4 个 `TS2345`。
   - **验证过它真的会响**：把 modern 分支改回 `return api`，1.1.0 作业**红 4 例**（`adapter.spec.ts` 与 `adapter-outgoing-body.spec.ts` 各自的 modern 检查），而 0.85.1 作业保持全部通过。这正是本作业存在的意义。
   - 仅跑 ubuntu：这是库层面的断言，不是平台断言；OS 矩阵已由主 `test` 作业覆盖。
 
@@ -3958,15 +3961,15 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 
 ### Fixes
 
-- **「快过期的积分优先」从未生效：第 3 个排序键被第 2 个键完全遮蔽，临期积分必然作废（issue #70）**
+- **「快过期的积分优先」从未生效：第 3 个排序键被第 2 个键完全遮蔽，临期积分可能未被优先使用（issue #70）**
   - **症状**：开启账号池后，`当前使用` 永远是积分总量最高的那个账号；哪怕另一个账号有积分**当天就要过期**，它也一直排最后，直到临期积分作废。
-  - **根因**：`rankPool()` 的排序键是**严格字典序**——先比积分总量（`scoreOf()` = `credits.total`），**只有总量完全相等**才比到期时间。而总量几乎从不恰好相等，所以「快过期优先」这条规则**在数学上不可达**。报告者的真实病例：账号 C 有 **196.4 分当天 17:21 到期**，只因为比 A/B 少约 1,200 分，即永远排最后，那 196.4 分必然烂掉。
+  - **根因**：`rankPool()` 的排序键是**严格字典序**——先比积分总量（`scoreOf()` = `credits.total`），**只有总量完全相等**才比到期时间。而总量几乎从不恰好相等，所以「快过期优先」只在总量相等时参与，通常难以生效。报告者的真实病例：账号 C 有 **196.4 分当天 17:21 到期**，只因为比 A/B 少约 1,200 分，即永远排最后，那 196.4 分存在未及时使用而过期的风险。
   - **规则优先级的影响**：README 把这两条写成**并列的第 2、3 条**，读起来像两个同级偏好；代码里却是严格优先级。**一条「不花就作废」的规则被另一条完全压制，等于死代码**，而它从输出上看不出任何异常——顺序永远「有道理」，只是那条规则从不参与。
   - **改了什么**：把临期判据提到总量之前，并拆成三个独立的键——**有临期积分者优先** → **先到期者优先** → **临期量大者优先**，之后才回到积分总量。
   - **一个单位错误顺手修掉**：旧的 `_expiring` 键实际存的是 `nearestExpiryMs`（**时间戳**），而 `expiringSoon`（**积分量**）在排序里从未被读过。现在两者分开：`_expiring` 仍是时间戳（用于「谁先到期」），`_expiringAmount` 才是积分量。直接拿这两个相减会是一个不容易发现的数量级错误。
-  - **一个反直觉但正确的后果，写进了代码注释与两份 README**：这条规则会让**临期 1 分**的账号排到**余额 5 万**的账号前面。**这不是缺陷**——积分是通用的，不花那 1 分它**确定**会损失；而余额 5 万的账号下一轮还在。唯一的真实代价是临期账号可能不够执行完成一个请求，此时由既有的换号逻辑接手。若按总量优先，则临期积分**确定**作废。
+  - **一个反直觉但正确的后果，写进了代码注释与两份 README**：这条规则会让**临期 1 分**的账号排到**余额 5 万**的账号前面。**这不是缺陷**——积分是通用的，不花那 1 分它**确定**会损失；而余额 5 万的账号下一轮还在。唯一的真实代价是临期账号可能不够执行完成一个请求，此时由既有的换号逻辑接手。若按总量优先，临期积分可能在使用前过期，具体取决于后续请求和其他账号余额。
   - **可用性仍然第一**：处于限流冷却/凭据被拒的账号即使有大量临期积分也**不会**被提前——它花不掉，提上去只会让每个请求都撞墙。
-  - **测试**：新增 6 例（报告者真实数据 `C → A → B`、无临期时仍按总量、临期 1 分压过 5 万、都在临期时先到期者优先、同到期时量大者优先、不可用账号不被提升）。**恢复缺陷后的测试**：① 恢复旧的字典序（总量先判）→ 红 4 例；② 去掉「先到期者优先」→ 红 2；③ `_atRisk` 恒为 false（等价修复前）→ 红 2。
+  - **测试**：新增 6 例（报告者真实数据 `C → A → B`、无临期时仍按总量、临期 1 分压过 5 万、都在临期时先到期者优先、同到期时量大者优先、不可用账号不被提升）。**变异测试**：① 恢复旧的字典序（总量先判）→ 红 4 例；② 去掉「先到期者优先」→ 红 2；③ `_atRisk` 恒为 false（等价修复前）→ 红 2。
   - **顺带修正一条名不副实的旧测试**：`prefers the account whose credits expire soonest when totals tie` 的两个夹具都只有 `nearestExpiryMs`、`expiringSoon` 为 0，即**两个账号都没有任何临期积分**。它在旧规则下能过，靠的正是「排序看时间戳、不看量」这个缺陷；现已补上真实的 `expiringSoon`，让它真的在测名字里那件事。
   - **README**（中英同步）：排序规则把「快过期先花」提到第 2 条、「积分高者优先」降到第 3 条，并就地写明旧行为为何是死代码、以及「临期 1 分压过 5 万」为何是对的。
 
@@ -3982,22 +3985,22 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
     - **B** 两边发出的 body 其实不同 → **我们的问题**，要修。
 
     报告者 10-16 抓到的配对 body 总量只差 **0.3%**（3,554,248 vs 3,565,415 字节），但仅凭这个数无法区分 A 与 B —— 缺的正是「上游回了多少」。
-  - **改了什么**：报告每行新增 `promptTokens` / `completionTokens` / `cachedTokens` 三个**可选**字段，取自上游响应流里的 `usage` 块。至此一行同时给出两半：**发出去的字节** 与 **网关算的 token**，两者一比即可定案。
+  - **改了什么**：报告每行新增 `promptTokens` / `completionTokens` / `cachedTokens` 三个**可选**字段，取自上游响应流里的 `usage` 块。至此一行同时给出两半：**发出去的字节** 与 **网关算的 token**，可用于比较请求体构成与上游返回用量，但仍需核对内容和计数规则。
   - **为什么必须新加一个响应侧钩子**：`usage` 走的是**响应流**，而不是请求。`createWorkBuddyShim` 原先只有 `onRequestBody`（请求发出前），响应侧不记任何东西 —— 而 `usage` 只在上游的**最后一帧**才出现。新增 `onUpstreamUsage`，在 `RecoveryStream` 解析每一帧时读取。
   - **★ 一个位置性缺陷，写完就触发了**：`usage` 帧**不带 `choices`**（它是流末尾的独立帧），而 `handleFrame()` 里第一个早退分支就是「没有 choices 就原样转发」。把读取放在那个分支之后，代码跑起来一切正常、**永不报错**，只是永远拿不到数。
 
     检查 `tests/issue59-upstream-usage.spec.ts` 的第 1 例专门钉这一条：**恢复缺陷的修改（把读取挪到 `choices` 检查之后）→ 红 2 例**，正是原始的漏读形态。
   - **「没有」不等于「零」**：上游没报 `usage`（请求失败、流被截断、非流式路径）时字段**缺省**，而不是写 `0`。这是全条的关键区分——把「没测到」记成「没花钱」，会让整个对比失效。检查用一条显式用例验证（恢复缺陷的修改：把缺失记成 `promptTokens: 0` → **5 例全红**）。
   - **每个流只报一次**：`usageReported` 确保同一条响应流只上报一次，因为 failover 重试会**另起一个 `RecoveryStream`**，同一个 body 可能被量两次；先到的那次是实际服务的那次。
-  - **写回同一行，不新起一行**：两个半边的可以从执行结果确认时刻不同（发出侧在请求前、计费侧在流结束后），所以 `recordBodyReport` 改为返回一个 handle，等 `usage` 到了再**回填它自己那一行**。之所以不能追加第三行：报告者的用法是「取 `cn.jsonl` 与 `global.jsonl` 的**最后一行**对比」，多出来的 usage-only 行会**静默变成被比较的那一行**。
+  - **写回同一行，不新起一行**：请求体和响应用量的记录时刻不同（发出侧在请求前、计费侧在流结束后），所以 `recordBodyReport` 改为返回一个 handle，等 `usage` 到了再**回填它自己那一行**。之所以不能追加第三行：报告者的用法是「取 `cn.jsonl` 与 `global.jsonl` 的**最后一行**对比」，多出来的 usage-only 行会**静默变成被比较的那一行**。
   - **行身份靠四元组匹配**（`at` + `region` + `bodyBytes` + `messageCount`），故意不用 `at` 一个字段：同一毫秒内可能有两笔请求。**这里踩到并修掉了一个测试自身的洞**：初版测试标注的是**最后一行**，而回填是从文件末尾**倒着找**的 —— 于是把 `bodyBytes` 校验整个删掉，测试**照样全部通过**。
 
     改成标注**靠前**那一行后，该恢复缺陷的修改立刻测试失败；`messageCount` 同理（构造了两份**字节数完全相同、消息条数不同**的 body：一条 51 字符的消息 与 两条 11 字符的消息，都是 196 字节）。
 
-    **最终恢复缺陷后的测试**：去掉 `bodyBytes` 校验 → 红 1；去掉 `messageCount` 校验 → 红 1；两者都去掉 → 红 2。
+    **最终变异测试**：去掉 `bodyBytes` 校验 → 红 1；去掉 `messageCount` 校验 → 红 1；两者都去掉 → 红 2。
   - **两处防止重复处理的检查刻意保留冗余**：handle 内的 `done` 与磁盘上的「已标注就跳过」互为备份，各自覆盖另一种情形（后者专治「同一 body 的第二个 handle」）。只删一道**行为上无法从执行结果区分**，删两道才红——这一点写进了代码注释，免得后人以为其中一道是死代码而删掉。
   - **缓存命中一并记录**：两个网关的缓存命中**拼写不同**（OpenAI 的 `prompt_tokens_details.cached_tokens` 与国内的 `prompt_cache_hit_tokens`），两种都读、取先命中者，否则同一份对话在两个区域会显示成一个有缓存、一个没有。
-  - **对 #59 的实际意义**：这一版让报告者**不必再做重新发送历史消息的对照实验**——同一会话两区各抓一次，直接比 `promptTokens` 两列即可区分 A / B。对照实验会发送一整份真实历史，既贵，又会引入「两次请求之间还发生了什么」的新变量。
+  - **对 #59 的实际意义**：这一版让报告者**不必再做重新发送历史消息的对照实验**——同一会话两区各抓一次，可以比较 `promptTokens`，但仍须核对实际消息内容、字段转换和采样时刻才能区分 A / B。对照实验会发送一整份真实历史，既贵，又会引入「两次请求之间还发生了什么」的新变量。
   - **本条不包含对 1.94 倍的结论**：它补的是**验证手段**。那个结论仍待报告者带新字段重抓后才能下。
 
 ## 4.6.5 (2026-10-16)
@@ -4009,11 +4012,11 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 - **国际版 App 探测不到：可执行文件候选缺了 `WorkBuddyAI.exe` 与 `WorkBuddyAI` 目录（issue #68）**
   - **症状**：只装了国际版的机器上，插件拿不到密钥 payload 的**来源** → 凭据读不出 → 界面显示成「属于另一个地区」。而报告者实测国际版装在 **`%LOCALAPPDATA%\Programs\WorkBuddyAI\WorkBuddyAI.exe`** —— **目录名与二进制名都和国内版不同**，`workbuddyAppExecutableCandidates()` 的 win32 分支两个都没覆盖。
   - **为什么这类漏探特别难查**：可执行文件候选遗漏会表现为「凭据读不出」，最后被下游渲染成区域问题。检查请求少一个候选与「用户没装 App」在界面上长得一样。
-  - **改了什么**：新增 `WINDOWS_APP_EXECUTABLE_NAMES`（`WorkBuddy.exe` / `WorkBuddyAI.exe`）与 `WINDOWS_APP_SUBDIRECTORIES`（`Programs\WorkBuddy` / `WorkBuddy` / `Programs\WorkBuddyAI` / `WorkBuddyAI`），候选按「三个 base × 四个目录 × 两个二进制」笛卡尔积生成（16 个，原先是 4 个）。**目录与二进制不做配对假设**：观察到的是 `WorkBuddyAI\WorkBuddyAI.exe`，但一个 miss 在这里是不可见的，所以两种拼法都试。
+  - **改了什么**：新增 `WINDOWS_APP_EXECUTABLE_NAMES`（`WorkBuddy.exe` / `WorkBuddyAI.exe`）与 `WINDOWS_APP_SUBDIRECTORIES`（`Programs\WorkBuddy` / `WorkBuddy` / `Programs\WorkBuddyAI` / `WorkBuddyAI`），候选按「三个 base × 四个目录 × 两个二进制」笛卡尔积生成（24 个，原先是 4 个）。**目录与二进制不做配对假设**：观察到的是 `WorkBuddyAI\WorkBuddyAI.exe`，但一个 miss 在这里是不可见的，所以两种拼法都试。
   - **`normalizeRegistryExecutable()` 同步放宽**：它是另一处按文件名判断的地方，也必须认国际版 —— 否则注册表里指向国际版二进制的 `DisplayIcon` 会被当成「别的产品的二进制」拒掉。**这个值是会被启动的**，所以只加白名单里的两个名字，不是「任何 exe 都收」。
   - **检查**：`tests/at-rest.spec.ts` 新增 2 例并把原先断言候选数为 `4` 的那条改成断言**乘积**（`3 × 4 × 2`）—— 乘积断言用于让「少掉一个维度」这种编辑无法靠集合变小而静默通过。新增例子断言国际版路径在内、国内版仍在且在它之前；另一条断言注册表校验接受两种二进制、且**仍拒绝** `uninstall.exe` 与 `WorkBuddy.exe.bak`。
 
-    **恢复缺陷后的测试**：① 去掉 `WorkBuddyAI.exe` → 红 3 例；② 去掉 `WorkBuddyAI` 目录 → 红 2 例；③ 注册表校验不再限制文件名 → 红 2 例。
+    **变异测试**：① 去掉 `WorkBuddyAI.exe` → 红 3 例；② 去掉 `WorkBuddyAI` 目录 → 红 2 例；③ 注册表校验不再限制文件名 → 红 2 例。
   - **证据档位**：报告的路径来自报告者的实际设备（属 A 档观察）；**本项目无法在实际设备上复现**（无一等 Windows 机器在手），所以这条修复的依据是 A 档观察 + 本项目的形态断言，未在实际设备复核 —— 按 `docs/WINDOWS.md` §2 的采用的规则，其「国际版路径命中」仍是 **C 档（约定推导）**，待 Windows 用户回报后升格。
 
 - **「另一个地区」把「解密失败」盖住了：优先级顺序把更具体的诊断吃掉（issue #68）**
@@ -4021,7 +4024,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   - **根因**：`signedOutNotice()` 里 `wrong-region` **先于** `encrypted` 判定，而这两者**不是互斥的，它们会同时出现**，且同时出现是**常态**：`diagnose()` 会探测**两个区域**的文件，于是一台装了**两个 WorkBuddy 版本**的机器上，新版的文件解密失败（`encrypted`），旧版的文件仍能解开、只是属于另一个区域（`wrong-region`）。先判 `wrong-region` 的后果是：只要有一个可解的兄弟文件，headline 就永远说「切 tab」，把真正的阻塞压在下面。
   - **改了什么**：把 `encrypted` 提到 `wrong-region` **之前**。按**阻断程度**确定显示优先级—— 另一个标签页上有可读的登录是一条更便宜的修法，但前提是**有登录可读**。原先的顺序把用户推向唯一不可能起作用的动作，而这**正是这个函数存在的理由**，只是两个原因的位置对调了。
   - **反向那一半也保住了**：没有 `encrypted` 时，`wrong-region` 仍然胜出（新增一条测试验证），否则就是用一个错 headline 换另一个。
-  - **检查**：`tests/searched-paths.spec.ts` 新增 2 例 —— ① 两者共存时 `encrypted` 胜出，且**断言渲染出的字符串**里不含「切换到上方对应标签页」（文案才是用户看到的东西）；② 无阻塞时 `wrong-region` 仍胜出。**恢复缺陷后的测试**：把顺序恢复成 `wrong-region` 先判 → 红 1 例。
+  - **检查**：`tests/searched-paths.spec.ts` 新增 2 例 —— ① 两者共存时 `encrypted` 胜出，且**断言渲染出的字符串**里不含「切换到上方对应标签页」（文案才是用户看到的东西）；② 无阻塞时 `wrong-region` 仍胜出。**变异测试**：把顺序恢复成 `wrong-region` 先判 → 红 1 例。
 
 ## 4.6.4 (2026-10-16)
 
@@ -4032,9 +4035,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 - **`probe-region-token-accounting.mjs` 补上 `tool-result` 与高熵类 —— 这正是 #59 那个「预测不出上游数字」缺口的关键一格（issue #59）**
   - **为什么补**：本项目的检查请求原先只有 `prose` / `code` / `json` 三档。而一份真实长会话的 body 构成（`WORKBUDDY_BODY_REPORT` 抓下来的 35 个真实请求）是 **`tool-result` 占 47% 字符**，是三档里**一档都没覆盖**的内容类别。用三档去预测，结论是「上游报的数比最贵档还高 28%」，看起来像发现了新机制；而把实测的 `tool-result` 系数（**455.5 tok/1k**，跨区域 455.5 vs 455.6）代回去，**缺口从 28% 收到约 1%**。
 
-    **缺的是系数表的一行，不是新机制。
-
-    **
+    这组复算加入了此前遗漏的内容类别后，预测更接近观测值，但仍不能据此排除其他计数差异。
   - **新增的 `--kind`**：`base64`（实测 2.50× 于 `code`）、`hex`（2.04×）、`ansi`（1.92×）、`proc`（1.63×）、`tool-result`。报告者的实测显示**高熵内容是长会话里最贵的一类**，而 base64 恰是 `code` 的 2.5 倍 —— 老表把 `code` 当成天花板，因此系统性低估。
   - **生成器必须是确定性的**：两个区域要收到**字节内容相同**的填充文本，否则测出来的比值是在量生成器而不是量网关。故不读时钟、不读随机源、不读文件系统；用固定种子的 32 位 LCG。**这一点由测试直接断言源码文本**（`Math.random` / `Date.now` / `new Date` / `fs` 调用一律不得出现），因为行为断言只能证明「这次恰好相同」。
   - **★ 写测试时抓到一个真缺陷**：初版生成器是 `(state >>> 8) % alphabet.length` —— 只取 LCG 状态的 log2(L) 位，**在 L=64 时每 16384 字符就重复一次**，于是 65536 字符的填充里同一段 16 KiB 出现四次。**短周期正是这个类存在要避免的「可压缩」**：一个能看出重复的分词器会少收 token，于是实测输入用量被**低估**，而这正是原始 #59 现象的形状。
@@ -4044,7 +4045,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   - **`tool-result` 刻意不走 `entropy()`**：逐字符打散模板会产出没有任何工具会发出的文本，而这个类的**全部意义就在于内容形状**（标识符、花括号、引号键、路径、对齐数字）真实。它的变化来自「每轮以递进的偏移重复模板」，因此同样没有短周期。
   - **检查**：新增 `tests/probe-fillers.spec.ts`，8 例 —— ① 十个 `语言:类别` 组合都存在；② 每次生成字节内容相同；③ **源码文本里不得出现随机源或时钟**；④ **不得有 64 / 1024 / 16384 的周期**（这一条就是抓到上面那个真缺陷的那条）；⑤ `tool-result` 仍像 tool-result（含 `export function` / `"path"` / `await fs.readFile`，且中文版确实是中文）；⑥ `ansi` 是**真的控制字节** `<ESC>[31m`，不是字面的 `\u001B` 六字符；⑦ 结构化类别里不得出现 `NaN`；⑧ 每个填充长度都超过默认 `--chars=12000`。
   - **第 ⑦ 条的取法有讲究，写在测试注释里**：`NaN` 只查 `ansi` / `proc` / `tool-result` 三类 —— 它们是**格式化**出来的（`\u001B[3${n}m`、`.padStart`），出现 `NaN` 必是缺陷；而 base64 / hex 是从字母表里取的，字母表本身含 `N`、`a`、`N`，子串会以约 64³ 分之一的概率偶然出现。初版断言查了全部类别，**是错的**（会在无关的地方随机测试失败）—— 这是我写完立刻遇到并改掉的。
-  - **恢复缺陷后的测试（5 个恢复缺陷的修改，全部测试失败，各自只打中应打中的用例）**：① 去掉取模前的混合（重现 16384 周期）→ 红 1 例；② 顺序循环字母表（64 周期）→ 红 1 例；③ 改用 `Math.random` → 红 1 例；④ `ansi` 退化成字面 `\u001B` → 红 1 例；⑤ `tool-result` 逐字符打散成乱码 → 红 1 例。
+  - **变异测试（5 个恢复缺陷的修改，全部测试失败，各自只打中应打中的用例）**：① 去掉取模前的混合（重现 16384 周期）→ 红 1 例；② 顺序循环字母表（64 周期）→ 红 1 例；③ 改用 `Math.random` → 红 1 例；④ `ansi` 退化成字面 `\u001B` → 红 1 例；⑤ `tool-result` 逐字符打散成乱码 → 红 1 例。
   - **来源**：本条的补类与采样规则由 issue #59 的报告者提出并附实测数据（`tool-result` 455.5、高熵四档、尺寸梯度 12k→500k），本项目按其建议实现。**检查请求脚本不随包发布**（`files` 白名单不含 `scripts/`），所以这一版与已安装插件的行为无关。
 
 ## 4.6.3 (2026-10-16)
@@ -4067,16 +4068,16 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
     末行是**不能把 `ensureSystemHead()` 当成「已经不需要了」而删掉**的证据：system 规则从**充分**变成了**必要不充分**。CHANGELOG 的 3.1.0 那节记着当年的矩阵（空格 system → 200），今天同样的形状是 11128 —— 上游在这期间收紧了校验，而这次收紧**没有**替换掉旧规则。
   - **改了什么**：新增 `conversationHeaders()`，三个头各用一个**新生成的 UUID**（`randomUUID()`，与官方客户端每次请求 `randomUUID()` 的行为一致），在 `chatHeaders()` 里展开。这是报告者逐项二分测出的**最小必需集**：单独一个 `X-Conversation-ID` 仍然 11128，官方还发的 `acp-connection-id` / `X-Agent-*` / `X-IDE-*` / `X-Private-Data` / trace 系列**都不需要**。
 
-    三个 id 的值上游**不校验来源**，但不复用同一个值 —— 复用等于拿一个 id 冒充三次会话身份，而上游拿它做的就是关联。
-  - **两个区域都加，是刻意的**：国内网关当前容忍缺失，所以加在那边无害；而「只在一边发某个头」正是 3.1.0 那个缺陷长成**国际版专有、且在国内侧完全看不见**的原因。一条代码路径、两个区域，少一个分支就少一种只在一边复现的故障形状。
+    这组测试中，上游接受了插件生成的三个 id；不能据此断定服务端没有任何来源校验，但不复用同一个值 —— 复用等于拿一个 id 冒充三次会话身份，而上游拿它做的就是关联。
+  - **两个区域都加，是刻意的**：国内网关当前容忍缺失，这组测试中添加这些头未影响国内区请求；而「只在一边发某个头」正是 3.1.0 那个缺陷长成**国际版专有、且在国内侧完全看不见**的原因。一条代码路径、两个区域，少一个分支就少一种只在一边复现的故障形状。
   - **范围**：只加在 chat 端点（`chatHeaders()`）。billing / refresh 等端点**不加** —— 官方客户端调它们时也不带，报告者的矩阵也只在 chat 端点上取过数。
   - **`11128` 的错误分类（报告者建议的第 3 条）本次没有采纳**：他建议把它并入 `policy_reject`（与 `11140` 同类）。但另一位报告者提供了反例 —— 同一批测试、同一毫秒内，一个账号 `ok`、另一个 `11128`，两者**同样缺三件套**。若 11128 其实是按账号生效的，那么「换号能过」意味着它可恢复，落进 `failed` + 冷却 30 分钟后回池反而更合适（`policy_reject` 会让它**不冷却、仍当候选**）。
 
     分类改错会让账号池做出更差的调度，所以先把确定的正向做掉，分类问题留待更多数据。
   - **检查**：`tests/upstream.spec.ts` 新增 7 例 —— ① 国际网关三个头都发；② 国内网关也发（验证「一条代码路径」这个决定，而不是国内的需求）；③ **三个值互不相同**；④ 每个都是合法 UUID 形态；⑤ **每个请求新生成**（防止有人把它提升成模块级常量「优化」掉）；⑥ **检查请求路径也带**（检查请求打的就是 chat 端点，这也是「一键测试所有账号」能看出 11128 的原因 —— 只修 `chatStream()` 会让账号池拿着不满足规则的请求去测账号）；⑦ billing 端点**不带**。
-  - **第 ⑦ 条的形态本身踩过一个坑**：初版是 **grep 源码文本**来判断 `billingHeaders()` 里有没有 `conversationHeaders`。恢复缺陷后的测试时把一个恢复缺陷的代码副本加进去，**它没红** —— 因为那段文本切片压根没匹配上，测试是在对一个空片段做断言。改为**行为断言**（真的调 `fetchCredits()` 并看发出去的头）后，同一个恢复缺陷的代码副本立刻测试失败。
+  - **第 ⑦ 条的形态本身踩过一个坑**：初版是 **grep 源码文本**来判断 `billingHeaders()` 里有没有 `conversationHeaders`。变异测试时把一个变异副本加进去，**它没红** —— 因为那段文本切片压根没匹配上，测试是在对一个空片段做断言。改为**行为断言**（真的调 `fetchCredits()` 并看发出去的头）后，同一个变异副本立刻测试失败。
 
-    **恢复缺陷后的测试（5 个恢复缺陷的修改）**：① 从 `chatHeaders` 去掉三件套 → 红 6 例（等价修复前）；② 三个值写成同一个 → 红 1 例；③ 提升为模块级常量 → 红 1 例；④ 三件套泄漏到 billing 端点 → 红 1 例；⑤ UUID 形态被破坏 → 红 1 例。
+    **变异测试（5 个恢复缺陷的修改）**：① 从 `chatHeaders` 去掉三件套 → 红 6 例（等价修复前）；② 三个值写成同一个 → 红 1 例；③ 提升为模块级常量 → 红 1 例；④ 三件套泄漏到 billing 端点 → 红 1 例；⑤ UUID 形态被破坏 → 红 1 例。
   - **端到端**：报告者在本地对 `4.6.2` 打同一处补丁并**实测国际版恢复正常**；本项目侧改动与其独立实现等价（他手写十六进制拼 UUID，本项目用 `node:crypto` 的 `randomUUID`，后者本项目 `oauth.ts` / `dsml-recovery.ts` 在用）。
 
 ## 4.6.2 (2026-10-16)
@@ -4095,12 +4096,12 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   - **只在特定机器上发生**：`listen(0)` 的抽取范围是系统的动态端口范围，三平台默认值（Windows/macOS `49152-65535`、Linux `32768-60999`）**整体高于**清单最大值 `10080`，交集为空 —— 默认机器**结构上不可能中招**。只有当范围被下调到触及 `10080` 以下才会发生，例如本机的遗留注册表值 `MaxUserPort = 15000`（实测 `netsh` 报 `1024-15000`，范围内有 **19 个**被禁端口，约 `0.136%`／次绑定；每次插件加载建 2 个 shim，约 `0.27%`／次加载）。
 
     这一条**已按三方独立实测核对**：`0.105%`（60000 次采样）、`0.115%`（20000 次采样）、理论值 `0.136%`。
-  - **为什么难自查**：错误链上真正的 `cause`（`bad port`）被 SDK 格式转换时丢弃，界面和日志都只剩 `Connection error.`，读不出是端口问题；用户唯一能做的「换个账号」恰好**救不了**（与账号无关）。顺带确认：这个拒绝与代理无关（把 `HTTP_PROXY` 指向死端口、清空 `NO_PROXY`，回环好端口仍返回 200 —— 说明回环流量根本不经过代理），也不是 `ECONNREFUSED`（后者带 `code`，而它是 `cause.message === 'bad port'`、无 `code`）。
+  - **为什么难自查**：错误链上真正的 `cause`（`bad port`）被 SDK 格式转换时丢弃，界面和日志都只剩 `Connection error.`，读不出是端口问题；用户唯一能做的「换个账号」恰好**救不了**（与账号无关）。另在当时环境中将 `HTTP_PROXY` 指向不可达端口并清空 `NO_PROXY`，回环好端口仍返回 200；这表明该测试配置未让回环流量经过该代理，不能推广到所有代理配置，也不是 `ECONNREFUSED`（后者带 `code`，而它是 `cause.message === 'bad port'`、无 `code`）。
   - **改了什么**：新增 `clientRefusesPort()`（绑定后用自己的 `fetch` 打 `/healthz` 探测：**返回任何 HTTP 码都算客户端接受**，含 401；只有抛异常才算被拒）与 `listenOnClientReachablePort()`（有界重掷，上限 `PORT_ROLL_LIMIT = 5`）。用客户端自身探测而**不是**对照一张抄来的端口表：清单是规范的一部分，抄本会随规范漂移，而这里要满足的规则**本身就是客户端的**。
 
     绑定方式仍是 `listen(0)` + 仅回环（随机性不变），端口在 `ready` 之前定格，因此 `baseUrl()` 的调用方一行未改。
   - **同时修复一个自己引入的缺陷**：`close()` 落在 `listen()` 未完成期间时，Node **既不触发 `listening` 也不触发 `error`，只触发 `close`**（实测确认）——最初的 `listenOnce` 只监听前两者，会让 `ready` 永久 pending、卡住插件卸载。已补 `close` 监听。
-  - **检查**：`tests/shim.spec.ts` 新增 6 例（真实客户端识别被禁端口、健康端口不误判、拒绝与真实传输错误可区分、重掷后确实服务、上界生效不空转、首抽即通过时不重掷），外加 2 例生命周期检查（启动期被处置不得挂起、并发 `close()` 安全）。**恢复缺陷后的测试（4 个恢复缺陷的修改全部测试失败，且各自只打中应打中的用例）**：① 探测始终为 true（永不重绑，等价修复前）→ 红 3 例；② 探测恒假 → 红 1 例；③ 移除 `close` 监听 → 红 1 例（30s 超时，正是挂起）；④ 上界失效 → 红 1 例。
+  - **检查**：`tests/shim.spec.ts` 新增 6 例（真实客户端识别被禁端口、健康端口不误判、拒绝与真实传输错误可区分、重掷后确实服务、上界生效不空转、首抽即通过时不重掷），外加 2 例生命周期检查（启动期被处置不得挂起、并发 `close()` 安全）。**变异测试（4 个恢复缺陷的修改全部测试失败，且各自只打中应打中的用例）**：① 探测始终为 true（永不重绑，等价修复前）→ 红 3 例；② 探测恒假 → 红 1 例；③ 移除 `close` 监听 → 红 1 例（30s 超时，正是挂起）；④ 上界失效 → 红 1 例。
   - **端到端验证（跑在真实 `createWorkBuddyShim` 上，非 mock）**：启动 **500 个**真实 shim，落在被禁端口的 **0 个**、客户端不可达的 **0 个**（修复前期望约 0.68 个）；劫持 `fetch` 让首次探测抛出与真实 `bad port` **同形状**的错误后，真实对象从 `4512` 重掷到 `4513` 并在新端口正常服务。全量 `79` 文件／`1308` 用例通过，与改动前的 `1300` 相比净增 `8` 例。
 
 ## 4.6.1 (2026-10-16)
@@ -4115,7 +4116,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
     上面那句是描述**事实**、灰度的说明文字，这一句纠正的是**预期**，所以它独立成行并加粗。
   - **颜色刻意不变**：仍是三级灰，不换成主色也不换成错误色 —— 它陈述的是正常产品行为，不是故障；换成红色会读成报错横幅，而真正该被当成错误的信息在别处。
   - **中英 1:1**：`row.tabFreeQuotaWarn`（`免费模型有时间段内定额 Token 上限，并非无限制使用。` / `Free models have a per-window token quota — they are not unlimited.`）。
-  - **检查**：`tests/pool-card-render.spec.tsx` 新增 2 例 —— ① 提示会渲染、且带的是**加粗类**而不是又一条灰度提示；② 字重必须写在样式表里（断言 `.dsm-workbuddy-free-quota-warn{font-weight:600}`），防止有人改成内联 `style={{fontWeight:600}}` 之后这条规则在 CSS 里查不到。**恢复缺陷后的测试**：① 删掉那段提示 → 红；② 从 CSS 删掉加粗规则 → 红。
+  - **检查**：`tests/pool-card-render.spec.tsx` 新增 2 例 —— ① 提示会渲染、且带的是**加粗类**而不是又一条灰度提示；② 字重必须写在样式表里（断言 `.dsm-workbuddy-free-quota-warn{font-weight:600}`），防止有人改成内联 `style={{fontWeight:600}}` 之后这条规则在 CSS 里查不到。**变异测试**：① 删掉那段提示 → 红；② 从 CSS 删掉加粗规则 → 红。
   - **顺带踩到并记录一个老坑**：这行的样式注释里写了反引号（引用 locale 键），而 `styles.ts` 是**模板字面量** —— 反引号会直接截断字符串，表现为 `tsc` 报 `',' expected`。同一个错在本次发布周期里犯了两次，已改为不带反引号的写法。
 
 ## 4.6.0 (2026-10-15)
@@ -4147,12 +4148,12 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 
     这不是永久的第二套推导：`writePoolProbes` 是「读→合并→写」，所以**下一次写入就把治好值写入文件**。
   - **只治 `rate-limited` / `out-of-credit` 两种结局**，因为只有这两种的处理规则**存在**「上游说的时间」。放宽它会出事：`AccountPool.tsx` 会渲染任何存在的 `retryAtMs`，给一个 `ok` 的账号补上时间就会显示「可用 · <某时刻> 之后可再用」—— 在一个**什么都没在等**的健康账号上。`model-busy` 同理被排除：它的冷却是一个本地量级，永远不是报文里的时间戳。
-  - **检查**：新增 `tests/state-mismatch-surfaces.spec.ts`（10 例，用**逐字的真实英文 6004 报文**，裁剪过的 fixture 证明不了任何事）与 `tests/composer-panel-freshness.spec.tsx`（8 例，**执行项目组件** + 假定时器，因为这两个缺陷都是「哪段代码在哪个时刻跑」，正则检查会被改写绕过）。**恢复缺陷后的测试**（逐个改回、各自变红）：① 解析器去掉英文分支 → 红 **5** 例；② 关掉读取时治疗 → 红 **3** 例；③ 去掉结局范围限制 → 红 1 例（这条是安全属性）；④ 恢复「只在打开时读一次」→ 红 1 例；⑤ 刷新按钮改回只调 `fetchUsage` → 红 1 例；⑥ 关闭面板不清定时器 → 红 1 例；⑦ 把在途检查改成无条件（**连用户的手动刷新一起丢弃**）→ 红 1 例；⑧ 彻底删掉在途检查 → 红 1 例。
+  - **检查**：新增 `tests/state-mismatch-surfaces.spec.ts`（10 例，用**逐字的真实英文 6004 报文**，仅使用裁剪后的 fixture 可能漏掉真实报文的字段和措辞）与 `tests/composer-panel-freshness.spec.tsx`（8 例，**执行项目组件** + 假定时器，因为这两个缺陷都是「哪段代码在哪个时刻跑」，正则检查会被改写绕过）。**变异测试**（逐个改回、各自变红）：① 解析器去掉英文分支 → 红 **5** 例；② 关掉读取时治疗 → 红 **3** 例；③ 去掉结局范围限制 → 红 1 例（这条是安全属性）；④ 恢复「只在打开时读一次」→ 红 1 例；⑤ 刷新按钮改回只调 `fetchUsage` → 红 1 例；⑥ 关闭面板不清定时器 → 红 1 例；⑦ 把在途检查改成无条件（**连用户的手动刷新一起丢弃**）→ 红 1 例；⑧ 彻底删掉在途检查 → 红 1 例。
 
     **注意**：新测试用 `vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })` —— 默认连 `setTimeout` 一起假掉会**死锁共用 harness 的 `settle()`**（它靠真实 `setTimeout(…, 0)` 排空 React）。
-  - **一个「定时器检查」的分寸**：表格的重读分两条路 —— **定时器**的问句是「有变化吗」，所以一次在途的读取已经回答了它，**跳过**这次 tick；而**用户按下的动作**（刷新按钮、`switchTo` 写完之后的重读）**必须真的发生**，所以带 `force` 并且注册使用最新的 generation。这个区分不是洁癖：定时器读得慢时用户按下刷新，如果被「已有读取在跑」丢弃，控件就是在**没有问过上游**的情况下宣称「表是最新的」—— 与「刷新按钮刷新的是别的地方」属于同一类缺陷。
+  - **一个「定时器检查」的分寸**：表格的重读分两条路 —— **定时器**的问句是「有变化吗」，所以一次在途的读取已经回答了它，**跳过**这次 tick；而**用户按下的动作**（刷新按钮、`switchTo` 写完之后的重读）**必须真的发生**，所以带 `force` 并以最新的 generation 判断响应是否有效。这个区分不是洁癖：定时器读得慢时用户按下刷新，如果被「已有读取在跑」丢弃，控件就是在**没有问过上游**的情况下宣称「表是最新的」—— 与「刷新按钮刷新的是别的地方」属于同一类缺陷。
 
-    **这一条是被恢复缺陷后的测试逼出来的**：先保存的版本检查是无条件的，第 ⑦ 项恢复缺陷的修改（把 `!force &&` 去掉）暴露出它会丢弃手动刷新；第 ⑧ 项恢复缺陷的修改（彻底删掉检查）又暴露出**「跳过 tick」那个测试本身是假的** —— 定时器只在打开时那次读**结束之后**才装上，所以把打开时那次的 promise 挂住，根本没有 tick 会来，那个用例无论如何都通过。
+    **这一条是被变异测试逼出来的**：先保存的版本检查是无条件的，第 ⑦ 项恢复缺陷的修改（把 `!force &&` 去掉）暴露出它会丢弃手动刷新；第 ⑧ 项恢复缺陷的修改（彻底删掉检查）又暴露出**「跳过 tick」那个测试本身是假的** —— 定时器只在打开时那次读**结束之后**才装上，所以把打开时那次的 promise 挂住，根本没有 tick 会来，那个用例无论如何都通过。
 
     改成挂住**第一次 tick** 的读取之后，第 ⑧ 项才真正变红。
   - **顺带一条**：弹窗页脚的时间戳现在跟着**表格**那次读取走（`fetchAccountCredits` 里也写 `lastRefresh`）。原来它只反映读数那次读取，于是「刚刷过的表」可能顶着**一个没动过的时刻** —— 与那些冻住的标记是同一个「这数据还新吗」的问题。
@@ -4161,7 +4162,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   - **根因是读写不对称**：`readPoolProbes` 的白名单里没有 `modelId`，而 `writePoolProbes` 是**读→合并→写回**。所以这个字段不是"看不见"——它会被**下一次写入永久抹掉**，之后再写也回不来。已复现：写入 `modelId` 后读回是 `undefined`。
   - **为什么危险**：这不是少显示一个字段。#61 加这个字段是为了让「哪个模型的测量」可核对（`6004` 是「账号 × 模型」条件，同一时刻 A 账号在 `hy4-preview-f` 可用、`step-5-preview` 却返回 429/6004）。字段一丢，池子就把一次**单模型**的 `ok` 当成了**账号级**结论——正是这个字段要防的误读。卡片上的「未记录模型」只是它的可见症状。
   - **改了什么**：`readPoolProbes` 补读 `modelId`；`isProbe` 补校验（非字符串丢弃，与 `accountName` 同理由：它作为标签进 UI）。
-  - **检查**：`tests/account-pool-store.spec.ts` 新增 2 例。**关键点**：单次写入的往返测试**抓不到**这个 bug（第一次写入是完整的）——必须**第二次写入**才能暴露，所以第二例专门写「无关账号的写入不得破坏已存的 modelId」。**恢复缺陷后的测试**：删掉补读那行 → 两例都变红。
+  - **检查**：`tests/account-pool-store.spec.ts` 新增 2 例。**关键点**：单次写入的往返测试**抓不到**这个 bug（第一次写入是完整的）——必须**第二次写入**才能暴露，所以第二例专门写「无关账号的写入不得破坏已存的 modelId」。**变异测试**：删掉补读那行 → 两例都变红。
 
 ### 改进
 
@@ -4172,7 +4173,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
     模型级分支先判、优先胜出。
   - **判据是 `every` 而不是 `some`**：必须有成员、且每个被排除的成员原因**都是** `model-busy`。一个账号被限流、其余是模型繁忙的池子**不算**模型级结论 —— 那个限流确实说的是那个账号，此时说「不是你的账号」就是同一类虚假安慰。
   - **一条被证伪的注释与随之删掉的死代码**：最初把「非空」与「无可用成员」写成两个并列条件，但**后者不可达** —— 可用成员的 `excludedBy` 是 `undefined`，所以 `every(... === 'model-busy')` 在任何成员可用时已经为假。（已按「三个成员以内所有组合」穷举验证：`every` 成立且存在可用成员的状态数为 0。）留着它就等于留一段测不住的代码，所以删掉，把这条性质写在文档注释里而不是写成跑不到的分支。
-  - **检查**：`tests/pool-state.spec.ts` 新增 6 例。**恢复缺陷后的测试**：① `every`→`some` → 红 3 例（这条最关键，防止模型级结论在混合池上误报）；② 删掉非空判断 → 红 1 例；③ 判定整张表而非成员 → 红 2 例。
+  - **检查**：`tests/pool-state.spec.ts` 新增 6 例。**变异测试**：① `every`→`some` → 红 3 例（这条最关键，防止模型级结论在混合池上误报）；② 删掉非空判断 → 红 1 例；③ 判定整张表而非成员 → 红 2 例。
 
 - **额度失败的两条提示都改成可行动的中文**（维护者要求：「换号成功要显示切换了账号，换号失败要给原因并建议换模型」）
   - **换号成功**：`failoverNoticeText` 由 `「xxx」was rate limited — this answer came from another account` 改为 `「xxx」被限流，已改用池中另一个账号回答`；`failoverReasonText` 整条改为中文（`被限流` / `积分已耗尽` / `登录已失效` / `该模型当前繁忙（不是账号问题）` 等）。**按维护者的选择，不列出接管账号**——代码原本就有一条明确注释反对列出（改名会诱导用户以为要去管理那个账号），这条理由保留。
@@ -4180,7 +4181,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   - **换号失败时补「为什么没号可换」**：新增可选回调 `failoverShortfall`（shim 侧）与 `explainPoolShortfall`（DSH 侧）。DSH 用**与路由同一个** `exclusionOf` 读每个成员的去向，按原因归并计数，输出如 `池中已无可用账号（2 个账号被限流）`，并接一句 `建议换一个模型继续，或稍后等待该账号的额度恢复`。
   - **为什么用「不要再换账号」的采用的规则**：池子刚刚搜过所有成员，用户的下一个动作应该是**搜索替不了他做的那一个**。原本文案只说"请求失败"，把四种补救（等额度/加账号/重新登录/换模型）全留给用户猜，而其中三种插件已经排除过了。
   - **热路径代价为零**：`failoverShortfall` **只在请求已经失败之后**才问一次，成功路径完全不碰（有专门用例断言：成功时回调调用次数为 0）。回调抛错时**改为不提原因**，绝不把真实的 429 换成插件自己的错误。
-  - **检查**：`tests/shim-failover.spec.ts` 新增 5 例（原因入正文、失败类别不丢、DSH 不给原因时保持原样、回调抛错时不污染、成功时不问）。`tests/pool-e2e.spec.ts` 新增 1 例源码检查：确认调用关系存在、受池子开关门控、复用 `exclusionOf`（不得自己重推）、且失败路径不发起网络调用。**恢复缺陷后的测试**（逐个改回、各自变红）：① 回调异常泄漏进回复 → 红；② 删掉「建议换模型」 → 红；③ 成功路径也去问解释器 → 红 9 例；④ 解释器去掉池子开关门控 → 红；⑤ 解释器改用原始 `probe.outcome` 而非 `exclusionOf` → 红。
+  - **检查**：`tests/shim-failover.spec.ts` 新增 5 例（原因入正文、失败类别不丢、DSH 不给原因时保持原样、回调抛错时不污染、成功时不问）。`tests/pool-e2e.spec.ts` 新增 1 例源码检查：确认调用关系存在、受池子开关门控、复用 `exclusionOf`（不得自己重推）、且失败路径不发起网络调用。**变异测试**（逐个改回、各自变红）：① 回调异常泄漏进回复 → 红；② 删掉「建议换模型」 → 红；③ 成功路径也去问解释器 → 红 9 例；④ 解释器去掉池子开关门控 → 红；⑤ 解释器改用原始 `probe.outcome` 而非 `exclusionOf` → 红。
 
 - **额度提示：把占用的 `shell.quota-notice` 界面扩展位置还回去 —— 左上角那个「本来没有」的方框就是这个插件画的**（issue #63 的第二次后续；维护者看截图后的判定）
   - **维护者看到的**：窗口**左上角**出现一个带边框的方框，内容正是 DSH 那句「当前请求的额度已用尽」加一句括号，而且不走。维护者说「这个本来没有的啊」—— **判断是对的，那确实是本插件画的。**
@@ -4188,13 +4189,11 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 
     它落在 `shell.overlay`（`AppFrame` 里一个 `absolute; inset:0` 的层）的**左上角**，一直留着。
 
-    **「本来没有」是真的：那个坐标上原本是 DSH 的 Toast，被换掉之后就成了一个没人见过的盒子。
-
-    **
+    DSH 的 Toast 被替换后，插件组件出现在左上角，形成了截图中的方框。
   - **改了什么**：`select` 由「注册使用 `QUOTA`」改为**一律返回 `null`**（新增导出 `selectQuotaNoticeClaim`，规则只有一处、只有一个测试）。全拒让链回到 DSH 自己的 `Toast`，**插件不再往 `shell.overlay` 里画任何东西**。组件本身只留那句括号：不再重绘 DSH 那句（上一版重绘它，才在对话里造出**第二份**同一句话），`-head` 类与 `quotaNotice.fallbackHead` 的渲染一并去掉 —— DSH 自己那句仍然一字未改地由 DSH 画。
   - **为什么不改成「只加样式、不接管」**：做不到。链只有「接管」与「不接管」两种结果，没有「叠加」；想让那条括号跟着 DSH 的 Toast 走，就必须接管，接管就必然失去 Toast 的定位与淡出。所以选择归还界面扩展位置，括号去**对话里**补 —— 那本来就是用户失败时真正在看的地方。
   - **文案与样式**：`quotaNotice.supplement` 不变（`（部分模型另有每日额度，与积分无关）`）；`.dsm-workbuddy-quota-notice` 仍是 `display:inline` 且**不许画盒子**；`.dsm-workbuddy-quota-notice-head` 删除（它存在的唯一理由是给被接管的那句话上色）。
-  - **检查**：`tests/issue63-quota-notice.spec.tsx` 重写为 6 例，其中**两例是形态/决策检查**：`selectQuotaNoticeClaim` 对任何 owner 都必须返回 `null`（**这条是本次修复的核心**），根节点必须是 `span`、**一个 `button` 都没有**、**恰好一个子节点**（第二个子节点就是 DSH 那句话又溜回来了）、且**不存在** `.dsm-workbuddy-quota-notice-head`。**恢复缺陷后的测试**（逐个改回、各自变红）：① 让 `select` 重新注册使用 `QUOTA` → 红；② 把 DSH 句子重新渲染进组件 → 红（连红 3 例）；③ 加回 `-head` 类 → 红。
+  - **检查**：`tests/issue63-quota-notice.spec.tsx` 重写为 6 例，其中**两例是形态/决策检查**：`selectQuotaNoticeClaim` 对任何 owner 都必须返回 `null`（**这条是本次修复的核心**），根节点必须是 `span`、**一个 `button` 都没有**、**恰好一个子节点**（第二个子节点就是 DSH 那句话又溜回来了）、且**不存在** `.dsm-workbuddy-quota-notice-head`。**变异测试**（逐个改回、各自变红）：① 让 `select` 重新注册使用 `QUOTA` → 红；② 把 DSH 句子重新渲染进组件 → 红（连红 3 例）；③ 加回 `-head` 类 → 红。
 
     **注意**：上一版的文案检查**全部**在出问题的版本上照样绿 —— 文案对、形态错，这就是那个方框能发出去的原因。
   - **产物**：`docs/assets/quota-notice-inline-mock.html` + 同名 PNG 重做，新增「v2 占用 overlay 后的真实落点」一栏，用 `absolute; inset:0` 的容器**复刻**出维护者截图里那个左上角落点，并并排给出「归还界面扩展位置后 DSH Toast 回来」的样子。
@@ -4204,9 +4203,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 - **「额度已用尽时自动换池子里的账号继续」这条处理过程是通的 —— 逐环节复核并补了**端到端**检查**（`tests/quota-auto-switch-chain.spec.ts`，6 例）
   - **这条链的五环各有自己的测试**（分类 `upstream.spec.ts`、结果 `outcomeOfFailure`、冷却 `cooldownOf`/`quotaRefreshOf`、排名 `rankPool`、失败转移 `shim-failover.spec.ts`），但**没有一条测试把它们连起来跑**：换掉分类器，失败转移的用例照样绿（它自己造 `kind`）；换掉 `exclusionOf`，分类用例照样绿（它不问池子拿这个结论做什么）。新文件把**上游真实报文**一路喂到「下一个请求会发给谁」，覆盖 `6004`（带 `将在 … UTC+8 重置` 的 429）与 `14018`（积分耗尽）两种拼写，并反向验证 `14003` 是**模型级**冷却（`upstream-tips`，2 分钟）而非账号判决。
 
-    **结论：通。
-
-    ** 两个前提同时成立才会不换号 —— **账号池开关打开**、且**池子里有第二个可用成员**；只有这一个账号时 `rankPool` 仍返回该行（卡片要能解释它为什么出局），但它不是候选，`failoverAccountFor` 因此返回 `undefined`，用户看到的就是带括号的那句失败提示。
+    端到端测试验证了换号过程。两个前提同时成立才会换号 —— **账号池开关打开**、且**池子里有第二个可用成员**；只有这一个账号时 `rankPool` 仍返回该行（卡片要能解释它为什么出局），但它不是候选，`failoverAccountFor` 因此返回 `undefined`，用户看到的就是带括号的那句失败提示。
 
     这一点也由新用例验证。
   - **顺带记一条容易误读的事实**：`14003` 的账号在排名里**确实**被记为 `model-busy` 排到候选之后（排在 `fresh` 之后，不是我之前以为的「仍排第一」）。真正阻止它换号的是另一项检查 —— `isFailoverWorthy` 按 `kind` 拒绝。两处是同一决定的两道防线，别只看排名就以为它会换号。
@@ -4218,7 +4215,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 ### Features
 
 - **新增两个一键遍历按钮：「一键测试启用模型」与「一键测试所有模型」**（维护者要求在对比同族 `trae` 插件后补齐；`trae` 3.5.0 提供同一对按钮）
-  - **为什么这两个按钮与「3.0.0 删掉批量按钮」不矛盾**：3.0.0 删它是因为「一次覆盖整个已勾选列表就是一次不可控支出」，并**在路由层加固**（多于 1 个模型直接 400，防止陈旧 bundle 或手写客户端把按钮变成持续产生费用的循环）。这一版**保留那道版本检查**，把循环放在**卡片端**：一个模型一次请求、串行、每个结果一出来就显示 —— 也就是 `trae` 的做法。路由仍然只接受 1 个模型。
+  - **为什么这两个按钮与「3.0.0 删掉批量按钮」不矛盾**：3.0.0 删它是因为「一次覆盖整个已勾选列表就是一次不可控支出」，并**在路由层加固**（多于 1 个模型直接 400，防止陈旧 bundle 或手写客户端把按钮变成持续产生费用的循环）。这一版**保留每次仅接受一个模型的数量限制**，把循环放在**卡片端**：一个模型一次请求、串行、每个结果一出来就显示 —— 也就是 `trae` 的做法。路由仍然只接受 1 个模型。
   - **成本按维护者的选择写在提示里（不做二次确认）**：每次探测都发真实体积的请求，真花积分。**本机实测**（默认 25000 token 体积）每次约 **0.01 积分**，目录 16~20 个模型 → 「所有模型」一轮约 **0.16~0.2 积分**。历史实测曾达 0.02~0.72/次（体积不同），所以提示里写明「含未启用的模型，明显更贵」而不是只给一个数。
   - **两个按钮的范围不同，这一点是成本控制而不是措辞**：「启用模型」= 用户勾选的那几个（尊重他刚做的选择，不花在他关掉的模型上）；「所有模型」= 本区域 live 目录里的每一个。取的是**可见目录**而不是配置里的任意 id，所以不可能花在只存在于配置文件里的名字上。
   - **串行而非并发**：探测的目的就是发现限流，一次把整个名册打出去是最容易制造限流的做法 —— 与 DSH 自己那条循环同样的理由。
@@ -4226,7 +4223,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   - **同时修复一处过期注释**：`probeModels` 的文档还在描述「DSH 端一次执行完成整个批量」（那是 3.0.0 之前的形态），与新的事实（路由只收 1 个、由卡片端循环）相反，已更正。
   - **检查**：`tests/card-model-sweep.spec.tsx`（10 例）验证三件事：**一个请求一个模型**（断言每次 `/probe` 请求体的 `modelIds` 长度为 1）、**两个按钮范围不同**（「所有」= 全部三个；「启用」= 只有勾选的，且断言**不含**未启用的那个）、**汇总只算测到的**（一个模型被限流时不得读成全部通过）。另含：无启用项时「启用」按钮置灰而「所有」仍可用、凭据被拒只发一次请求、模型级失败不中断、执行完成按钮恢复可用。
 
-    **恢复缺陷后的测试**：把「所有模型」改成只遍历启用项 → 2 项失败；去掉凭据被拒的提前停止 → 2 项失败。
+    **变异测试**：把「所有模型」改成只遍历启用项 → 2 项失败；去掉凭据被拒的提前停止 → 2 项失败。
   - **布局**：模型区头部现在有三个按钮（刷新 + 两个遍历），中文标签较长（「一键测试所有模型」），所以按钮组允许换行且标签 `nowrap` —— 与之前账号池行那个「测试按钮被拆成两行」是同一类失败，这次先防住。
 
 
@@ -4237,8 +4234,8 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   - **文案**：那个下拉框的第一个选项原本叫**「区域目标」** —— 维护者看到它直接问「这目标区域是做什么用的？」，这本身就是命名失败的证据：它读起来像一个**区域**，而它表达的是「**跟随账号池的目标模型**」。当时先改为**「同账号池」**（en: `same as pool`）并把 `title` 重写为**先回答「它是做什么的」**；随后整个下拉框被撤除，这两个字符串也一并删掉了。
 
     **留下的教训是命名那条**：一个选项名如果让人需要问「这是做什么用的」，那它写的就是「值从哪来」而不是「它做什么」。
-  - **界面检查范围**：这两处问题需要通过界面检查发现 —— 自动测试全部通过、CI 全部通过、发布会成功。它提醒本项目的验证手段（检查源码的测试 + 恢复缺陷后的测试）覆盖不了「读起来对不对、排得下排不下」，而这两类恰恰需要实际设备截图或使用者提问才能暴露。
-  - **检查**：`tests/client-host-contract.spec.ts` 新增一例验证 `nowrap`；随撤除一并改写为「不再为已移除的下拉框预留宽度」（见下）。**恢复缺陷后的测试**：删掉 `nowrap` → 该例变红。
+  - **界面检查范围**：这两处问题需要通过界面检查发现 —— 自动测试全部通过、CI 全部通过、发布会成功。它提醒本项目的验证手段（检查源码的测试 + 变异测试）覆盖不了「读起来对不对、排得下排不下」，而这两类恰恰需要实际设备截图或使用者提问才能暴露。
+  - **检查**：`tests/client-host-contract.spec.ts` 新增一例验证 `nowrap`；随撤除一并改写为「不再为已移除的下拉框预留宽度」（见下）。**变异测试**：删掉 `nowrap` → 该例变红。
 
 ### 撤除
 
@@ -4261,20 +4258,18 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 - **`6004`（账号频率超限）在对话里被显示成「当前请求的额度已用尽」，而账号余额还剩 6,788 —— 现在那句话下面补了一句说明。**（issue #63；维护者判定：**保持不进重试**，只补文案）
   - **根因（实测，不是读代码猜的）**：DSH 对失败按**码**路由，而插件这条链是 —— shim 的错误响应 → pi-ai 抛出的 message → `classifyPiAiError(message)` → DSH 码 → 客户端文案。三个环节的出货代码取出来直接跑之后：`quota_exceeded` 这个拼写里的下划线**恰好命中** `@deepseek-ai/dsh-llm` 的 `isQuotaExceededError` 正则（`quota[\s_-]+exceeded` 的 `[\s_-]+` 能匹配 `_`），于是归成 `QUOTA`；而 `@deepseek-ai/dsh-client-ui-chat` 对 `QUOTA`/`ACCOUNT_QUOTA` **硬编码**成那句固定文案、并**丢弃**插件自己的 message。
 
-    **这一版之前我在 #56/#61 里把它说成「插件挑了 DSH 认识的词」，那个解释是错的。
-
-    **
+    此前在 #56/#61 中将原因解释成「插件挑了 DSH 认识的词」，该解释不准确；实际分类取决于上述正则匹配。
   - **为什么不改分类（维护者的决定，也是实测支持的）**：把拼写换成任何一个不再被 quota 正则命中的值，都会落进 `RATE_LIMIT` —— 而它在 `DEFAULT_RETRYABLE_CODES` 里（`EMPTY_RESPONSE`/`RATE_LIMIT`/`SERVER`/`TIMEOUT`/`TRANSPORT`）。按出货默认（`initialDelayMs=500`、按倍数延长重试间隔、封顶 10s、`maxRetries=5`）这是**5 次原地重试、标称 15.5 秒等待后重试**，而 `6004` 的恢复点在报文里明写了是**几小时后** —— 重试前的等待时间内不可能恢复。
 
     所以「不进重试」保留，「那句话不够准确」用**补充**解决。
   - **修法**：用 DSH**专门为此留的扩展点** `shell.quota-notice`（链式插槽，其自有文档写着「the first entry whose selector claims its code takes over the surface」）。本插件注册一条 `select: owner => code === 'QUOTA' ? owner : null` 的链项：
     - **只 claim `QUOTA`** —— 其余码（`AUTH`、`ACCOUNT_SIGNED_OUT`、`ACCOUNT_QUOTA` 等）继续走 DSH 自己的回退 Toast，本插件不接管自己说不清的提示；
     - **DSH 那句话原样保留**（`matched.message`），补充是**第二行**而不是改写 —— 那句话在别处也显示，重写会让插件与 shell 的用词互相矛盾；
-    - 补充文案：**「部分模型另有每日额度限制，与积分余额无关 —— 也可能确实是本账号积分耗尽。账号池那一行会写明上游给出的恢复时刻；也可以先换个账号或换个模型继续。」** 措辞对 `QUOTA` 覆盖的**两种**情况都成立，因为上游是用中文散文区分的，而插件不允许解析它来下政策判断；中英双语都写。
+    - 补充文案：**「部分模型另有每日额度限制，与积分余额无关 —— 也可能确实是本账号积分耗尽。账号池那一行会写明上游给出的恢复时刻；也可以先换个账号或换个模型继续。」** 措辞对 `QUOTA` 覆盖的**两种**情况都成立，因为这一 DSH 类别同时涵盖限流和积分不足，补充提示需要兼顾两种情况；中英双语都写。
     - 带一个「知道了」按钮，调用 DSH 自己的 `dismiss`；DSH 没给 `dismiss` 时只渲染文字而不崩 —— 这是**全窗口**的提示，在这里抛错会连别的插件的提示一起带走。
   - **组件用本插件自己的 DOM 与样式类**，不引 `@deepseek-ai/dsh-client-ui-primitives`：客户端刻意不依赖它（那条 stale 的 `inject` 曾让整张卡片的到达依赖上 DSH 最易变的包，见 `tests/client-host-contract.spec.ts` 的说明），所以这里沿用本插件其它组件的做法。
   - **实机核对**：构建后用 Slot 检查器读运行中的插槽树，`shell.quota-notice` 的 occupants 已包含 `dsh-connect-workbuddy-client`（`active: true`），与 DSH 自己的 `mf` 并列；插槽目录给出的 `ownerProps`（`code`/`message`/`dismiss`/`keepOpen`）与组件读取的字段一致。
-  - **检查**：`tests/issue63-quota-notice.spec.tsx`（7 例）覆盖：claim 恰好是 `QUOTA`、其余码（含 `QUOTA_EXCEEDED`、空串、数字、对象）一律不 claim、DSH 句子原样保留且补充可见、dismiss 按钮调用 DSH 回调、无 `dismiss` 时不崩、DSH 没给 message 时回退到自己的标题。**恢复缺陷后的测试**：把 claim 扩到 `AUTH`/`ACCOUNT_QUOTA` → 2 项失败；删掉补充那一行 → 2 项失败。
+  - **检查**：`tests/issue63-quota-notice.spec.tsx`（7 例）覆盖：claim 恰好是 `QUOTA`、其余码（含 `QUOTA_EXCEEDED`、空串、数字、对象）一律不 claim、DSH 句子原样保留且补充可见、dismiss 按钮调用 DSH 回调、无 `dismiss` 时不崩、DSH 没给 message 时回退到自己的标题。**变异测试**：把 claim 扩到 `AUTH`/`ACCOUNT_QUOTA` → 2 项失败；删掉补充那一行 → 2 项失败。
   - **未做**：没有改任何分类/HTTP 状态，也没有动 `KIND_HOST_CODE` 里 `soft_rate`/`model_busy` → `quota_exceeded` 的翻译（那正是 #56 修复的核心）。
 
 ## 4.5.0 (2026-10-14)
@@ -4294,15 +4289,15 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   - **为什么两个席位都注册**：位置这种东西用户是「一边看着结果一边改」的，注册哪个席位取决于设置就意味着每次改设置都要**重新注册插槽**；而本项目的注释里已经写明这种绑定是脆的（晚到的 settings 命名空间必须产生新的注册而不是改闭包）。现在**决定权在 gate 里一处**：席位不符就 `return null`，另一个席位照常渲染。
   - **判定的顺序**：先归属（是不是本插件的 provider）、再两个开关（区域是否启用、读数是否显示）、**最后**才是席位。所以一个被关掉的区域在**两个席位都不渲染**，而不是先在非当前席位画一帧再被拒。
   - **卡片新增一个两选一控件**（就在「对话框显示积分」那个勾选旁边，只作用于当前标签页的区域）：读取走 DSH 的 usage 应答（与那个勾选同源，因为浏览器 settings 镜像在本命名空间上是过期的那份），写完**重新读一次 Host** —— 否则控件会一直显示旧席位，看起来像没生效。
-  - **检查**：`tests/issue62-credit-position.spec.tsx`（9 例）覆盖：默认 `composer`（含升级前的 profile 与手改的未知值）、按区域而非全局读取、写入只改该区域该字段（模型列表/预算/兄弟区域都不动）、席位与显示开关相互独立、gate 在**指定席位渲染 / 另一席位渲染 0 个 / 两个席位都不渲染（隐藏或区域关闭）/ 别的 provider 两个席位都不渲染**。**恢复缺陷后的测试**：把 gate 的席位判定删掉（两个席位都渲染）→ 2 项失败；把读取的默认值去掉（升级前的 profile 读成 stats）→ 2 项失败。
+  - **检查**：`tests/issue62-credit-position.spec.tsx`（9 例）覆盖：默认 `composer`（含升级前的 profile 与手改的未知值）、按区域而非全局读取、写入只改该区域该字段（模型列表/预算/兄弟区域都不动）、席位与显示开关相互独立、gate 在**指定席位渲染 / 另一席位渲染 0 个 / 两个席位都不渲染（隐藏或区域关闭）/ 别的 provider 两个席位都不渲染**。**变异测试**：把 gate 的席位判定删掉（两个席位都渲染）→ 2 项失败；把读取的默认值去掉（升级前的 profile 读成 stats）→ 2 项失败。
 
 
 - **新增「上游请求体构成」诊断（`WORKBUDDY_BODY_REPORT`），用于定案 issue #59：两份请求体到底是不是同一份历史。**（issue #59）
-  - **为什么需要**：报告里同一份历史被国内网关算约 70.8 万 token、国际网关算约 137.4 万（1.94 倍），切区域即 `code 11115 prompt is too long`。两条独立测量已经把范围压到唯一一个问题：报告者在**两个区域**跑本项目的内容类别检查请求，字节内容相同的散文/代码/JSON 六格比值全在 **0.98~1.06**（同一段字节两边计价一致）；代码处理过程核对又表明**历史 reasoning 根本没进请求体**（pi-ai 只在 `compat.requiresThinkingAsText` 为真时把 `thinking` 当文本转发，本插件从未设置；`reasoning_details` 那条路需要流式解析从不写出的签名）。
+  - **为什么需要**：报告里同一份历史被国内网关算约 70.8 万 token、国际网关算约 137.4 万（1.94 倍），切区域即 `code 11115 prompt is too long`。两条独立测量已经把范围压到唯一一个问题：报告者在**两个区域**跑本项目的内容类别检查请求，字节内容相同的散文/代码/JSON 六格比值全在 **0.98~1.06**（同一段字节两边计价一致）；代码处理过程核对又表明**当时误认为历史 reasoning 不会进入请求体（此判断后来已被历史消息转换路径的调查修正，见 4.9.0 与 5.3.0）**（pi-ai 只在 `compat.requiresThinkingAsText` 为真时把 `thinking` 当文本转发，本插件从未设置；`reasoning_details` 那条路需要流式解析从不写出的签名）。
 
-    **剩下唯一可能是两份请求体不同**，而这件事**不需要任何区域有积分**就能查：请求体是本地拼好的，`14018 Credits exhausted` 是发出去之后才可能发生的。
+    因此需要优先核对两份实际请求体是否不同；这仍不足以排除其他计数原因，而这件事**不需要任何区域有积分**就能查：请求体是本地拼好的，`14018 Credits exhausted` 是发出去之后才可能发生的。
   - **做法**：`src/body-report.ts` 在 shim 把 body 交给上游**之前**记录它的**构成** —— 每条消息的 `role`、逐块的类型（`system`/`text`/`tool-call`/`tool-result`/`reasoning`/`image`）、字符数与其中**中日韩字符**数（实测中文 0.669、英文 0.224 token/字符，差 3 倍，混在一起看不出来）、`tools` 数组、`messages.length` 与 body 总字节数。按区域写 `<dir>/<region>.jsonl`，一次请求一行（一轮对话有很多次上游调用，**最后一次**才是要比的那份）。
-  - **只记计数、不记文本**：不写任何消息内容、账号名或令牌 —— 一个要被贴进公开 issue 的诊断不能有泄漏用户会话的能力。`tests/issue59-body-report.spec.ts` 里有一条专门的断言：用带特征串的 body 生成报告后，序列化结果**不含**该特征串（恢复缺陷后的测试：让 `block()` 把 `text` 一起带上 → 该例与 reasoning 那例同时变红）。
+  - **只记计数、不记文本**：不写任何消息内容、账号名或令牌 —— 一个要被贴进公开 issue 的诊断不能有泄漏用户会话的能力。`tests/issue59-body-report.spec.ts` 里有一条专门的断言：用带特征串的 body 生成报告后，序列化结果**不含**该特征串（变异测试：让 `block()` 把 `text` 一起带上 → 该例与 reasoning 那例同时变红）。
   - **开关**：环境变量 `WORKBUDDY_BODY_REPORT` 未设置或为空白即**关闭**；`1`/`true` 写到 `<DSH home>/body-reports/`；其他值按**目录路径**解释。写文件失败只走日志，**绝不影响聊天请求**（有专门断言）。
   - **检查**：`tests/issue59-body-report.spec.ts`（16 例）。
   - **配套**：`scripts/probe-region-token-accounting.mjs` 新增 `--language en|zh` 与 `--kind prose|code|json`（六种组合确定性填充、跨区域字节内容相同），并补上国内侧实测基线：prose 214.0 / code 287.0 / json 288.3（en），prose 671.0 / code 480.7 / json 397.3（zh），单位 tokens/1k chars。
@@ -4326,9 +4321,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   - **配置向后兼容**：`targetModelIdByAccount` 默认空对象，且**只有非空时才写入** settings（与 `probeInputTokens` 同一条规则）—— 从未用过这个设置的 profile 保存的配置项与升级前字节内容相同，升级不会看起来像用户改过设置。
   - **检查**：`tests/issue61-probe-model-scope.spec.ts`（9 例）覆盖：逐账号优先/回落、空串视为「跟随区域目标」、override 下架时解析为 `stale` 且不带 `modelId`、批量按各账号自己的模型探测、单一模型的旧调用形态不变、解析不出模型时产出 `unavailable` 行并指名那个模型（**没有**回退到别的模型）、批量写入 `modelId`、**不继承**、新测量覆盖旧模型。`tests/pool-route.spec.ts` 新增一条路由级断言：批量路由交给 DSH 的是**逐账号解析器**（`a` 用区域目标、`b` 用 `b` 自己的）。
 
-    **恢复缺陷后的测试**：记录不再写 `modelId` → 1 项失败；合并改成继承 → 1 项失败；批量改回「整批一个模型」→ 1 项失败；路由改回传单一 modelId → 路由断言红。
-
-### Features
+    **变异测试**：记录不再写 `modelId` → 1 项失败；合并改成继承 → 1 项失败；批量改回「整批一个模型」→ 1 项失败；路由改回传单一 modelId → 路由断言红。
 
 ## 4.4.5 (2026-10-14)
 
@@ -4352,7 +4345,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   - **实测核对**（构建后的插件，真实账号）：`177****417… total=2196.61` —— 与客户端截图**逐位一致**；`LaoDing 647.01`、`老丁 1360.13`（旧读数为 1147 / 1860）。国际三个账号 `0.00`，与 `14018` 一致。
   - **检查**：`tests/issue58-credit-balance-cycle.spec.ts`（9 例，替换掉 `tests/issue48-monthly-pool-credits.spec.ts` —— 后者的断言钉的正是被推翻的规则）。覆盖：total == Σ 周期精确值（含小数）、周期耗尽时读周期而非池、国际耗尽行为 0、周期未用时两种读法一致（说明不是「所有数字都变了」）、无周期家族回退、精确/整数两种拼写、gift 丢弃规则不变、负值不进 total、`expiringSoon` 与 total 同源。
 
-    **恢复缺陷后的测试**：把余额改重新读取池 → 3 例变红；把 `*Precise` 读法去掉 → 4 例变红。
+    **变异测试**：把余额改重新读取池 → 3 例变红；把 `*Precise` 读法去掉 → 4 例变红。
   - **另一处新增工具**：`scripts/probe-credits-raw.mjs` —— 逐包原样打印账单响应（含未被读取的字段）并给出三个候选计算方法的合计，让「客户端显示的到底是哪个字段」这件事可以被独立复现，而不必相信本文件的叙述。
 
 - **账号池的「已不再登录」警告只报数量、不报是谁，而且没有任何一行可以处理。**（issue #60 报告者）
@@ -4361,13 +4354,13 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
     1. `ghostMemberIds()` 只返回**原始账号标识**，把当时就在手边的名称丢掉了；
     2. 文案模板只有 `{count}`，而同文件的 `row.poolSelectAria` / `row.poolCurrentHeader` 都带 `{accountName}` —— 该文案缺少名称占位符；
     3. 幽灵账号**没有行**：账号表格渲染的是**本机已登录**的名册，而幽灵恰恰是「不在名册里」的那一个，所以「哪一行该打标记」在旧结构下无解。
-  - **修法**（两条，各自成立）：
+  - **修法**（三条，各自成立）：
     - **让测量记录记住名称**：`WorkBuddyPoolProbe` 新增可选 `accountName`，由**两个写入方**在拿到账号的那一刻写下（测试批次一直持有该名称；实时聊天那条在取不到名称时**继承**旧值）。选择存在测量文件而非设置里的原因与 4.4.4 同源：**名称只在被测量的那一刻确定可知**，登录消失后别处都查不到；而设置槽会被「草稿 → 保存」覆盖，实测数据不该住在里面。
 
       `mergePoolProbe()` 对缺失名称**继承**、对新名称**覆盖**（与 `retryAtMs` 相同处理方式：**缺失不等于声明**）。
     - **给幽灵一个可见且可处理的位置**：警告句改为指名（`{count}` + `{names}`），下面渲染**每个幽灵一个只读徽标 + ✕ 移除按钮**。移除是**草稿编辑**（与取消勾选一个已列出账号完全同构），仍然由「保存」提交 —— 旧文案承诺的那个动作，现在真的做得到了。
     - **取不到名称时不编造**：徽标退回 **id 前缀**（`e44e62b3…`）。前缀不是好标签，但它保留了原账号标识，且足以把两个幽灵分开；换成「第 1 个」这类更好看的位置标签，会把用户指向错误的账号。DSH**只**为名册里没有的 id 下发名称，避免同一件事有两个可能互相矛盾的来源。
-  - **检查**：新增 `tests/issue60-ghost-member-labels.spec.ts`（14 例）—— 命名、空名退回前缀、顺序稳定、三名截断、`mergePoolProbe` 的继承/覆盖/两字段同时继承、`probeUpdatesOf` 写名与空名不写、磁盘往返。**恢复缺陷后的测试**：把名称继承改回整体替换 → 2 例变红。
+  - **检查**：新增 `tests/issue60-ghost-member-labels.spec.ts`（14 例）—— 命名、空名退回前缀、顺序稳定、三名截断、`mergePoolProbe` 的继承/覆盖/两字段同时继承、`probeUpdatesOf` 写名与空名不写、磁盘往返。**变异测试**：把名称继承改回整体替换 → 2 例变红。
 
 ### Docs
 
@@ -4397,7 +4390,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
     - **刻意未改**「无时刻时仍走 30 分钟回退」—— 报告者明确不主张改这一条（拿不到刷新点时，用短窗口偶尔试试是合理的）。我们反对的只是**在拿得到实际值的时候用那个数字**。
   - **检查**：新增 `tests/issue56-quota-refresh-merge.spec.ts`（11 例），覆盖继承规则、覆盖规则、过期时刻不继承、以及**磁盘上真实的「检查函数先保存、实时聊天后写」序列**仍然保住刷新点；另把 `tests/pool-e2e.spec.ts` 里那条按**源码形状**断言的检查扩了三条（必须查到 `quotaRefreshOf(`、必须把 `quotaRefreshAtMs` 传进 `cooldownOf`、且只对能有的 outcome 查）—— 因为 `recordAccountFailure` 此前**没有任何测试覆盖到**，把修复还原后全套测试仍然全部通过，这正是它会溜掉的原因。
 
-    恢复缺陷后的测试：还原合并改动 → 2 例变红；还原实时路径的入参 → 源码检查变红。
+    变异测试：还原合并改动 → 2 例变红；还原实时路径的入参 → 源码检查变红。
 
 - **两处「下一版补」的文档欠账，本版补上。**
   - **`chatStream()` 返回信封而非可迭代流**（issue #56 报告者最初就提醒过，我当时说了「下一版补」）：中英 README 的「开发」一节新增一节，写明要先查 `envelope.ok`，并列出跳过它的典型后果是**把失败全报成成功**（`response` 为 `undefined`，读它会抛错或被丢弃，于是「每个模型都成功」—— 报告者自己第一次写脚本就踩了这个）。
@@ -4427,7 +4420,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
     ② 注册**不再等待边沿**：`whileServed` 保留原处理规则（等 namespace 真到了再重绑一次、拿到可写表单），同时无条件先注册一遍；卡片在没有 `settingsScope` 时本就以**只读**形态渲染，这与「DSH 没有 settings 面」的既有失败后的处理分支是同一条。
   - **同时修复一个会让上面②反而变成「整片空白 2.0」的顺序坑**：`rebindSlots()` 必须**先 dispose 再 register**。keyed 界面扩展位置会拒绝一个仍然存活的 key（`already has an entry for key …`），而每次注册都有各自的 try/catch 把它吞成一行 `console.error` —— 于是「先注册后 dispose」的结果是：旧条目刚被拆掉、新条目全被拒绝，界面注册记录归空。
 
-    这一点由新增用例显式验证，并在恢复缺陷后的测试（把顺序改回去）下变红。
+    这一点由新增用例显式验证，并在变异测试（把顺序改回去）下变红。
   - **检查**：新增 `tests/issue55-card-not-registered.spec.ts`（8 例），按**页面真正读的那个界面注册记录**断言：裸名与 `include:` 前缀两种清单名下 `ledger.bundles.has(pkg.name)` 都为真；namespace 永不到达时仍完成注册；namespace 已经到了时不产生重复注册（不触发 keyed 冲突）；无 settings 面的 DSH 仍注册（以只读方式显示）；以及上面那条 dispose/register 顺序。`tests/client-fallback.spec.ts` 的手工镜像同步更新（注册数 3→5）。
 
 - **14003 是模型级、每次请求的软限流，却被当成账号级失败：换号循环把池内每个账号各锁 30 分钟。**（issue #56）
@@ -4436,13 +4429,13 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
     上游原话也把维度说明白了：`displayTips` = 「建议等待约 1 分钟后重试，**或切换到负载较低的模型**」。
 
     而插件的实际效果是：三个账号全部变 `rate-limited`，用户在此后约 30 分钟里完全无法交流 —— 把上游说的一分钟放大了 30 倍，还放大到了整个账号池。
-  - **根因**：`classifyUpstreamError()` 把 429 一律归为 `soft_rate`。14003 的报文里**没有任何日期时间**，所以 `parseUpstreamResetAt()` 返回 `undefined` → `cooldownOf()` 返回 `{}` → `retryDue()` 落到 `probe.atMs + 18e5`（`POOL_UNKNOWN_COOLDOWN_MS` = 30 分钟）。三再次发送历史消息大同时发生：**等太久**、**锁错对象**（锁的是账号，而限制跟着模型走）、**把每个账号都锁一遍**（failover 逐个撞同一堵墙，每撞一次就给一个本来健康的账号写入一条 `live-request` 的限流记录，覆盖掉它先前的 `ok` 测量）。
+  - **根因**：`classifyUpstreamError()` 把 429 一律归为 `soft_rate`。14003 的报文里**没有任何日期时间**，所以 `parseUpstreamResetAt()` 返回 `undefined` → `cooldownOf()` 返回 `{}` → `retryDue()` 落到 `probe.atMs + 18e5`（`POOL_UNKNOWN_COOLDOWN_MS` = 30 分钟）。三种影响同时发生：**等太久**、**锁错对象**（锁的是账号，而限制跟着模型走）、**把每个账号都锁一遍**（failover 逐个撞同一堵墙，每撞一次就给一个本来健康的账号写入一条 `live-request` 的限流记录，覆盖掉它先前的 `ok` 测量）。
   - **修法**（四处，各自独立可验）：
     - **分类**：新增 `model_busy` 这一 kind（`UpstreamErrorKind` / `WorkBuddyProbeOutcome` / `WorkBuddyPoolExclusion` 三处词汇表各加一枚），判据是 **`"code":14003` 这一带引号的 key 形式** —— 不用 `displayTips` 文案当判据，否则一个恰好提到「负载较低的模型」的网关横幅也会被改判。检查放在**积分标记之后**（两者同时出现时仍按「要充值」这条可执行的结论走）、**普通 429 分支之前**。
     - **时长**：`MODEL_BUSY_COOLDOWN_MS = 2 分钟`，与上游「约 1 分钟」同量级（取 2 而非 1，是为了越过这一阵而不是踩在边上）。`cooldownOf()` 为 `model-busy` 补上这个回退，并把 `retrySource` 标成新的 `'upstream-tips'` —— 它如实说明这个数字的来路是**上游给的数量级**，不是上游给的时刻。
     - **不换号**：`isFailoverWorthy()` 把 `model_busy` 与 `client` 一起排除。换号撞的是同一堵墙，只会每个账号各花一次请求去学到第一发已经说过的事实，并往每个账号写一条假测量。失败**仍然如实上报一次**（卡片要靠它显示「为什么这个账号不在池里」）。
     - **如实告知**：shim 给 `model_busy` 单独一条错误文案 —— 沿用上游自己的话（「请求过于频繁，请稍后重试。」）+ `requestId`，并明确写出**这不是账号被限流、换账号没用、建议等待约 1 分钟或切换模型**。卡片侧新增 `row.probeModelBusy*` / `row.poolExcludedModelBusy` 文案，池表里「模型繁忙」与「被限流」**分开显示**（把模型的问题写在账号名旁边，正是让报告者去找一个并不存在的坏账号的原因）。
-  - **顺带对齐两处**：`probe-reason.ts` 把 `model-busy` 列入「标签已说清、不再内联原始报文」的集合（该报文只是 14003 信封，会把补救办法挤掉）；`AccountPool` 的状态色把 `model-busy` 归入琥珀（会自行恢复、账号没坏）而非红色。
+  - **顺带对齐两处**：`probe-reason.ts` 把 `model-busy` 列入「标签已说清、不再内联原始报文」的集合（该报文只是 14003 信封，会把补救办法挤掉）；`AccountPool` 的状态色把 `model-busy` 归入琥珀（本地等待结束后可重试，但不保证届时可用，也不由此判断账号整体健康）而非红色。
   - **检查**：新增 `tests/issue56-model-scoped-throttle.spec.ts`（14 例），用报告者的原文报文当 fixture：分类正确（14003→`model-busy`，6004→`soft_rate` 不变）、不误伤（只有文案没有 code、或 requestId 恰好含 `14003`，都仍是普通限流）、与积分同时出现时仍判积分、冷却时长为分钟级且带 `'upstream-tips'` 来源、有真实时刻时以时刻为准、模型级账号在一分钟后回到池内而普通限流仍在池外。`tests/shim-failover.spec.ts` 新增 3 例：`model_busy` **不走**换号（池里明明有候选也不问）、失败仍上报且只报一次、用户看到的是「模型繁忙」而不是「账号被限流」。
   - **刻意保留的重复**：`MODEL_BUSY_COOLDOWN_MS` 在 `src/probe.ts` 与 `src/account-pool.ts` 各声明一次。两者不能互相 import（一个是 DSH 端探测、一个是纯排序规则，后者刻意不依赖前者），所以由一条测试断言两个声明**必须相等** —— 探测写一种冷却、排序读另一种，就会悄悄把这个缺陷重新打开。
 
@@ -4462,7 +4455,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   - **未改动**：`exclusionOf` 对 `out-of-credit` 在**无时刻**时仍走 `POOL_UNKNOWN_COOLDOWN_MS` 通用回退。这是**既有行为**，本版未动 —— 积分耗尽只能靠充值或周期刷新解除，与 `14003` 的秒级恢复性质不同。在 issue 里如实说明并请报告者判断是否另案处理。
   - **检查**：新增 `tests/issue56-credits-exhausted-code.spec.ts`（9 例），**用报告者贴的报文原文当 fixture**（含尾随空格与 `{"error":{"data":…}}` 嵌套 —— 它和 `14003` 的扁平信封不同，本身就是「按散文做表很脆」的又一证据）。既验证 `14018 → hard_credit → out-of-credit`，也验证「两者必须分开」与「配额刷新点仍被采用」。
 
-    恢复缺陷后的测试：同时还原复数 marker 与 code 判定，**9 例中 5 例变红**，恢复后全部通过。
+    变异测试：同时还原复数 marker 与 code 判定，**9 例中 5 例变红**，恢复后全部通过。
 
 - **客户端注册后打印一行摘要，把「静默空白」变成一眼可诊断。**（issue #55 报告者的建议）
   - **动机来自报告者的原话**：整片 UI 消失与一切正常在页面上**完全无法区分**，因为他（和后来的我们）定位耗时几乎全花在那个只打日志的静默 `try/catch` 上。
@@ -4477,7 +4470,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   - **来源**：报告者在同一份追加报告里顺带指出 `src/shim.ts` 的 `failoverReasonText()` 把 `soft_rate` 与 `hard_credit` **并列成同一句 `'rate limited'`**，并预期「§3 修好之后这个号会走 `hard_credit` ⇒ 用户能拿到『积分耗尽』而不是『被限流』」。**这个预期当时并不成立** —— 卡片/池表一侧确实会显示「积分耗尽」（`poolExcludedOutOfCredit`），但**回复里的换号提示**仍读作「rate limited」，而那正是用户在对话中最先看到的那一句。
   - **为什么必须分开**：两者**都会出池、都会触发换号**（另一个账号可能确实有余额），但**补救办法不同类**——限流会在上游给出的时刻自行解除，积分耗尽在充值或周期刷新之前**永不会**好。共用一句话等于叫人去等一件不会发生的事，而正确动作是去充值或换号。
   - **修法**：`hard_credit` 拆出独立的 `'out of credits'`。**未改动** `isFailoverWorthy()`：`hard_credit` 依旧可换号（换到有余额的账号是可行的自救），只是提示词如实说明原因。
-  - **检查**：`tests/shim-failover.spec.ts` 新增 1 例，断言耗尽场景的提示含 `out of credits` 且**不含** `rate limited`，同时确认它**仍然换号**（`seen == ['selected', 'other']`）。恢复缺陷后的测试：把两个 case 合并回 `'rate limited'`，该例立即变红，恢复后全部通过。
+  - **检查**：`tests/shim-failover.spec.ts` 新增 1 例，断言耗尽场景的提示含 `out of credits` 且**不含** `rate limited`，同时确认它**仍然换号**（`seen == ['selected', 'other']`）。变异测试：把两个 case 合并回 `'rate limited'`，该例立即变红，恢复后全部通过。
 
 ### Docs
 
@@ -4497,11 +4490,11 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 
     更隐蔽的是 shim 的 DSML 恢复也一并失效（`gate.declaredNames` 为空 → 整段禁用），所以整套缺陷**完全静默**。
   - **为什么在作者 checkout 上不复现**：源码注释里写着 "this checkout resolves 0.85.1 today"——解析到 0.85.1 时 `legacy` 分支是**正确**的。另外 `doctor` 在 DSH**之外**跑会显示 `modern`，那是 `resolvedLocally: false` 的默认值，与 DSH 内的真实判定无关。
-  - **修法**：只特判**主版本 1**，`>= 87` 的 minor 判定保持不变。已逐包对照 **pi-ai 0.87.1、1.0.2、1.1.0、1.2.0** 四个版本：三者的 `openai-completions` 都从 `context.messages` 调 `resolveTranscriptTools()`，`getCurrentTools()` 都读 system 消息的 `toolsAdded`/`toolsRemoved`，契约一致。**刻意是 `=== 1` 而不是 `>= 1`**：未核验未来 2.x 的上下文契约，不替未验证的版本做兼容承诺；测试里 `2.0.0` 明确断言仍为 `legacy`。
+  - **修法**：只特判**主版本 1**，`>= 87` 的 minor 判定保持不变。已逐包对照 **pi-ai 0.87.1、1.0.2、1.1.0、1.2.0** 四个版本：四者的 `openai-completions` 都从 `context.messages` 调 `resolveTranscriptTools()`，`getCurrentTools()` 都读 system 消息的 `toolsAdded`/`toolsRemoved`，契约一致。**刻意是 `=== 1` 而不是 `>= 1`**：未核验未来 2.x 的上下文契约，不替未验证的版本做兼容承诺；测试里 `2.0.0` 明确断言仍为 `legacy`。
   - **补充记录的边界事实**（本版**未**改动 peer 范围）：DSH `dsh-app-boot` 的 `evaluatePluginCompatibility()` 只校验 `@deepseek-ai/dsh*` 命名空间，所以 `"@earendil-works/pi-ai": ">=0.85.0 <0.88.0"` 这条 peer **从不参与校验**，插件会对着越界的 1.x 静默运行。peer 范围的取舍留给维护者单独决定。
   - **检查**：`tests/pi-ai-runtime.spec.ts` 的版本→代际用例改为数据驱动，并用临时目录里伪造的 `package.json` 驱动 `piAiRuntimeFor()`，**不依赖本机解析到哪个版本**，因此在解析到 0.85.1 的机器上也能够运行。覆盖 `0.85.0/0.85.1/0.86.3 → legacy`、`0.87.0/0.87.1/1.0.0/1.0.2/1.1.0 → modern`、`2.0.0 → legacy`、不可解析版本保守判 `legacy`。
 
-    恢复缺陷后的测试（还原修复）后恰好 4 个 1.x 用例变红，其余 13 个不变。
+    变异测试（还原修复）后恰好 4 个 1.x 用例变红，其余 13 个不变。
 
 - **上游流被截断时，恢复层把补写的 `[DONE]` 粘在半截帧之后，客户端 SSE 解析崩溃（PI_AI_ERROR）。**（PR #54，issue #53）
   - **现象**：对话中途偶发整轮直接失败，报错文本 `Unexpected non-whitespace character after JSON at position 319 (line 2 column 1)`，DSH 归到回退码 `PI_AI_ERROR`。该码**不在 DSH 的原地重试集**里（只认 `EMPTY_RESPONSE`/`RATE_LIMIT`/`SERVER`/`TIMEOUT`/`TRANSPORT`），所以一旦出现，这一轮直接结束、不重试——用户看到的就是「突然断了」。已确认与具体模型、工作区无关，且**紧跟在一次 transport 故障之后**。
@@ -4515,7 +4508,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
     **缺换行和缺空行是两种情形**：前者补一个 `\n` 只结束「行」不结束「事件」，必须补 `\n\n` 才能让随后的 `[DONE]` 不粘上去。
   - **同时修复一个静默丢内容**：`finish()` **不**补 `[DONE]` 时，半截帧没有空行收尾，SDK 永远等不到分隔，最后那一小段内容被静默丢弃。格式转换帧尾后这段内容能正常 dispatch 出来。
   - **不影响普通路径**：`push()` 切出的帧本就带终止符，经 `emitFrame` 原样通过，仍是 byte-for-byte 原样传递——「帧顺序永不改变」的既有承诺不受影响。
-  - **检查**：新增 `tests/issue53-sse-terminator.spec.ts`，断言在**字节层**：按 SSE 规范切事件，每个事件内多条 `data:` 行拼接后必须是单个合法 JSON。缺陷本质是字节粘连，只有字节级断言能抓住它。恢复缺陷后的测试（还原两处修复）后 3 个缺陷用例全部变红，「完整流字节不变」的检查用例保持绿色——说明没有过度格式转换。
+  - **检查**：新增 `tests/issue53-sse-terminator.spec.ts`，断言在**字节层**：按 SSE 规范切事件，每个事件内多条 `data:` 行拼接后必须是单个合法 JSON。缺陷本质是字节粘连，只有字节级断言能抓住它。变异测试（还原两处修复）后 3 个缺陷用例全部变红，「完整流字节不变」的检查用例保持绿色——说明没有过度格式转换。
 
 - **保存/删除/导入时的忙碌遮罩：改用 DSH 主题令牌，spinner 换成 DSH 同款弧线。**
   - **现象**：遮罩卡片是一块近黑的板子，上面的字（尤其是副标题「完成后列表会立即刷新。」）几乎看不清；spinner 的转法也和外壳里其他转圈明显不同拍。
@@ -4526,7 +4519,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   - **spinner**：原本是 18px 的 CSS border 环、`.7s` 匀速转，比 DSH 自己的状态转圈（`_dsh-state-dot-spin`，SVG 弧线 + dash 呼吸、`1.5s`）快了近一倍。比起形状本身，**这个速度差才是它看着廉价的主因**。
 
     现在改为同款弧线几何与 `1.5s` 节奏，`currentColor` 继承所在层级，reduced-motion 改为静态弧线（与 DSH 减少动画时的显示方式一致），并补 `aria-hidden` 免得 `role=status` 之外多报一次。
-  - **补充记录一个会静默损坏产物的坑**：`WORKBUDDY_CARD_CSS` 是模板字符串，注释里写反引号会**提前截断整个样式表**，而 typecheck 与 build **都不报错**（截断后的尾部仍是合法 TS，被当成一堆散落的表达式语句）。本次改注释时真的踩到了。新增一条检查：按顶层语句数断言（正常 2 条变量声明；一旦截断会炸成几十条表达式语句）。恢复缺陷后的测试：塞回一个反引号后该检查变红，恢复后全部通过。
+  - **补充记录一个会静默损坏产物的坑**：`WORKBUDDY_CARD_CSS` 是模板字符串，注释里写反引号会**提前截断整个样式表**，而 typecheck 与 build **都不报错**（截断后的尾部仍是合法 TS，被当成一堆散落的表达式语句）。本次改注释时真的踩到了。新增一条检查：按顶层语句数断言（正常 2 条变量声明；一旦截断会炸成几十条表达式语句）。变异测试：塞回一个反引号后该检查变红，恢复后全部通过。
   - **检查**：`tests/client-host-contract.spec.ts` 由 8 例增至 10 例。
 
 ### Docs
@@ -4553,7 +4546,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   - **两个出口都报成功，且刻意不做区分**：账号**确实**已经添加（Host 在答 `done` 之前就存好了凭据），因此显示添加成功；超时只是不让屏幕无限期地声称相反。真正失败的 usage 路由仍由卡片自己以 `refreshError` 如实报告——那部分数据的拥有者是卡片，不是这里。
   - **导入路径一并设上限**：`AccountTransfer` 的 `await onChanged?.()` 是同一形态、同一个遮罩，唯一的区别是它没有把 `phase` 放进任何 effect 依赖，所以原地加超时即可生效。两条路径共用同一个 `settlesWithin` 实现，正是为了不再各自漂移。**一个上限值 `5_000ms`**：远长于一次健康的回环重读，又远短于轮询节奏给人的预期。
   - **检查**：新增 `tests/issue51-sync-veil.spec.tsx`（5 例）。断言的是**可观察结果**而不是实现细节——重读仍在 pending 时遮罩必须已经落下、成功行必须已经出现；快路径不得因此被拖到超时；重读**抛错**按成功处理（它若逃逸进轮询的 `catch` 会重试轮询并再次报告同一个已添加的账号）；只在超时窗口内推进时钟时遮罩必须仍在。
-  - **恢复缺陷后的测试**：把 `src/client/OAuthSignIn.tsx` 改回原来的 `await onAdded?.()` 并删掉新 effect（即完全恢复旧逻辑），5 例中**3 例变红**；改回修复版 5 例全部通过。这条记录有意写下来，因为**第一版修法本身是无效的**——只有经过这次还原才确认了检查真的能抓住它。
+  - **变异测试**：把 `src/client/OAuthSignIn.tsx` 改回原来的 `await onAdded?.()` 并删掉新 effect（即完全恢复旧逻辑），5 例中**3 例变红**；改回修复版 5 例全部通过。这条记录有意写下来，因为**第一版修法本身是无效的**——只有经过这次还原才确认了检查真的能抓住它。
   - **测试基建注意**：`tests/pool-render-helpers.tsx` 的 `settle()` 用 `setTimeout` 排空异步工作，而假时钟会冻结它，所以本文件不能沿用 `settle()`（会一直挂到测试超时，表现为「找不到按钮」这类级联报错）。本文件改用 `act` + `advanceTimersByTimeAsync` 手动驱动时钟。
 
     另：登录轮询间隔是 `OAUTH_POLL_INTERVAL_MS = 2000`，**不是**卡片 usage 的一分钟——写作过程中一度按 60 秒推进时钟，等价于把整个流程执行完成，因此这一处边界在测试里以注释标明。
@@ -4574,7 +4567,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
     完整解释仍在 `title` 提示里，一字未减。
   - **徽标改用 `margin-left:auto` 而非整行的 `space-between`**：三个子元素下 `space-between` 会把开关甩到中间而不是贴着标题；只有两个子元素（无开关）时 `margin-left:auto` 让徽标仍留在右边缘，与改动前一致。
   - **联动清理**：`AccountPool` 新增 `headerExtra` 插槽（与既有 `accountTools` 同款「传现成节点」约定），开关的写入路径、禁用规则与「与卡片其他区域写入者串行」的逻辑**全部留在卡片里**——它们依赖设置 scope 与保存状态，搬进池区块等于把同一份写入与串行化逻辑再实现一遍。
-  - **检查**：`tests/card-credits-switch.spec.tsx` 由 11 例增至 14 例，新增「开关在账号池标题行内且回落行不存在」「没有 pool 时回落到自己那行」「标签仍带区域名」三条。**恢复缺陷后的测试**：把开关改回「永远单独成行」→ 第一条变红（`expected null not to be null`，即标题行里找不到开关）。
+  - **检查**：`tests/card-credits-switch.spec.tsx` 由 11 例增至 14 例，新增「开关在账号池标题行内且回落行不存在」「没有 pool 时回落到自己那行」「标签仍带区域名」三条。**变异测试**：把开关改回「永远单独成行」→ 第一条变红（`expected null not to be null`，即标题行里找不到开关）。
 
 ## 4.3.4 (2026-10-12)
 
@@ -4610,15 +4603,15 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
     报告者「cn 是否受影响未能对照」一节由此有答案。
   - **修法**：余额一律读容量池 `CapacityRemain`（两种套餐都是），`size` 同理统一读 `CapacitySize`（真实月度行上 `CapacitySize` 与 `CycleCapacitySize` 同时存在且相等，取前者；后者保留为回退）。**周期字段继续读取**并作为新的 `cycleRemain` 随包透出——它回答的是「本周期额度是否用完」这个**不同**的问题，而 `refreshAtMs`（周期续期点）的提示文案只有靠它才成立。
 
-    **没有采用报告者建议的 `Math.max(两者)`**：那两个字段不是同一量的两种采用的规则，取较大值会把「本周期已用完、等 10/31 续期」误报成「仍有余额」，正是 `quotaRefreshAtMs` 冷却提示要避免的误导。
+    **没有采用报告者建议的 `Math.max(两者)`**：那两个字段表达的余额含义不同，取较大值会把「本周期已用完、等 10/31 续期」误报成「仍有余额」，正是 `quotaRefreshAtMs` 冷却提示要避免的误导。
   - **修法未触动 gift 路径**（`CapacityType 1`）：仍读 `CapacityRemain`、仍按「耗尽或过期即丢弃」处理——本缺陷只存在于月度分支。
-  - **实测（真实接口，修复前后对照）**：3 个国际版账号 `0 → 100`（各自 `CapacityRemain=100`）；CN `17749714179` 保持 2267 不变（该账号两字段本来就一致）；CN `老丁` 1343→1718、`LaoDing` 768→1268。**CN 侧读数按正确字段重新计算**：这两个账号的月度套餐池余额（500）一直高于本周期余额，旧代码只读了后者。
+  - **实测（真实接口，修复前后对照）**：3 个国际版账号 `0 → 100`（各自 `CapacityRemain=100`）；CN `177****4179` 保持 2267 不变（该账号两字段本来就一致）；CN `老丁` 1343→1718、`LaoDing` 768→1268。**CN 侧读数按正确字段重新计算**：这两个账号的月度套餐池余额（500）一直高于本周期余额，旧代码只读了后者。
   - **检查 `tests/issue48-monthly-pool-credits.spec.ts`（8 例）**：直接驱动**真实的 `fetchCredits` 解析器**（stub 掉的只有 `fetch`），用**真实账单行的原始字段值**（池 100 / 周期 0 / 周期未结束）构造夹具。原有的全部套件都在边界上 mock 掉整个 `fetchCredits`，**这正是该缺陷能漏出去的原因**——字段解析这一层此前零覆盖。
 
     覆盖：读池而非周期（回归本体）、`cycleRemain` 单独透出且 `refreshAtMs` 仍在、多账号求和、两字段一致时不受影响（同时通过新旧代码，用来说明「CN 没有开始按另一种方式读」）、周期耗尽但池充足时账号不被丢弃、gift 路径不变（含耗尽/过期两条丢弃分支）、负值不进入 total、月度与 gift 混合不重复计数。
 
-    **恢复缺陷后的测试**：把 `remain` 改回 `numberField('CycleCapacityRemain')` → 3 例变红，报错正是 `expected +0 to be 100`（与现场症状同形）。
-  - **边界原样传递检查**：`tests/web-status.spec.ts` 增补断言，验证 `remain` 与 `cycleRemain` **各自独立**地跨 host→client 边界存活（`toMatchObject` 不会因字段丢失而变红），并验证 gift **不带**该字段（缺失而非 0）。**恢复缺陷后的测试**：删掉 `web-status.ts` 里的原样传递 → 立即变红。
+    **变异测试**：把 `remain` 改回 `numberField('CycleCapacityRemain')` → 3 例变红，报错正是 `expected +0 to be 100`（与现场症状同形）。
+  - **边界原样传递检查**：`tests/web-status.spec.ts` 增补断言，验证 `remain` 与 `cycleRemain` **各自独立**地跨 host→client 边界存活（`toMatchObject` 不会因字段丢失而变红），并验证 gift **不带**该字段（缺失而非 0）。**变异测试**：删掉 `web-status.ts` 里的原样传递 → 立即变红。
 
 ## 4.3.2 (2026-10-12)
 
@@ -4643,7 +4636,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
     `isTransientWindowsRenameError` 同样在 `process.platform !== 'win32'` 时短路，平台处理规则与 §1-4 一致。
   - **`doctor` 可见**（#26 的 `piAiRuntime` 同款做法）：新增 `hostPeers.atomicWrite`（`host` | `fallback`）与说明行，`--json` 的 `schemaVersion` 3 → 4。**两种状态都以真实输出核对过**：干净目录（无任何 `@deepseek-ai/*`）→ `fallback`，且 `status`/`doctor` 均正常退出；仓库检出（peer 齐全）→ `host`。
   - **本机实测（无 peer 的空目录，即报告者形态）**：修复前 `node …/lib/bin.js status` → 与 issue 逐字一致的 `ERR_MODULE_NOT_FOUND`；修复后 `status`、`doctor`、`doctor --json` 全部 0 退出并输出真实账号数据。
-  - **检查（两层，均做过恢复缺陷后的测试）**：`tests/host-peers.spec.ts` 共 9 例——① **扫描构建产物**：从 `lib/bin.js` 沿相对 import 走完整个依赖图，出现任何包名即红；对**真实 4.3.0 产物**跑它是**红的**，且逐条点出 `lib/host-heartbeat-jNlsUMZO.js` 与 issue 报告里一模一样的两个包名（含 chunk 名），恢复到修复版即绿。② **源码层同规则**（不依赖构建，`pnpm test` 单独跑也能拦住）；把 `src/auth.ts` 改回静态 import → 立即红。
+  - **检查（两层，均做过变异测试）**：`tests/host-peers.spec.ts` 共 9 例——① **扫描构建产物**：从 `lib/bin.js` 沿相对 import 走完整个依赖图，出现任何包名即红；对**真实 4.3.0 产物**跑它是**红的**，且逐条点出 `lib/host-heartbeat-jNlsUMZO.js` 与 issue 报告里一模一样的两个包名（含 chunk 名），恢复到修复版即绿。② **源码层同规则**（不依赖构建，`pnpm test` 单独跑也能拦住）；把 `src/auth.ts` 改回静态 import → 立即红。
 
     ③ 反面对照：验证 `lib/index.js`（DSH 半边）**必须**继续把 `@deepseek-ai/dsh-llm` / `@deepseek-ai/schemastery` 留作外部依赖——否则有人可能用「两边都内联」的方式把它「修」掉。
 
@@ -4674,7 +4667,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   - **修法二（治复发）**：让 gate 与卡片同源。DSH 的 usage 载荷本就带 `showCreditsInMainUi`，现在它**压过**设置 scope（`composerCreditsRegionOf` 新增 `hostValue` 参数，`ComposerCredits` 在拿到文档后按它隐藏，并停掉 5 分钟轮询）。非布尔值（含 `error` 变体与旧文档）一律视为「DSH 没说」，仍由 scope 定夺——这样镜像陈旧或未绑定时都不会再让读数复活。
   - 回归测试 `tests/issue46-namespace-binding.spec.tsx` 14 条，覆盖：镜像后到时的重绑（原缺陷）、候选表顺序、`include:` 包裹的 entry id、声明名绝不被绑定、DSH 停服时撤回、只开一个 watch；并验证「死 scope 读作显示」这一现象本身与 Host 优先级。渲染层新增三条（Host 报关闭则隐藏、Host 报开启则显示、无该字段则沿用 scope）。
 
-    **恢复缺陷后的测试**：去掉 Host 优先级判断 → 1 红；把声明名排到候选表首位 → 3 红。
+    **变异测试**：去掉 Host 优先级判断 → 1 红；把声明名排到候选表首位 → 3 红。
 
 ## 4.3.0 (2026-10-11)
 
@@ -4713,7 +4706,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   - **修法**：`clearDismissals` 在 unlink 被拒时回退为「经同一把锁先写临时文件再替换目标文件空名单」（对任何读者而言两种结果等价），并把结果**读回来验证**后返回布尔值；路由把 `dismissalsCleared` 转给卡片；卡片新增账户级错误行（`role="alert"`）如实显示。该状态原先只被写入、从未渲染——`accountError` 的渲染一并补上。
   - 测试模拟 Windows 的拒绝：unlink 被拒时回退生效、两条路都失败时返回 `false`、路由转发该标志、卡片真的把它画出来。
   - **另有一层实际设备取证**：`tests/windows-file-lock.spec.ts` 用 PowerShell 的 `[System.IO.File]::Open(…, FileShare.Read)` 在 **真实 Windows**（CI 的 `windows-latest`）上占住文件，断言返回 `false` 且账号保持隐藏、释放后同一调用转为成功——占用由操作系统造成，不是添加假异常。其余平台该文件 skip（`FileShare` 无 POSIX 等价物）。
-  - **恢复缺陷后的测试在 `windows-latest` 上真跑**：还原成原来的裸 `rm` + 吞异常后，该文件 2 例全红，报错即 `expected true to be false`——静默成功这个缺陷在真实 Windows 上复现并被咬住。据此 `docs/WINDOWS.md` §3 该条按其自身分级规则定为 **B 档（CI 实测）**，并写明未升 A 档的原因。
+  - **变异测试在 `windows-latest` 上真跑**：还原成原来的裸 `rm` + 吞异常后，该文件 2 例全红，报错即 `expected true to be false`——静默成功这个缺陷在真实 Windows 上复现并被咬住。据此 `docs/WINDOWS.md` §3 该条按其自身分级规则定为 **B 档（CI 实测）**，并写明未升 A 档的原因。
 
 - **vault 目录里的非凭据文件不再被当成「读不了的凭据」。**（PR #44 评审追加）
   - **现象**：在**完全没有账号**的机器上（只有这种情况才渲染路径列表），删过账号之后，「已探测路径」会多出一条 `…/vault/.dismissed.json — not a readable vault credential`。登录本身是健康的，插件把自己的记账文件读成了坏掉的 token 文件。
@@ -4728,28 +4721,20 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 
 - **导入不再拒掉插件自己导出的账号：CN 聊天网关 `copilot.tencent.com` 现在被识别为国内站。**
   - **现象**：卡片导出 8 个账号，再把同一个文件导入回来，结果是「导入 5 / 跳过 3」——**导出的文件自己导不回去**。用户反馈这 3 个账号在另一台电脑上完全正常。
-  - **根因**：`copilot.tencent.com` 不是第三个上游，它**就是本插件自己的国内聊天网关**（`CN_CHAT_BASE = 'https://copilot.tencent.com'`，见 `src/upstream.ts`），而真实凭据的 `domain` 字段就写着它。4.1.x 的导入版本检查（`knownRegionOf`，为防伪冒域名而做的「正向识别」）只认 `workbuddy.cn` / `codebuddy.cn` / `workbuddy.ai` / `codebuddy.ai`，`copilot.tencent.com` 匹配不上任何一个 → 返回 `undefined` → 计入 `skipped`。
+  - **根因**：`copilot.tencent.com` 不是第三个上游，它**就是本插件自己的国内聊天网关**（`CN_CHAT_BASE = 'https://copilot.tencent.com'`，见 `src/upstream.ts`），而真实凭据的 `domain` 字段就写着它。4.1.x 的导入域名校验（`knownRegionOf`，为防伪冒域名而做的「正向识别」）只认 `workbuddy.cn` / `codebuddy.cn` / `workbuddy.ai` / `codebuddy.ai`，`copilot.tencent.com` 匹配不上任何一个 → 返回 `undefined` → 计入 `skipped`。
 
     于是插件导出得出、导入不认，自相矛盾。
-  - **为什么 4.2.0 而不是 4.1.3**：4.1.0 刚把「批量导出 / 导入」作为新功能交付，4.1.2 收紧区域版本检查时把它变成了自身不可用——跨机器迁移这条主路径在 4.1.x 整条线上都是断的，属于功能级缺陷而非补丁级瑕疵。
-  - **修法**：`knownRegionOf` 的 CN 表加入 `copilot.tencent.com` 及其子域。仍按可注册域匹配，仿冒主机（`copilot.tencent.com.evil.com`、`evilcopilot.tencent.com`）依旧被拒，版本检查没有放宽成默认归 CN。
+  - **为什么 4.2.0 而不是 4.1.3**：4.1.0 刚把「批量导出 / 导入」作为新功能交付，4.1.2 收紧区域校验时把它变成了自身不可用——跨机器迁移这条主路径在 4.1.x 整条线上都是断的，属于功能级缺陷而非补丁级瑕疵。
+  - **修法**：`knownRegionOf` 的 CN 表加入 `copilot.tencent.com` 及其子域。仍按可注册域匹配，仿冒主机（`copilot.tencent.com.evil.com`、`evilcopilot.tencent.com`）依旧被拒，域名校验仍拒绝未知来源，不默认归入 CN。
   - 回归测试两条：一条验证网关域名与仿冒主机的判定（`tests/transfer.spec.ts`），一条复刻「5 个登录域名 + 3 个网关域名混在一个导出文件」的完整往返，确认导入 CN 得 8/0、导入 global 得 0/8。
 
-
-- **导入不再拒掉插件自己导出的账号：CN 聊天网关 `copilot.tencent.com` 现在被识别为国内站。**
-  - **现象**：卡片导出 8 个账号，再把同一个文件导入回来，结果是「导入 5 / 跳过 3」——**导出的文件自己导不回去**。用户反馈这 3 个账号在另一台电脑上完全正常。
-  - **根因**：`copilot.tencent.com` 不是第三个上游，它**就是本插件自己的国内聊天网关**（`CN_CHAT_BASE = 'https://copilot.tencent.com'`，见 `src/upstream.ts`），而真实凭据的 `domain` 字段就写着它。4.1.2 的导入版本检查（`knownRegionOf`，为防伪冒域名而做的「正向识别」）只认 `workbuddy.cn` / `codebuddy.cn` / `workbuddy.ai` / `codebuddy.ai`，`copilot.tencent.com` 匹配不上任何一个 → 返回 `undefined` → 计入 `skipped`。
-
-    于是插件导出得出、导入不认，自相矛盾。
-  - **修法**：`knownRegionOf` 的 CN 表加入 `copilot.tencent.com` 及其子域。仍按可注册域匹配，仿冒主机（`copilot.tencent.com.evil.com`、`evilcopilot.tencent.com`）依旧被拒，版本检查没有放宽成默认归 CN。
-  - 回归测试两条：一条验证网关域名与仿冒主机的判定，一条复刻「5 个登录域名 + 3 个网关域名混在一个导出文件」的完整往返。
 
 ## 4.1.2 (2026-10-10)
 
 ### Features
 
 - **账号可自行添加、迁移与逐个管理，不必再装桌面 App。**（合并自 PR #38）
-  - **扫码添加账号**：卡片新增「扫码添加账号」，点开授权链接在浏览器完成登录即可，无需先装 WorkBuddy 桌面 App。会话只存在进程内（600 秒超时），拿到凭据即终结，token 不落独立账号库。
+  - **扫码添加账号**：卡片新增「扫码添加账号」，点开授权链接在浏览器完成登录即可，无需先装 WorkBuddy 桌面 App。会话只存在进程内（600 秒超时），拿到凭据即终结，授权会话完成后，其 token 写入下述统一凭据库，不另建 OAuth 专用凭据库。
   - **统一凭据库**：所有凭据统一写入文件到 `$DSH_HOME/workbuddy-vault/<region>/<accountId>.json`，一账号一文件——扫码添加的、桌面扫描到的、插件刷新过的，都汇入同一目录。桌面 App 的认证文件**始终只读**，插件永不写入或删除它们。
   - **账号行级「测试 / 删除」**：表格每行新增两个按钮。单账号测试复用批处理同一套探测依赖与模型解析，因此行级与批量测的是同一个模型、产生同一种测量。删除只删插件自己的 vault 副本；若该账号来自桌面端，下次扫描会重新出现，文案如实说明。
   - **账号批量导出 / 导入**：多选导出 JSON 文件，选文件后给出**脱敏预览**（只展示字段与 `hasToken`，token 明文不进预览），再勾选导入。文件格式与同类凭据管理工具互通；`uin` 会从 `auth_raw` 恢复，保证「导出 → 换机 → 导入」仍对应同一个账号 id，不产生影子账号。关闭 issue #41。
@@ -4789,11 +4774,11 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 
 - **积分读数移入对话输入框工具栏（`conversation.input.left`），按会话当前所选模型自动切换区域。**
   - **做法沿用同族项目** `dsh-connect-trae`（MIT）的 composer 读数：一行可点击的读数 `WB CN · 1,072`，点击弹出锚定面板；面板里是**账号表格**（每账号一行余额，点行即切换到该账号）；**手动刷新按钮放在面板内**而不是读数上；每账号余额**只在面板打开时抓**；5 分钟定时器在首取结束后才启动；失败保留上次数值。
-  - **为什么从侧边栏搬过来**：DSH 的 `sidebar.footer.action` 是**单个 root 级共享行**——所有 bundle 都往那一行里塞。实测把它扩成两行时，该容器 `display:flex` 且无 `flex-wrap`/`flex-direction`，两行会被压成等宽两列而重叠。输入框这行是 **session 级且按 provider 归属**，装两个连接器插件也不会互相抢位置。
+  - **为什么从侧边栏搬过来**：DSH 的 `sidebar.footer.action` 是**单个 root 级共享行**——所有 bundle 都往那一行里塞。实测把它扩成两行时，该容器 `display:flex` 且无 `flex-wrap`/`flex-direction`，两行会被压成等宽两列而重叠。输入框这行是 **session 级且按 provider 归属**，可按当前 provider 分别渲染，但共享位置仍可能受其他插件的布局影响；后续位置设置见 4.5.0。
 
     这也是 trae 自己在 2.13.0 移除侧边栏积分行的同一结论。
   - **按 provider 判定归属**：gate 读 DSH 的 `modelSelection` 提供的模型选择状态（`next` 优先于 `lastUsed`，与 DSH 自身一致），只有本会话选中的模型属于本插件的 `workbuddy` / `workbuddy-global` 时才渲染。**换成别的 provider 就完全不渲染**——不占位、不发请求。
-  - **两个区域都支持**（与 trae 不同）：trae 的国际版是订阅制、没有可比数字，本插件的国际版有真实余额。所以读数据当前模型所属区域显示，并标明 `WB CN` / `WB AI`，面板标题也按区域区分。
+  - **两个区域都支持**（与 trae 不同）：trae 的国际版是订阅制、没有可比数字，本插件的国际版有真实余额。所以按当前模型所属区域读取和显示数据，并标明 `WB CN` / `WB AI`，面板标题也按区域区分。
   - **面板里的余额读数是「总额」**（`credits.total`，与卡片头部同一字段），且**读不到时显示 `—` 而不是 `0`**：DSH 端点在该账号取不到余额时**省略** `credits` 字段，正是为了让界面不能对账号做出「没积分了」这种错误断言。
   - **面板里标出「被限流」等不可用原因**：每个账号行若当前不能服务，就在账号名下方用**与账号池表格同一套文案**标出原因（被限流／积分耗尽／被拒绝／…）。复用 DSH 已有的 `exclusionOf` 判定（含冷却到期逻辑）与 `exclusionText` 标签函数（本版从 `AccountPool.tsx` 提到 `exclusion-text.ts` 共用），因此同一账号在池子表格与积分面板里不会出现两种说法。
   - **读数只反映当前选中账号**（`store.resolve()` 取到的那个），不是该区域所有账号的汇总——它读的就是 DSH usage 文档里的 `credits.total`，与卡片头部同一字段。
@@ -4818,9 +4803,9 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 ### Fixes
 
 - **国内版模型目录改读 App 自己那份 `/v3/config`，卡片显示的模型与价格不再和 App 对不上。**
-  - **现象**：同一个模型槽，App 里显示 `Hy4 preview (x0.00)`，插件卡片里显示 `Hy4 preview (x0.29)`。两边都没错，只是**读的不是同一份文档**——插件读 `/v2/enterprises/personal/models`（CLI 渠道名册，该界面扩展位置是付费的 `hy4-preview`），App 读 `/v3/config`（该界面扩展位置是免费的 `hy4-preview-f`）。两者显示名同为 "Hy4 preview"，价格却不同，于是看起来像插件显示错了。
+  - **现象**：同一个模型槽，App 里显示 `Hy4 preview (x0.00)`，插件卡片里显示 `Hy4 preview (x0.29)`。两边都没错，只是**读的不是同一份文档**——插件读 `/v2/enterprises/personal/models`（CLI 渠道名册，该名单条目是付费的 `hy4-preview`），App 读 `/v3/config`（该名单条目是免费的 `hy4-preview-f`）。两者显示名同为 "Hy4 preview"，价格却不同，于是看起来像插件显示错了。
   - **根因**：`fetchModels` 的国内分支固定读 `/v2`，国际分支读 `/v3`。国内版从来没有读过 App 的那份文档，因此名册与价格天然可能与 App 不一致；而 `/v2` 里还有一个上游目录里不存在的 `auto` 槽，`/v3` 里则有 `auto` 没有的 `hy4-preview-f` 与 `minimax-m2.7`。
-  - **修法**：国内分支改为读 `/v3/config`，**沿用 CLI 的 User-Agent**——这一步是关键：`/v3` 按客户端渠道返回不同名册，桌面端渠道的国内名册（29 条）里**没有** `hy4-preview-f`，只有 CLI 渠道的 17 条名册有。实测确认 `/v3` 接受国内分支原有的整套请求头（`X-Domain` / `X-Product` / `X-Requested-With` 一个都不需要加），所以这是一处常量改动，没有协议风险。
+  - **修法**：国内分支改为读 `/v3/config`，**沿用 CLI 的 User-Agent**——这一步是关键：`/v3` 按客户端渠道返回不同名册，桌面端渠道的国内名册（29 条）里**没有** `hy4-preview-f`，只有 CLI 渠道的 17 条名册有。实测确认 `/v3` 接受国内分支原有的整套请求头（`X-Domain` / `X-Product` / `X-Requested-With` 一个都不需要加），该改动主要切换读取地址；当时测试验证了请求成功，但不能排除后续协议变化。
 
     另加回退：`/v3` 请求失败或返回非 0 时退回旧的 `/v2` 并记一条 `ctx.logger.warn`，避免网关不再提供新文档时整个区域拿不到模型。
 
@@ -4845,7 +4830,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   - **默认怎么来**：内置一份按精确 id 复核的名单（`src/off-thinking.ts` 的 `REFUSES_OFF_MODEL_IDS`，9 个模型），首次读取时用它填勾选状态，所以「不勾」的模型从一开始就不是这 9 个会失败的。这份名单**只是种子**，不是墙：
     - 上游新增一个拒绝 `off` 的模型 → **取消勾选**即可，不必等我们发版；
     - 名单误伤了一个其实可用的模型 → **勾上**即可恢复。
-  - **首次保存即生效**：保存的是勾选后的 id 列表（`offModelIds: string[]`）。`undefined`（从未保存）与 `[]`（用户全不勾）是可区分的，前者用内置名单填，后者保持空——`regionStateOf` 读原始界面扩展位置，所以这个区分在数据层天然存在。
+  - **首次保存即生效**：保存的是勾选后的 id 列表（`offModelIds: string[]`）。`undefined`（从未保存）与 `[]`（用户全不勾）是可区分的，前者用内置名单填，后者保持空——`regionStateOf` 读原始配置字段，所以这个区分在数据层天然存在。
   - **刷新不覆盖**：与「图片」勾选刻意不同。图片的勾选在刷新时会被上游声明重新同步；`off` 的勾选**保持不动**，因为它存在的理由就是「上游声明不可信」，刷新重写等于抹掉用户的修正。
 
 ### Fixes
@@ -4898,13 +4883,13 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   - **背景**：上游的频率限制（6004）按**请求体积**触发——实测阈值落在 2 万～3 万 token 之间，**单次请求就足以触顶**（不是累计）。而账号池的「测试」检查请求此前固定发 25,000 token，于是真实对话体积在 2.5 万～3 万之间时会出现「测试测出可用、一发聊天立刻被限」。
   - **为什么不是把固定值调大**：检查请求只测一个点，而阈值是一个区间、真实对话体积是连续的——把 2.5 万改成 3 万只是把缝隙上移（3 万以上漏判），且成本线性上升（2.5 万 ≈ 0.72 积分，5 万 ≈ 1.4+）。**体积是用户流量的属性，因此交给用户选。**
   - 新增池子设置「测试请求体积」，默认仍是实测标定的 25K（`0` = 默认）；改动立即生效，无需重载。
-  - 相应用户可见的说明写在设置项旁：解释 2 万～3 万阈值与「测出可用、一发就被限」的成因。
+  - 相应用户可见的说明写在设置项旁：解释当时样本中 2 万～3 万的触发范围与「测出可用、一发就被限」的成因。
 
 - **换号时在回复正文里说明原因，不再只有日志。**
   - **背景**：池子的 failover 会给同一个请求依次试多个账号，此前只写一行 `logger.warn`——用户完全看不到。于是一次切换过的回复，和「你选的那个账号正常回答」**在界面上完全一样**，而且事后无法从记录区分「刚才真有请求失败」和「状态莫名其妙退回了旧值」。
   - 现在回答开头会附一行（仅当真的发生了切换、且确实有内容送达时）：
 
-    > [dsh-connect-workbuddy] 「13046625578」was rate limited — this answer came from another account
+    > [dsh-connect-workbuddy] 「130****5578」was rate limited — this answer came from another account
 
   - 只报**第一个**被放弃的账号与原因（连续试 4 个账号时不刷屏），原因按用户能采取的行动措辞（`rate limited` / `signed out` / `rejected by policy` / …），而不是内部 kind 名。
 
@@ -4935,7 +4920,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   - **现象**：在 Linux/macOS 上构建/运行时，Windows 专用路径会带上 `/` 分隔符，永远不可能命中真实安装。
   - **根因**：`workbuddyAppExecutableCandidates()` 的四个 Windows 候选、以及注册表回退的 `normalizeRegistryExecutable()` / `registryInstallLocationFromQuery()`，都用了 `path.join` / `path.basename`——它们跟随**运行平台**，不是数据的平台。在 POSIX DSH 上 `basename('E:\workbuddy\WorkBuddy.exe')` 返回整串，于是**每一个合法路径都被 basename 白名单拒绝**，注册表回退等于从未生效。
   - **修法**：凡处理 Windows 数据一律改用 `path.win32.join` / `path.win32.basename`——**分隔符由数据决定，不由 DSH 决定**。
-  - **测试同样是错的**：期望值也用 `join()` 构造，生产与测试一起漂移，所以本地绿、CI（ubuntu）绿，而 Windows 上根本不命中。已改为 `win32.*` 并补一条**形状检查**（断言每个 Windows 候选都不含 `/`、末段为 `WorkBuddy.exe`），恢复缺陷后的测试（把 `win32.join` 换回 `join`）必红。
+  - **测试同样是错的**：期望值也用 `join()` 构造，生产与测试一起漂移，所以本地绿、CI（ubuntu）绿，而 Windows 上根本不命中。已改为 `win32.*` 并补一条**形状检查**（断言每个 Windows 候选都不含 `/`、末段为 `WorkBuddy.exe`），变异测试（把 `win32.join` 换回 `join`）必红。
   - 顺带修正一条与环境耦合的断言：原测试断言 `darwin` 返回 `undefined`，但本机装了 WorkBuddy 时 macOS 分支会**合法**命中，于是「开发者机器红、CI 绿」。该用例真正要断言的是注册表 seam 未被调用，已按此重写。
 
 ### Fixes
@@ -4958,7 +4943,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
     - 检查请求 `outcomeOfFailure` 在 401/403 一刀切**之前**先判 `policy_reject`，卡片新增「服务端按内容策略拒绝」文案（中英）。检查请求与真实请求复用同一分类函数，对同一响应的判定不会分歧。
     - **账号池不再因一次策略拒绝把健康账号永久踢出**（适配 3.4.2 时发现的连带问题）：`policy-rejected` 是新 outcome，在 `exclusionOf` 里落进了 `default` 分支被标成 `unusable`——而 `unusable` 刻意**不带冷却**，于是账号会被**永久**移出池子，且卡片会显示「不可用」。这是错的：策略拒绝针对的是**那一条请求的内容**，不是这个账号，同一个账号换一条消息照样能服务。
 
-      现按 `ok` 处理（测量照常记录，卡片能解释发生了什么，但不影响它继续被计费），并补检查 + 恢复缺陷后的测试。
+      现按 `ok` 处理（测量照常记录，卡片能解释发生了什么，但不影响它继续被计费），并补检查 + 变异测试。
   - **检查（先红后绿）**：`upstream.spec` / `shim.spec` / `probe.spec` 新增 8 例——分类（完整/最小 403 体 → `policy_reject`）、字段解析（zh 优先、缺 `displayMsg` 回落 `msg`、非 JSON 为 `undefined`）、shim 端到端（再次发送历史消息上面那段真实 403 体，断言 403 + `policy_reject` + **`code` 为 `policy_reject`** + 官方文案 + requestId，而不是 400）、检查请求（11140 → `policy-rejected`）。
 
     7 例先在未修复代码上跑红、实现后转绿；1 例良性对照（良性 403 / HTML 403 仍判 `client` / `credential-rejected`）双向保持绿——防止修复把无辜的 403 一起丢弃。
@@ -4973,20 +4958,20 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   - **修法**：每次换号前等待 `FAILOVER_ACCOUNT_GAP_MS`（2 秒）。比批测的 400ms 更长，因为换号重试是**用户在等的真实请求**，不是探测——它需要给上游的窗口留出喘息，而不只是避免自己踩到限流。
   - **等待是可中断的**：客户端断开时立刻结束等待并退出循环，不会白等 2 秒，也不会拿一个已经作废的 signal 去把剩余账号试完。
   - 顺带修正：等待结束后重新检查一次中断状态——否则客户端已断开时，剩余账号会被逐个发出去（每个都立即因 signal 作废而失败），白白写下一串假的账号失败测量。
-  - 测试：新增一条用例验证「两次尝试之间确实等待了 ≥1.9 秒」，恢复缺陷后的测试（把间隔改成 0）必红。
+  - 测试：新增一条用例验证「两次尝试之间确实等待了 ≥1.9 秒」，变异测试（把间隔改成 0）必红。
 
 ## 3.4.1 (2026-10-02)
 
 ### Fixes
 
-- **「要等几小时才恢复」的配额错误不再被 DSH 当成「等两秒就好」的瞬时发生变化（issue #28）。**
+- **「要等几小时才恢复」的配额错误不再被 DSH 当成「等两秒就好」的瞬时故障（issue #28）。**
   - **现象**：上游 429 / code 6004 的原文是「您的使用量已超出频率限制，**将在 13:37:03 重置**」——要等几小时。本插件把它正确分类成 `soft_rate`（`src/upstream.ts`），但写回 DSH 时 `type` 与 `code` 都用了 `soft_rate` 这个内部名字。
   - **根因**：DSH 决定「这个失败要不要在原地重试」靠的是从 `type + code + message` 里匹配**几个英文措辞**（`@deepseek-ai/dsh-llm` 的 `isQuotaExceededError`）。`soft_rate` 不在那份名单里，上游原话又是中文，于是 DSH 只能按 `429` 的默认含义理解——进入 `RATE_LIMIT`，而 `RATE_LIMIT` **在**DSH 的重试集合里（`DEFAULT_RETRYABLE_CODES`），`QUOTA` **不在**。
 
     DSH 于是原地重试 5 次、按倍数延长重试间隔，把预算烧光；而真正能救场的跨供应商故障转移（`dsh-subagent-default-model` 的 `failoverEnabled`）根本没被叫到——实测一次会话 1228 个 step、只切换过 1 次供应商、以 429 收场，`models` 里其它供应商全程闲置。
   - **修法**：只翻译写回 DSH 的 `code`——`soft_rate` → `quota_exceeded`（DSH 认得这个词，且它符合上游实际在说的事）。**HTTP 状态码仍是 429**（那才是上游返回的东西，改成 402 是谎报），上游原话仍原样留在 `message` 里给人看。`type` 保持插件自己的内部名字，便于读日志与报错。
   - **只翻译这一处**：其余 kind 本来就落在重试集合之外（`hard_credit` 402 → 按状态就是 QUOTA，`session_dead` 401 → AUTH，502/400 → OTHER），所以**不做多余翻译**——没有人需要的翻译只是等着漂移的谎言。插件**自己的**错误（`unauthorized` / `not_found` / `host_not_allowed` / `internal`）也一律不翻译：把自身的 401/404 说成「配额用尽」，会让 DSH 去为一个换供应商也治不好的错误做故障转移。
-  - 测试直接调用**DSH 自己的** `isQuotaExceededError`（`@deepseek-ai/dsh-llm` 导出）来验证这件事，而不是在测试里抄一份正则——抄一份只能证明两份副本今天一致。三次恢复缺陷后的测试：撤回翻译 / 把翻译扩大到所有 kind / 让本地错误也翻译，均会变红。
+  - 测试直接调用**DSH 自己的** `isQuotaExceededError`（`@deepseek-ai/dsh-llm` 导出）来验证这件事，而不是在测试里抄一份正则——抄一份只能证明两份副本今天一致。三次变异测试：撤回翻译 / 把翻译扩大到所有 kind / 让本地错误也翻译，均会变红。
 
 ## 3.4.0 (2026-10-02)
 
@@ -5064,7 +5049,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   - **排序决定「谁服务」，不只是「换给谁」**：开启账号池后，**每一次请求**都由池子的排序选出服务账号（可用优先 → 积分高 → 快过期 → 凭据新 → 账号 id）。所以卡片上的「当前使用」是排序的结果，不一定是用户手动选的那个——这也正是「在测试之后有一个智能排序」的意思。
     - 实现上是**每请求一次**选择：shim 在 `resolve()` **之前**先问 DSH（`prepareAccount`），DSH 用**纯本地数据**排序，把胜者写进 store 的运行时覆盖（`setRotatedAccount`），然后照旧走 `resolve()`。这样 token 刷新仍然只有一处，不会在路由路径上被改写成「发一个过期 token」。
     - **请求路径绝不抓积分**：积分是排序的第二键，但每个成员一次上游调用。所以请求路径只用**新鲜读数**（卡片轮询 / 批量测试 / 保存时读到的那份，10 分钟内有效；由 `poolMembersOf` 顺手写进读取结果），过期就**跳过这一键**，而不是为了排序去打上游——否则一页对话会变成 N 个额外请求。
-    - **从不写回用户的选择**：覆盖只存在于运行时（从只保存在内存中），关掉账号池立即清空、用户选定的账号完全恢复生效。卡片因此必须显示「当前使用」。而账号选择器**只在池关闭时**渲染：池开着时由排序决定，那时候摆一个改了不生效的下拉就是在骗人。
+    - **从不写回用户的选择**：覆盖只存在于运行时（只保存在内存中），关掉账号池立即清空、用户选定的账号完全恢复生效。卡片因此必须显示「当前使用」。而账号选择器**只在池关闭时**渲染：池开着时由排序决定，那时候摆一个改了不生效的下拉就是在骗人。
   - **候选走 `credentialFor()` 而不是 `resolve()`**：换号与路由都不改选择状态，只是在运行时覆盖上取凭据。
 
   - **跳过已知不可用的成员，但「没测过」算可用**：仍在冷却期内的限流账号、凭据被上游拒绝的账号都不参与（免得花一次往返去重新学到测量结果已经写着的事）；**从没测试过的账号默认视为可用**——刚发现的登录不该因为「还没测」就被排除在外。这正是「一键测试」的意义所在：测试结果直接决定谁能被选中。
@@ -5141,13 +5126,13 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   - 外部依据与上游各层修法见 `docs/DSML-LEAK-RESEARCH.md`（含 vLLM 那些**关闭未合并**的
     尝试，以及急切恢复炸出的三类生产事故）。
 
-- **账号池的「保存 / 放弃修改」行动作行改为与模型管理一致：按钮靠右，左侧放「鼓励一下」。**
+- **账号池的「保存 / 放弃修改」操作行改为与模型管理一致：按钮靠右，左侧放「鼓励一下」。**
   - 同一张卡片上两处「提交你的修改」行为长得不一样——模型管理那行是左侧鼓励链接（★）、右侧按钮，
     账号池这行却是按钮在左、提示在右。同类动作行不该教出两套肌肉记忆。
   - 现在两行同构：左侧鼓励链接、右侧按钮组（放弃修改 → 保存，次要动作在前，与模型行同序）；
     样式也对齐（相同的上边框与间距，`justify-content: space-between` 把按钮顶到右侧）。
   - 该行原有的状态提示（「修改任一设置后即可保存」/「有未保存的修改」）**整句删除**，两行因此完全等形。
-    它本来就是多余的：**保存按钮自身的可用状态**已经区分了这两种情况；而一句只在 dirty 时才出现的文字，会让这行在每次编辑时发生变化一下。
+    它本来就是多余的：**保存按钮自身的可用状态**已经区分了这两种情况；而一句只在 dirty 时才出现的文字，会使该行在每次编辑时改变高度或位置。
   - `WORKBUDDY_GITHUB_URL` 提到 `src/status-paths.ts`：现在两个区块都链接到它，复制一份 URL 就是多一处会忘记同步的地方。
 
 - **账号池顶部重新设计：删掉两处重复的说明，按钮整理为一行两簇。**
@@ -5203,10 +5188,10 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   - **为什么不能照 #26 的"最小修复"直接删掉 wrapper**：本机插件解析的正是 0.85.1，DSH 却用 0.87.1 格式转换 context——删掉 wrapper 会立刻复活 issue #24 的崩溃（0.85 的 `estimateMessageTokens` 对字符串 content 的 system 消息抛 `Cannot read properties of undefined (reading 'length')`，在本机复现为流内 error、请求未发出）。报告者机器与作者机器**环境互补**，任何基于单一环境的修法都会弄坏另一台。
   - **修法（按代次门控，而不是按 context 形状猜）**：新增 `src/pi-ai-runtime.ts`，判定**插件自己解析到的那份 pi-ai**：
     1. **modern（0.87+）**：`withLegacyContext` 原样返回 api，context **字节级原样传递**——0.87 自己就能读取转换格式后的 transcript（#26 的复现脚本证明了这条路 tools 与 prompt 都在）；
-    2. **legacy（0.85）**：折叠照旧，但**把工具状态一并提升**——按 0.87 自己 `getCurrentTools` 的处理规则再次发送历史消息每条 system 消息的 `toolsRemoved`/`toolsAdded`（先删后加、按名去重），写回顶层 `context.tools`（顶层已有 `tools` 数组时不覆盖）。
+    2. **legacy（0.85）**：折叠照旧，但**把工具状态一并提升**——按 0.87 的 `getCurrentTools` 规则依次处理每条 system 消息的 `toolsRemoved`/`toolsAdded`（先删后加、按名去重），写回顶层 `context.tools`（顶层已有 `tools` 数组时不覆盖）。
   - **检测刻意不 import pi-ai 本体**：用 `import.meta.resolve` 定位入口文件（不执行模块）+ 读取**所属 manifest 的版本号**判定代次（0.87+ → modern；peer 范围内版本与 `normalizeContext` 特征一致）。原因是 standalone CLI 必须在**市场安装**（本地无 pi-ai 副本、模块只由 DSH 提供）下也能够运行 `doctor`——静态 import 会让它在加载期就 `ERR_MODULE_NOT_FOUND`（已用 3.0.2 官方包在裸目录复现同一现象：缺 peer 时谁都跑不起来，本次新增的这条依赖则被彻底避免）。
   - **解析失败 = DSH 提供**（市场安装的常态）：此时默认走 modern 原样传递，因为**会格式转换 context 的 DSH（0.2.0+）都提供 0.87.1**；该默认对旧 DSH 同样安全——旧 DSH 从不格式转换，原生 0.85 形状在两个分支下都是恒等。
-  - **实测（本机 0.85.1，真实 api + fetch 自动添加捕获发出的请求体）**：修复前有 wrapper → `tools = MISSING`、system 文本在；修复后 → **`tools = 1`（pwsh）、首条 `system` 消息文本完整**。无 wrapper 的对照 → system 也丢、且 #24 崩溃以流内 error 出现。
+  - **实测（本机 0.85.1，真实 api + fetch 捕获实际发出的请求体）**：修复前有 wrapper → `tools = MISSING`、system 文本在；修复后 → **`tools = 1`（pwsh）、首条 `system` 消息文本完整**。无 wrapper 的对照 → system 也丢、且 #24 崩溃以流内 error 出现。
   - **doctor 可见性（#26 的附加建议）**：`doctor` 输出新增 `piAiRuntime` 块（generation / version / resolvedFrom / **resolvedLocally** / adapter 行为说明），人类可读行同步打印；legacy 时追加 hint 提示"插件解析到 0.85 而 DSH 0.2.0+ DSH 用 0.87 格式转换，适配器在桥接，若工具异常请清理嵌套 pi-ai 副本"。
 
     JSON schemaVersion 2 → 3。
@@ -5238,7 +5223,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   - **修法**：新增 `adaptLegacyPiAiContext()`，在把 context 交给本插件的 pi-ai 之前，把 `messages` 里的 system 消息折回 `Context.systemPrompt`（0.85 期望的位置），并用 `withLegacyContext()` 包住 `openAICompletionsApi()` 的 `stream`/`streamSimple` 两个入口。
   - **按形状适配，不按版本判断**：判断依据是「context 里有没有 system 消息」，不是「加载的是哪个 pi-ai 版本」。版本判断会在任一侧升级时立刻失效；本插件必须在**两代 DSH**下都能活。对原生 0.85 形状（已有 `systemPrompt`）返回**同一个对象**，原路径零改动。
   - **实测**（用插件真正加载的那份 pi-ai 0.85.1）：修复前 0.87 形状 → `Cannot read properties of undefined (reading 'length')`；修复后 → `Connection error.`（走到传输层，即请求已构造完成）。旧形状恒等，`system` 用 block 内容时也能正确合并。
-  - **检查**：`tests/adapter.spec.ts` 新增 8 例，其中**调用关系用例**（`vi.mock` 掉 stream API，断言 provider 收到的 context 已被折平）是必要的——只测纯函数时，把修复从 provider 上摘掉的恢复缺陷的修改**不会被触发测试失败**（已实测），等于留了一个「修复被摘掉而测试全部通过」的缺口。恢复缺陷后的测试：去掉 `withLegacyContext` → 该用例变红。
+  - **检查**：`tests/adapter.spec.ts` 新增 8 例，其中**调用关系用例**（`vi.mock` 掉 stream API，断言 provider 收到的 context 已被折平）是必要的——只测纯函数时，把修复从 provider 上摘掉的恢复缺陷的修改**不会被触发测试失败**（已实测），等于留了一个「修复被摘掉而测试全部通过」的缺口。变异测试：去掉 `withLegacyContext` → 该用例变红。
   - **顺带核实**：DSH asar 声明 `@earendil-works/pi-ai ^0.87.1` 且含 `normalizeContext`；磁盘上四份 pi-ai（profiles / 插件嵌套 / 仓库 / 旧安装树）**全是 0.85.1**。issue 建议的「插件包内放一份 0.87.1」绕行在本机并未生效——嵌套副本是 0.85.1，漂移依旧，只是被当前加载的旧 `dsh-llm-pi-ai`（0.1.5-rc.2，不含 `normalizeContext`）掩盖了。
   - **peer 范围放宽**：`@earendil-works/pi-ai` 由 `>=0.85.0 <0.86.0` 改为 `>=0.85.0 <0.88.0`（peer 与 dev 两处）。原范围**不承认 0.87**，与实际已验证的兼容性不符：适配按形状生效，代码在 0.85 与 0.87 下都已验证可用。放宽后 `pnpm install` 报 "Lockfile is up to date"，未产生 lockfile 变更。
 
@@ -5250,7 +5235,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 
 **用户报告**：在账号池里点保存后，目标模型立刻显示「已下架」，并且「一键测试所有账号」被停用；**macOS 上不出现**。
 
-**根因（实际设备取证）**：`__save` 的路由此前做的是 `{ ...current, ...incoming }` —— **区域级整体替换**。而客户端只能按自己的 settings 镜像拼出界面扩展位置，这个镜像**本项目自己注释过对本命名空间不可靠**（经本端点写入不会刷新它，在 0.1.7 线上可长期陈旧）。于是：
+**根因（实际设备取证）**：`__save` 的路由此前做的是 `{ ...current, ...incoming }` —— **区域级整体替换**。而客户端只能按自己的 settings 镜像拼出配置对象，这个镜像**本项目自己注释过对本命名空间不可靠**（经本端点写入不会刷新它，在 0.1.7 线上可长期陈旧）。于是：
 
 1. 保存账号池时客户端 POST 的是 `{ cn: { pool } }`；
 2. Host 用这一个键**替换掉整个 cn 槽** → `lastCatalog`、`enabledModelIds`、`imageModelIds`、`contextBudgets`、`enabled` **全被删除**；
@@ -5261,9 +5246,9 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 
 **修法**：`__save` 的合并**下沉一层**——字段的键做一层（保兄弟区域），被触及区域槽内的键再做一层。**只保留客户端未提及的键**；客户端显式发来的字段（含空数组）依旧覆盖，因此「主动清空」不受影响。刻意不再更深：`contextBudgets` 这类嵌套 map 由其所有者整体发送，继续递归会让单个条目无法删除。
 
-**为什么不动 macOS**：该合并只在「客户端漏发了某个键」时才有差别；macOS 上的界面扩展位置是完整的，因此对它是恒等操作。
+**为什么不动 macOS**：该合并只在「客户端漏发了某个键」时才有差别；当时测试的 macOS 环境中客户端发送的配置对象是完整的，因此对它是恒等操作。
 
-检查：`tests/web-status.spec.ts` 新增 4 例——① 只发 `{cn:{pool}}` 时 `contextBudgets`/`enabled` 必须存活（**这条直接复现本次数据丢失**）；② 国际版同理（`{global:{pool}}` 不得删掉 global 的目录与预算）；③ 显式发空数组仍能清空；④ `accounts` 的账号 id 是字符串，不得被对象化。**恢复缺陷后的测试**：把合并改回一层展开 → ① 与 ② 同时变红（已实测）。
+检查：`tests/web-status.spec.ts` 新增 4 例——① 只发 `{cn:{pool}}` 时 `contextBudgets`/`enabled` 必须存活（**这条直接复现本次数据丢失**）；② 国际版同理（`{global:{pool}}` 不得删掉 global 的目录与预算）；③ 显式发空数组仍能清空；④ `accounts` 的账号 id 是字符串，不得被对象化。**变异测试**：把合并改回一层展开 → ① 与 ② 同时变红（已实测）。
 
 **即时补救**：卡片上的「切回自动」会把目标换成该区域的免费模型（`hy3`，静态目录里也有），立即可用；被删掉的模型勾选与上下文预算需在「模型管理」里重新保存一次以重建 `lastCatalog`。
 
@@ -5282,7 +5267,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   而 `row.accountsWriteFailed` 早就把「杀毒软件/同步盘占用 → 关闭占用者后重试」写进了文案。
   - **修法**：新增 `isFileContentionWriteError()`（匹配 `EPERM`/`EBUSY`/`EACCES` 三个**词边界**标记——正是 `dsh-atomic-write` 在 win32 上重试的那三个），命中时在原因后追加 `row.saveContentionHint`；模型列表与账号池两条路径接上。
   - **只对文件占用生效，不做无条件提示**：校验类失败走的是同一个 catch，对那种失败说「去关闭占用文件的程序」会把用户引向不存在的原因。有专门用例验证「无关失败不得出现该提示」。
-  - **macOS 行为不变**：POSIX 的 `rename` 无论目标是否被打开都直接替换，所以这三个错误码在 macOS/Linux 上基本不会出现——检测器天然只在 Windows 上生效。
+  - **macOS 行为不变**：POSIX 的 `rename` 无论目标是否被打开都直接替换，所以这三个错误码在 macOS/Linux 上基本不会出现——检测器按错误码匹配，并非平台专用；POSIX 平台出现同类错误时也可能命中。
 - **补充记录的核验结论：Windows 保存逻辑本身没有「静默成功」**。锁住文件时 `regions` 与 `accounts` 两条写入都返回 500 并带 `EPERM`，客户端随即抛 `WorkBuddySettingsWriteError`，卡片明确报错并**保留草稿/原选择**（三条保存路径都不会丢弃用户改动）。回退路径的重新读取并核对读的是「被拒后重新加载的 Host 状态」，不会把乐观写入误判为已写入文件。因此本次修的是**报错文案的可操作性**，不是写入文件判定。
 
 ### Docs
@@ -5311,7 +5296,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 
 ### Bug Fixes
 
-- **卡片里的时间戳全部改为 24 小时制**：四个 `Intl.DateTimeFormat` 都漏了 `hourCycle`，于是跟随浏览器语言的默认偏好——en-US 渲染成 `09/30, 01:23 PM`。现统一为 `hourCycle: 'h23'`（不用 `hour12: false`：后者在部分引擎会落到 `h24`，把半夜显示成 `24:00`）。新增渲染回归测试验证这一点，并用恢复缺陷的代码副本确认该测试有判别力（去掉 `hourCycle` 即变红）。
+- **卡片里的时间戳全部改为 24 小时制**：四个 `Intl.DateTimeFormat` 都漏了 `hourCycle`，于是跟随浏览器语言的默认偏好——en-US 渲染成 `09/30, 01:23 PM`。现统一为 `hourCycle: 'h23'`（不用 `hour12: false`：后者在部分引擎会落到 `h24`，把半夜显示成 `24:00`）。新增渲染回归测试验证这一点，并用变异副本确认该测试有判别力（去掉 `hourCycle` 即变红）。
 - **陈旧的「目标模型」不再冻结整池的测量**：定时轮次原先在 `resolveTargetModel` 解不出 id 时直接返回，而「你指定的模型已离开目录」正是产出「无 id」的情形之一。于是一处显示偏好的错误会让整个区域的测量停摆：`被限流` 的成员靠时钟就能回池，而 `连不上上游` 的成员只能靠**新的探测**清除——探测不再写入，该成员便**永久挂起**。
 
   现在定时轮次会回落到该区域的**免费**模型继续刷新；没有免费模型时仍然整轮跳过（**绝不在定时器上烧收费模型**）。
@@ -5329,9 +5314,9 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 
 ### Tests
 
-- **引入组件渲染测试（jsdom + react-dom）**：第四轮独立对抗验证证明「读源码文本」的检查与「住在行为里」的缺陷之间必然有缝——18 个恢复缺陷的代码副本恢复了**用户可见**的缺陷而整套测试仍全部通过。本轮把 `AccountPool.tsx` / `WorkBuddyCard.tsx` 真正挂载进 DOM 断言，从根上结束这一整类问题，并据此检出了其中 16 个（余 2 个经逐字论证为**等价恢复缺陷的代码副本**，不恢复任何缺陷）。
+- **引入组件渲染测试（jsdom + react-dom）**：第四轮独立对抗验证证明「读源码文本」的检查与「住在行为里」的缺陷之间必然有缝——18 个变异副本恢复了**用户可见**的缺陷而整套测试仍全部通过。本轮把 `AccountPool.tsx` / `WorkBuddyCard.tsx` 真正挂载进 DOM 断言，补上了这批已发现的行为验证缺口，并据此检出了其中 16 个（余 2 个经逐字论证为**等价变异副本**，不恢复任何缺陷）。
 - 逐条收紧被证明可绕过的检查：`stripLiterals()` 连**字符串字面量**一起去（原先只去注释，一个字符串就能顶替一次真实调用）；「恰好一次」改为对**标识符**计数；A-8 增加「`committed` 只能被写一次且不在 `catch` 里」。
-- 修掉一个会**伪造结论**的工装缺陷：调度器用例对负载敏感，固定轮数的排空在 CPU 争用下会读到 0，用于恢复缺陷并运行测试的脚本会把它读成「检查抓住了恢复缺陷的代码副本」，从而报告出并不存在的覆盖。现在改为**排空到条件成立**。
+- 修掉一个会**伪造结论**的工装缺陷：调度器用例对负载敏感，固定轮数的排空在 CPU 争用下会读到 0，用于恢复缺陷并运行测试的脚本会把它读成「检查抓住了变异副本」，从而报告出并不存在的覆盖。现在改为**排空到条件成立**。
 
 ### Docs
 
@@ -5378,22 +5363,22 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
   ```
 
   2.3.0 的注释写「上游不提供限流元数据」，这个结论**是从响应头单独得出的**——就响应头而言是对的，作为结论是错的。
-- **为什么「测试通过、实际被限」不是检查请求的错**：检查请求与真实请求的判定本来就一致。用真实凭据实测，同一模型用**四种请求形态**（`max_tokens:1` + `ping`、`max_tokens:2000` + 长 prompt、以及两者交叉）全部返回**同一个 429**；13 个模型里只有 `deepseek-v4.1-flash` 被限，其余 12 个（含默认的 `glm-5.3-flash` 一类）全部 `ok`。
+- **当时的判断（本节后续大体积测试已修正）**：检查请求与真实请求的判定本来就一致。用真实凭据实测，同一模型用**四种请求形态**（`max_tokens:1` + `ping`、`max_tokens:2000` + 长 prompt、以及两者交叉）全部返回**同一个 429**；13 个模型里只有 `deepseek-v4.1-flash` 被限，其余 12 个（含默认的 `glm-5.3-flash` 一类）全部 `ok`。
 
-  所以「测试通过」看到的是**别的模型**，而被限的那个恰好是配置里用着的。
+  该组样本中，不同模型的结果不同；不能据此断定报告者此前测试的是另一个模型。
 
-  限流由账户/模型维度的配额决定，与请求大小无关——这也回答了「加大请求能不能测出来」：不能。
+  这些样本只能证明处于限流期的账号会对多种请求形态返回 429，不能证明限流与请求大小无关。本节前面的体积梯度测试随后发现单次大请求也能触发限制。
 - **修法**：新增 `parseUpstreamResetAt()`，从失败响应体解析 `将在 <时间> UTC<偏移> 重置`；`cooldownOf()` 增加第三个来源 `upstream-message`（优先级：响应头 > 响应体 > 月度刷新点）。`probeModel()` 把 body 传给它。
 - **时区必须按偏移量算，不能被本机时区左右**：`2026-09-30 02:30:30 UTC+8` 是 UTC 的 `2026-09-29T18:30:30Z`。直接 `Date.parse` 会**按本地时区**解读——在 UTC+8 的机器上恰好正确，换台机器就静默错一个偏移量。因此用 `Date.UTC` 组装后减去声明的偏移，实测 UTC / Asia/Shanghai / America/New_York 三种 `TZ` 下输出一致。
 - **宁可不说，也不说错**：无法解析时返回 `undefined`，卡片继续如实显示「上游未给出何时恢复」。`Date.UTC` 会把 13 月、32 日**静默格式转换**成另一个真实时刻，所以解析后各字段回验，不合法就丢弃；`UTC+99` 这类越界偏移同样拒绝。这些都配了用例。
-- **检查与恢复缺陷后的测试**：`tests/probe.spec.ts`（28 → 38 例）覆盖：实际设备原文端到端（经 `probeModel`）、响应头优先于响应体、`T` 分隔符与 `UTC+0800` 紧凑写法、负偏移、四种「不该解析出时间」的形态、三种非法日期、越界偏移。**恢复缺陷后的测试**：把偏移量那一步去掉（当成 UTC 算）→ **6 例变红**。
+- **检查与变异测试**：`tests/probe.spec.ts`（28 → 38 例）覆盖：实际设备原文端到端（经 `probeModel`）、响应头优先于响应体、`T` 分隔符与 `UTC+0800` 紧凑写法、负偏移、四种「不该解析出时间」的形态、三种非法日期、越界偏移。**变异测试**：把偏移量那一步去掉（当成 UTC 算）→ **6 例变红**。
 - 文案无需改动：`row.probeRateLimitedAt`（`✗ 被限流 · {at} 之后可再用`）本就存在，此前只是永远走不到。
 
 ### Tests
 
 - `tests/probe.spec.ts`（28 → 42 例）：探测请求体**恒为真实体积**且随目标常量缩放；`parseUpstreamResetAt` 的实际设备原文、`T` 分隔符、`UTC+0800` 紧凑写法、负偏移、越界偏移、三种非法日期、四种「不该解析出时间」的形态；`cooldownOf` 三级来源的优先级（响应头 > 响应体 > 月度刷新点）。
 - `tests/web-status.spec.ts`（49 → 50 例）：路由**只接受单个模型**，多模型请求 400。
-- **恢复缺陷后的测试**：把偏移量换算去掉（当成 UTC 算）→ **6 例变红**；去掉单模型强制 → 对应用例变红。
+- **变异测试**：把偏移量换算去掉（当成 UTC 算）→ **6 例变红**；去掉单模型强制 → 对应用例变红。
 - 全量：**449 例全部通过**（2.3.0 为 434 例），typecheck 与 build 通过。
 
 ## 2.3.0 (2026-09-29)
@@ -5406,7 +5391,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 
 限量模型的冷却时间过去只能靠反复试错去猜——现在点一下就有结论。
 
-**实测（本机真实账号，两个网关）**：CN 16 个与全球 23 个模型各抽样实打，全部 HTTP 200；单次耗时 0.8～3.4s。**成本可忽略**——响应体 `"credit"` 报 0～0.01，其中一次探测前后余额完全不变（933 → 933），而名册上正常一次回答是 0.79x 起。
+**实测（本机真实账号，两个网关）**：CN 16 个与全球 23 个模型各抽样实打，全部 HTTP 200；单次耗时 0.8～3.4s。**该组样本成本较低，但非零**——响应体 `"credit"` 报 0～0.01，其中一次探测前后余额完全不变（933 → 933），而名册上正常一次回答是 0.79x 起。
 
 **关于「多久之后可以再次使用」，有一条必须先说清的事实：上游不给这个数据。**
 
@@ -5421,7 +5406,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 | 积分耗尽，无月周期包 | `✗ 积分不足 · 上游未给出何时恢复` | 无 |
 | 401/403 凭据被拒 | `✗ WorkBuddy 拒绝了这个账号的 token——请重新登录或换一个账号` | — |
 
-> ⚠️ **本节的第 2 条来源此后有更正（见 Unreleased）**：本节写「上游不提供这个数据」，那是**只看响应头**得出的结论——响应头里确实没有，但上游把重置时间写在**响应体**里（`将在 … UTC+8 重置`）。「上游未给时间」那一行因此在真实 429 上从不该出现。解析与实测见 Unreleased 的 Bug Fixes 一节。
+> ⚠️ **本节的第 2 条来源此后有更正（见 2.3.1）**：本节写「上游不提供这个数据」，那是**只看响应头**得出的结论——响应头里确实没有，但上游把重置时间写在**响应体**里（`将在 … UTC+8 重置`）。「上游未给时间」那一行因此在真实 429 上从不该出现。解析与实测见 2.3.1 的 Bug Fixes 一节。
 
 限流**不会**去借月周期包的刷新时间：那会让用户为几秒的限流去等几周。这个区分由 `cooldownOf` 强制，并有专门用例验证。
 
@@ -5436,9 +5421,9 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 
 ### Tests
 
-- `tests/probe.spec.ts`（新增，28 例；此后在 Unreleased 增至 38 例）：请求体必带 system 首条且 `max_tokens: 1` / `stream:true`；`Retry-After` 的秒数与 HTTP-date 两形态、以及 0 / 负数 / 过期时间不被当作冷却；`cooldownOf` 的四种组合（含**限流绝不编造时间**、**限流不借月周期刷新时间**）；七类失败分类；成功流不被截断影响；**抛出异常不逃逸**；失败正文脱敏。
+- `tests/probe.spec.ts`（新增，28 例；此后在 2.3.1 的时间解析修正中增至 38 例）：请求体必带 system 首条且 `max_tokens: 1` / `stream:true`；`Retry-After` 的秒数与 HTTP-date 两形态、以及 0 / 负数 / 过期时间不被当作冷却；`cooldownOf` 的四种组合（含**限流绝不编造时间**、**限流不借月周期刷新时间**）；七类失败分类；成功流不被截断影响；**抛出异常不逃逸**；失败正文脱敏。
 - `tests/web-status.spec.ts`（+10 例）：逐模型串行调用（并发恢复缺陷的修改会红）、region 原样传递、空列表 / 非数组 / 超限批量一律 400、无能力时 503、非回环来源 403、非 POST 405、未知 region 400、抛错转 500 且不泄露 token。
-- **恢复缺陷后的测试**（5 处，逐一实测变红）：给限流编造固定倒计时 → 3 项失败；删掉 system 首条消息 → 2 项失败；让限流借用月周期刷新时间 → 1 项失败；把串行批改为并发分别发送多个请求 → 1 项失败；其余对照组全部通过。
+- **变异测试**（5 处，逐一实测变红）：给限流编造固定倒计时 → 3 项失败；删掉 system 首条消息 → 2 项失败；让限流借用月周期刷新时间 → 1 项失败；把串行批改为并发分别发送多个请求 → 1 项失败；其余对照组全部通过。
 
 ## 2.2.1 (2026-09-29)
 
@@ -5476,7 +5461,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 - **刷新判定** `imageDefaultFor`：只有核验为 `multimodal` 才预勾选。`text` 不勾；`unknown`（含 `auto` 路由器与所有未收录的新模型）**也不勾**——「不猜」正是这张表存在的理由，上游声明不参与判定。平台显式 `false` 保留一票否决。
 - **不做前缀/族匹配**：`glm-5.3` 是 `text` 而 `glm-5.3-flash` 是 `multimodal`，前缀规则必然错一个；`hy3` 是 `text` 而 `hy3-x` 无来源，不能用族关系传递结论。表按**精确 id** 匹配。
 - **分工**：`supportsImages`（平台声明，仍解析并随 `lastCatalog` 持久化）= 展示用；`native_modality`（厂商核验）= 刷新默认值；`multimodal`（运行时生效值）= **只来自保存的 `imageModelIds`**（`src/index.ts` 的 `withImageSelection` 盖章）。解析器从不设置 `multimodal`——刷新目录不会越过用户保存去改运行时，勾选仍是「刷新 = 草稿、保存 = 生效」。
-- **本机实测影响面**：CN 16 个里 **7 个**会预勾选；被排除的纯文本有 `glm-5.3`、`glm-5.2`、`hy3`、`hy4-preview`、`deepseek-v4-pro`（上游对前五个全报 `true`）。国际 23 个里只有 **3 个**有厂商来源，其余 17 个（`gpt-5.x`、`gemini-3.5-flash`、`grok-4.7`、自建别名 `default-model`/`fast-model` 等）都是 `unknown`，默认不勾——这是「不猜」的代价，也是它的意义。
+- **本机实测影响面**：CN 16 个里 **7 个**会预勾选；被排除的纯文本有 `glm-5.3`、`glm-5.2`、`hy3`、`hy4-preview`、`deepseek-v4-pro`（上游对前五个全报 `true`）。国际 23 个中记录了 **3 个**有厂商来源、17 个为未知；两项合计为 20，原记录未交代其余 3 个，不能将此统计视为完整分布。未知条目（`gpt-5.x`、`gemini-3.5-flash`、`grok-4.7`、自建别名 `default-model`/`fast-model` 等）都是 `unknown`，默认不勾——这是「不猜」的代价，也是它的意义。
 - **卡片 tooltip**：勾选框按三种情形给出说明（已核验多模态 / 文档为纯文本 / 未核实），否则一排勾选中间夹着两个空框会显得像 bug。
 - **改动面**：`src/upstream.ts` 解析 `supportsImages`（平台声明，仅展示）；`src/native-modality.ts`（新）承载核验表与判定；`src/status-paths.ts` / `src/web-status.ts` 原样传递给卡片；`src/client/WorkBuddyCard.tsx` 的 `refreshModels` 用它覆盖 `imageIds`。**DSH 端运行时逻辑零改动**。
 - **维护负担**：核验表是**读取结果而非实时同步**，且与 `workbuddy-manager` 仓库各存一份，两边更新需手动同步。新增 id 必须附厂商来源与核验日期。
@@ -5491,6 +5476,8 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 
 ## 2.1.2 (2026-09-29)
 
+> 历史更正：本节原先将版本排序等同于 npm 的范围匹配，误称 `0.2.0-rc.*` 会被该范围放行。npm 的预发布匹配还要求同一版本元组上的预发布比较符，见 4.7.0 的比较器修正。本节表中的 rc 通过记录来自当时检查器，不能当作 npm 兼容性结论。
+
 ### ⚠️ 兼容性修复：peer 上界 `<0.2.0` 会在 0.2.0 完成时把整个组合包静默判死
 
 本版**无功能改动**，只修一处**声明**——但这是一处会在下一个 DSH 版本完成那一刻生效、且**用户侧完全无提示**的缺陷。
@@ -5499,7 +5486,7 @@ issue 报了三种互不相干的现象。前两个是**真 bugs**，第三个�
 
 10 条 `dsh-*` peer 此前写作 `>=0.1.7-rc.1 <0.2.0`。这个上界在写下的当时是对的，但它有一个**只在下一个版本线完成时才显形**的形状：
 
-- `0.2.0-rc.1 < 0.2.0` 成立 → 整条 0.2.0 **预发布**线被放行（所以 0.2.0-rc.1 上一切正常）
+- `0.2.0-rc.1 < 0.2.0` 仅是版本排序关系，不能单独推出整条范围接受该预发布版本；当时检查器遗漏了 npm 的预发布匹配条件。
 - `0.2.0 < 0.2.0` 不成立 → 正式版一发布，**10 条 peer 全部失败**
 
 DSH 的随包加载检查 `evaluatePluginCompatibility`（`packages/boot/app-boot/src/plugin-compatibility.ts`）逐条判定这 10 条；**只要一条不满足，整个组合包就被 `loadProfileDirectory` 跳过**，只写进 `skippedBundles` 并由 `reportSkippedBundles` 打到 stderr。被跳过的组合包会表现为**功能缺失**：provider 不注册、卡片不出现、模型列表清空，页面上没有任何报错。
@@ -5509,9 +5496,9 @@ DSH 的随包加载检查 `evaluatePluginCompatibility`（`packages/boot/app-boo
 
 #### 修法：上界改为 `<0.3.0-0`
 
-**为什么带 `-0`**：DSH 至今 **23 个 tag 全部是预发布**（`-alpha.N` / `-rc.N`），从未发过 GA。因此：
+**为什么带 `-0`**：当时查看的 **23 个 tag 全部是预发布**（`-alpha.N` / `-rc.N`）。为表达明确的版本排序上界，使用 `-0`：
 
-- `<0.3.0` 只挡 `0.3.0` GA——而 GA 永远不来——上界**永不生效**，同时静默放行 `0.3.0-alpha.1` / `0.3.0-rc.1` 整条从未验证过的线。**这正是今天这个缺陷的形状：看起来是围栏，实际不挡任何东西。**
+- 从版本排序看，`<0.3.0` 包含排在正式版之前的预发布版本；但 npm 是否接受这些版本，还取决于完整范围中的预发布匹配条件，不能断言它必然放行整条预发布线。
 - `<0.3.0-0` 显式挡掉 `0.3.0-0`（含）以上的一切预发布与 GA，围栏真的会响。
 
 `-0` 是 semver 里「该版本线的最小可能预发布」，所以 `<0.3.0-0` 意为「0.3.0 线一个都不放」。同作者同架构的 `dsh-connect-trae` 2.3.0 对同一处缺陷的处置与此一致。
@@ -5534,9 +5521,9 @@ DSH 的随包加载检查 `evaluatePluginCompatibility`（`packages/boot/app-boo
 
 新增 `tests/dsh-line.spec.ts`（11 例）：检查版本上下限、**上界真的挡得住**、下界不放松、两个客户端包不掉队、过期 devDependency 不返回，外加两条把采用的规则写进发布清单与两份 README 的 POLICY 检查。
 
-- **关键设计**：边界断言**对声明本身求值**，而不是对测试里另写一遍的字面量求值——否则清单与断言各自漂移也能全部通过，那正是本套件要防的「看起来是围栏、实际不挡」缺陷换了一层。为此自带一个小而完整的 semver 序比较（本项目无 `semver` 依赖），并附一条**比较器自检**用例：它错了，整套检查就是装饰品。
-- **恢复缺陷后的测试**（7 处，逐一实测变红）：改回 `<0.2.0` → 3 项失败；`<0.3.0-0` 改成 `<0.3.0` → 3 项失败；下界抬到 `>=0.2.0-rc.1` → 3 项失败；**只让 10 条 peer 里的一条漂移** → 4 项失败；把 `dsh-client-runtime` 塞回 devDependencies → 2 项失败；删掉 `RELEASING.md` 的 DSH 版本兼容性核对 → 1 项失败；删掉 README 的范围表 → 1 项失败。对照组（未恢复缺陷的修改）11 例全部通过。
-- **比较器可信度**：自写的 semver 序比较与真实 `semver@7.8.5` 做过差分测试，576 组配对全部一致（该差分用例为一次性核对，未随包分发）。
+- **关键设计**：边界断言**对声明本身求值**，而不是对测试里另写一遍的字面量求值——否则清单与断言各自漂移也能全部通过，那正是本套件要防的「看起来是围栏、实际不挡」缺陷换了一层。为此自带一个 semver 比较器（当时尚未覆盖预发布范围匹配条件，4.7.0 已修正）（本项目无 `semver` 依赖），并附一条**比较器自检**用例：它错了，整套检查就是装饰品。
+- **变异测试**（7 处，逐一实测变红）：改回 `<0.2.0` → 3 项失败；`<0.3.0-0` 改成 `<0.3.0` → 3 项失败；下界抬到 `>=0.2.0-rc.1` → 3 项失败；**只让 10 条 peer 里的一条漂移** → 4 项失败；把 `dsh-client-runtime` 塞回 devDependencies → 2 项失败；删掉 `RELEASING.md` 的 DSH 版本兼容性核对 → 1 项失败；删掉 README 的范围表 → 1 项失败。对照组（未恢复缺陷的修改）11 例全部通过。
+- **当时的比较器验证范围**：自写的 semver 序比较与真实 `semver@7.8.5` 做过差分测试，576 组版本排序配对全部一致，但这不能证明范围匹配完整；遗漏的预发布条件见 4.7.0（该差分用例为一次性核对，未随包分发）。
 
 #### Docs
 
@@ -5587,8 +5574,8 @@ DSH 的随包加载检查 `evaluatePluginCompatibility`（`packages/boot/app-boo
   | WMI 服务创建（无控制台，等价于 GUI DSH） | **`NEW-console hwnd=1573500 visible=True`** | `no-console` |
 
 - **同时排除一条错误判据**：不能用 `Get-Process powershell | MainWindowHandle` 观察。控制台窗口归 `conhost.exe` 所有，控制台程序自身的 `MainWindowHandle` 恒为 0——即使窗口正在屏幕上，该检查请求也报 0（本次实测中它先给出了假阴性）。
-- **修法**：抽出 `PROCESS_PROBE_OPTIONS`（`{ encoding: 'utf8', windowsHide: true }`）与 `processStartProbe(pid, platform)`。后者的 `platform` 可传入，与 `defaultDesktopAuthDirs()` / `workbuddyAppExecutableCandidates()` 同一套缝——使平台分支与启动选项**在任意主机上都可断言**，这是此类「Windows 专有、macOS 上不可能复现」缺陷唯一能被回归拦住的形态。
-- **检查与恢复缺陷后的测试**：`tests/host-heartbeat.spec.ts` 断言选项值与平台分支；`tests/platform-standing.spec.ts` 新增用例要求**两个** spawn 点都带 `windowsHide: true`。去掉该选项 → 对应用例变红（已实测）。`docs/WINDOWS.md` 登记为 §1-5 分支并附 A 档取证。
+- **修法**：抽出 `PROCESS_PROBE_OPTIONS`（`{ encoding: 'utf8', windowsHide: true }`）与 `processStartProbe(pid, platform)`。后者的 `platform` 可传入，与 `defaultDesktopAuthDirs()` / `workbuddyAppExecutableCandidates()` 同一套缝——使平台分支与启动选项**在任意主机上都可断言**，这可在其他平台检查 Windows 分支；实际窗口行为仍需 Windows 环境验证。
+- **检查与变异测试**：`tests/host-heartbeat.spec.ts` 断言选项值与平台分支；`tests/platform-standing.spec.ts` 新增用例要求**两个** spawn 点都带 `windowsHide: true`。去掉该选项 → 对应用例变红（已实测）。`docs/WINDOWS.md` 登记为 §1-5 分支并附 A 档取证。
 
 #### `docs/WINDOWS.md` 里 issue #13 的「重试预算（200+600ms）」是错的
 
@@ -5622,17 +5609,17 @@ DSH 的随包加载检查 `evaluatePluginCompatibility`（`packages/boot/app-boo
 ### Tests
 
 - 新增 `tests/client-host-contract.spec.ts`（6 例）：上述两处都是**声明性**缺陷，因此测试读文件（`package.json` 与 `src/client/styles.ts`）而非导入它们——也让本套件不必拖入浏览器专属的 DSH 客户端包。用例覆盖：`inject` 不得出现客户端半边零引用的包；不得依赖 `ui-primitives`；四条真正参与组合的客户端包同时在册（防反向丢漏）；不得使用 `state-warning-primary` 长形；`state-*` 令牌必须落在 DSH 定义集内；回退值必须是 DSH amber。
-- **恢复缺陷后的测试**：把 `ui-primitives` 塞回 `inject` → **2 例变红**；把令牌改回 `state-warning-primary`/`#e0a13a` → **3 例变红**。两处缺陷各自单独还原都会被抓住。
+- **变异测试**：把 `ui-primitives` 塞回 `inject` → **2 例变红**；把令牌改回 `state-warning-primary`/`#e0a13a` → **3 例变红**。两处缺陷各自单独还原都会被抓住。
 - 记录一条本次核实到的**反直觉事实**，避免后人写下错误的断言：`inject` **不是** value imports 的镜像。内核自身两个方向的反例都在——`ui-settings-plugins` 用裸 `import type {}` 做模块增强却照样 inject 那两个包（`src/client/index.ts:11,15`）；`ui-theme` 实际导入并使用 `ui-primitives` 的**组件**（`AppearanceRow.tsx:11`）却**不** inject 它。
 
   故本套件只断言「inject 里不得有零引用项」这一单向每次执行都应满足的条件，不碰反向。
 
 - 新增 `tests/platform-standing.spec.ts`：把「**Windows 是一等目标平台**」这条长期采用的规则写成可执行的检查（见上方 Features 的说明）。检查两头：**政策面**（CI 矩阵仍含 `windows-latest`、登记文件与两条 README 的平台节仍在且互相指得通、`RELEASING.md` 的平台核对仍在、`DESIGN.md` 仍指向登记处），以及**代码面**（`docs/WINDOWS.md` §1 登记的 `win32` 分支仍存在、生产源码不得把平台路径写成 POSIX 字面量）。
 
-  **恢复缺陷后的测试**：CI 矩阵去掉 `windows-latest` → 1 例变红；README 把「一等目标平台」改软 → 1 例变红；`auth.ts` 的 `win32` 分支改名 → 1 例变红。
+  **变异测试**：CI 矩阵去掉 `windows-latest` → 1 例变红；README 把「一等目标平台」改软 → 1 例变红；`auth.ts` 的 `win32` 分支改名 → 1 例变红。
 
-  本次追加 1 例（要求两个 spawn 点都带 `windowsHide: true`），并把心跳分支的断言改指向新缝 `processStartProbe(pid, platform)`——**恢复缺陷后的测试**：去掉 `windowsHide` → 该例变红。
-- 另新增 2 例（同文件）检查本次顺带查实的事实：被写入的配置文档是 profile 的 `cordis.patch.yml`，不是 `settings.yaml`。**恢复缺陷后的测试**：把用户文案改回 `settings.yaml` → 1 例变红；把 `docs/WINDOWS.md` §7.3 里「不是 `settings.yaml`」的澄清改掉 → 1 例变红。
+  本次追加 1 例（要求两个 spawn 点都带 `windowsHide: true`），并把心跳分支的断言改指向新缝 `processStartProbe(pid, platform)`——**变异测试**：去掉 `windowsHide` → 该例变红。
+- 另新增 2 例（同文件）检查本次顺带查实的事实：被写入的配置文档是 profile 的 `cordis.patch.yml`，不是 `settings.yaml`。**变异测试**：把用户文案改回 `settings.yaml` → 1 例变红；把 `docs/WINDOWS.md` §7.3 里「不是 `settings.yaml`」的澄清改掉 → 1 例变红。
 
 ### Docs
 
@@ -5659,7 +5646,7 @@ DSH 的随包加载检查 `evaluatePluginCompatibility`（`packages/boot/app-boo
 - **修法**：新增 `settingsNamespaceOf(ctx)`，采用一线插件的权威处理方式
   `const settingsNs = ctx.fiber.entry?.options.id ?? NS`（见 `dsh-llm-pi-ai`），并把全部 6 处用法改为解析值。`ctx.fiber.entry` 由 Loader 添加（非 Cordis 公共类型），因此保留探测 + 回落，并在无 Loader 条目时回落到声明常量。
 - **常量移入 `src/status-paths.ts`**：浏览器侧也需要同一个回落值，而它不能 import Node-only 的 DSH 入口。该模块本就是 host↔client 的无 node 依赖桥梁。`src/index.ts` 继续导出，**公共 API 不变**。
-- **回归测试**（`tests/settings-integration.spec.ts`，+4 例）：采纳 Loader 条目 id、无条目/空 id/非字符串时回落、以及**目录实际宣告的就是解析值**（断言目录条目而非常量，否则恒过）。**恢复缺陷后的测试**：忽略 entry id 恒用常量 → **1 例立即变红**。
+- **回归测试**（`tests/settings-integration.spec.ts`，+4 例）：采纳 Loader 条目 id、无条目/空 id/非字符串时回落、以及**目录实际宣告的就是解析值**（断言目录条目而非常量，否则恒过）。**变异测试**：忽略 entry id 恒用常量 → **1 例立即变红**。
 
 #### 插件管理页 / 市场页的 logo 显示不对
 
@@ -5702,7 +5689,7 @@ DSH 的随包加载检查 `evaluatePluginCompatibility`（`packages/boot/app-boo
     - `toggleRegion()` 在写入后 **`await refreshUsage(item)`**，重新读取 Host；失败时**显式报错**，而不是让开关静静地不动。
     - 面板打开时**两个区域都拉取**，而不是只拉当前标签页。两个开关**始终**渲染在标签栏上，只拉当前区域会让另一个开关一直停在镜像回退上——正是本次要摆脱的那个过期来源。
 
-  - **回归测试**（`tests/volatile-scope.spec.ts`，9 → 13 例）：断言 Host 已提交关闭而镜像仍说开时开关显示为**关**（反向同理）、Host 未应答时回落到镜像、以及回退路径仍能容忍 `{get(): T}` 活引用（否则会退回「永远显示开」的老毛病）。**恢复缺陷后的测试**：把读取改回「只看镜像」→ **2 例立即变红**。
+  - **回归测试**（`tests/volatile-scope.spec.ts`，9 → 13 例）：断言 Host 已提交关闭而镜像仍说开时开关显示为**关**（反向同理）、Host 未应答时回落到镜像、以及回退路径仍能容忍 `{get(): T}` 活引用（否则会退回「永远显示开」的老毛病）。**变异测试**：把读取改回「只看镜像」→ **2 例立即变红**。
 
 ### Tests
 
@@ -5731,7 +5718,7 @@ DSH 的随包加载检查 `evaluatePluginCompatibility`（`packages/boot/app-boo
   - **回归测试**（新增 `tests/volatile-scope.spec.ts`，9 例）：整个套件此前只用**普通对象**模拟 `getSnapshot().value`，而线上真实的形状是活引用——**受影响的路径从未被测过**。新用例按真实形状构造 scope，并**按真实写入路径**建模（Host 端点在服务端合并并回传结果、镜像滞后、`scope.set` 原样存储），断言两个区域在每种交替顺序下都存活、且文档里绝不出现引用函数。
 
     另有一例断言客户端镜像的是 **Host 答回的权威值**，而不是它自己重新合并的结果。
-  - **恢复缺陷后的测试**（分别撤销每一处）：`fieldSnapshotOf` 解包 → **5 项失败**；`regionsMapOf` 解包 → **2 项失败**；镜像回写改回「从自身镜像重合并」→ **仍会删掉兄弟区域**。三处修复各自必需。
+  - **变异测试**（分别撤销每一处）：`fieldSnapshotOf` 解包 → **5 项失败**；`regionsMapOf` 解包 → **2 项失败**；镜像回写改回「从自身镜像重合并」→ **仍会删掉兄弟区域**。三处修复各自必需。
 
   > 更正两次：① 2.0.13 的说明里我写过「对单 region 写入足够」——**那是错的**，每条写入路径都要靠这次读取来保住另一个区域。② 2.0.14 发布前我判断「读法」是唯一根因——**也不完整**，还有上述第 2、3 条写入路径缺陷。二者均在此订正。
 
@@ -5749,9 +5736,9 @@ DSH 的随包加载检查 `evaluatePluginCompatibility`（`packages/boot/app-boo
 
     保存**完全失败**（直接报错），因为真实保存流程里 `scope.set()` 被判为尚未写入文件后回退到了这个端点。
   - **修法**：`__save` 在合并前先 `unwrapVolatileDeep(row.value?.[field])` 把活引用剥净，让 `mutate` 收到的 payload 只含 JSON 兼容数据。`unwrapVolatileDeep` 是 2.0.12 为 `installSection` 引入的同一 helper，这里复用。
-  - **回归测试**（`tests/web-status.spec.ts`）：构造一个 resolved config 含 `{ get() }` 活引用的 settings 服务，经真实 `__save` 路由请求，断言 `mutate` 收到的是一个能通过 JSON 往返的 payload（无函数），且上下文预算字段完好。**恢复缺陷后的测试**：把 `unwrapVolatileDeep` 那行去掉，该用例立即变红。
+  - **回归测试**（`tests/web-status.spec.ts`）：构造一个 resolved config 含 `{ get() }` 活引用的 settings 服务，经真实 `__save` 路由请求，断言 `mutate` 收到的是一个能通过 JSON 往返的 payload（无函数），且上下文预算字段完好。**变异测试**：把 `unwrapVolatileDeep` 那行去掉，该用例立即变红。
 
-  > 说明：`__save` 会先把 `row.value[field]` 解包、再用「浅展开 + incoming 覆盖」合并到该字段。对单 region 写入（本次场景）足够；若日后要一次写多个 region 界面扩展位置，应改为深合并——届时再扩。
+  > 说明：`__save` 会先把 `row.value[field]` 解包、再用「浅展开 + incoming 覆盖」合并到该字段。对单 region 写入（本次场景）足够；若日后要一次写多个 region 配置项，应改为深合并——届时再扩。
 
 ### Tests
 
@@ -5809,9 +5796,9 @@ DSH 的随包加载检查 `evaluatePluginCompatibility`（`packages/boot/app-boo
 
 - **双 settings 形态兼容（新增 2 例，这是 PR14 缺的那块）**：PR14 只测了 0.1.5 形态——而它修的恰恰是 **0.1.7 分支**，这样的套件在 0.1.7 分支再次坏掉时**不会变红**，正是让本次缺陷穿过 CI 的原因。现在两条路径各有独立用例：0.1.7 形态（有 `configure`、**无** `installSection`）下必须组合加载成功、两个 provider 均注册、且确实走了 `configure({auto:true})`；0.1.5 形态下必须继续走 `installSection`（否则命名空间不会注册）。
 
-  **恢复缺陷后的测试**：把 `installSection` 改回无保护裸调用，第一条立即变红。
-- **活引用不得传给 settings 服务（新增 3 例）**：`unwrapVolatileDeep()` 必须递归剥净（含嵌套与数组）、且不就地改写调用方对象；`installSection` 拿到的 entry 必须无活引用（断言注册结果与 `base` 形状，而不是断言内部调用，实现改动无法伪造）；两条 volatile 分支各自被确定性断言。**恢复缺陷后的测试**：把 `installSection` 的 entry 改回原始 config，**13 个用例立即变红**。
-- **供应商开关的写入文件后重新读取核对（新增 5 例）**：`locked` scope 下必须抛错、错误须标明 `regions`、正常写入文件须成功、整界面扩展位置其余字段须原样带过、界面扩展位置存在但 `enabled` 是错值也须判失败（浅检查会放过「开关没真的关掉」）。
+  **变异测试**：把 `installSection` 改回无保护裸调用，第一条立即变红。
+- **活引用不得传给 settings 服务（新增 3 例）**：`unwrapVolatileDeep()` 必须递归剥净（含嵌套与数组）、且不就地改写调用方对象；`installSection` 拿到的 entry 必须无活引用（断言注册结果与 `base` 形状，而不是断言内部调用，实现改动无法伪造）；两条 volatile 分支各自被确定性断言。**变异测试**：把 `installSection` 的 entry 改回原始 config，**13 个用例立即变红**。
+- **供应商开关的写入文件后重新读取核对（新增 5 例）**：`locked` scope 下必须抛错、错误须标明 `regions`、正常写入文件须成功、整个区域配置的其余字段须原样带过、区域配置存在但 `enabled` 是错值也须判失败（浅检查会放过「开关没真的关掉」）。
 - **测试读取也走生产 helper**：新增 `readSettings()`——0.1.7 上 `settings.get()` 返回的同样是活引用，直接读 `doc.accounts.cn` 得到 `undefined`，那是**任何真实调用方都不会看到的形状**。断言统一经 `unwrapVolatileDeep()` 解包，避免测试在真实调用方看不见的形状上通过或失败。
 - 其余为 PR14 自带的兼容与界面扩展位置隔离用例，以及上一版的凭据修复用例，全部保留。
 
@@ -5821,8 +5808,8 @@ DSH 的随包加载检查 `evaluatePluginCompatibility`（`packages/boot/app-boo
 
   现在开关改走 `writeRegionEnabled()`，与其余写入同一条「先 scope、没写入文件再走 Host 端点」的路径，要么写进去、要么明确报错。
 
-  - 整界面扩展位置照旧原样带过（只改 `enabled`），用户的模型目录、勾选、图片开关与上下文预算不受影响。
-  - 回归测试用 `locked` scope（`set()` 正常 resolve、只保存在内存中）验证；**恢复缺陷后的测试**：把它改回直接调 `scope.set()`，3 个用例立即变红。
+  - 整个区域配置照旧原样带过（只改 `enabled`），用户的模型目录、勾选、图片开关与上下文预算不受影响。
+  - 回归测试用 `locked` scope（`set()` 正常 resolve、只保存在内存中）验证；**变异测试**：把它改回直接调 `scope.set()`，3 个用例立即变红。
 
 **同时把开发环境的 schemastery 提到 3.18.4**（`pnpm-workspace.yaml` 的 override）。此前它锁在 3.18.2，于是 CI 只覆盖 no-op 分支——**而用户实际拿到的是 3.18.4**（`dependencies` 验证的那份嵌套副本）。开发环境与用户环境不一致，正是这个缺陷能同时躲过 PR 评审与 CI 的原因。
 
@@ -5850,11 +5837,9 @@ DSH 的随包加载检查 `evaluatePluginCompatibility`（`packages/boot/app-boo
 
 - **「未登录」与「登录信息读不出来」不再共用同一句话**（同一 issue 的用户可见症状）。这两件事在 `readAll()` 之后都表现为「账号数为 0」，此前一律抛 `no signed-in WorkBuddy account found … sign in once in the WorkBuddy desktop app`。但加密文件读不出来时用户**本来就是登录着的**，那句「重新登录一次」指向的是唯一无效的动作——issue #15 报告者的原话正是这句。
 
-  - 新增 `WorkBuddyEncryptedCredentialError`（以 `ENCRYPTED_CREDENTIAL_CODE` 标记而非 `instanceof`，跨打包边界仍可靠，与 `WorkBuddyCredentialRejectedError` 同一约定）：`resolve()` 在**失败路径上**跑一次 `diagnose()`，只要有一个桌面文件归因 `encrypted`，就改抛这条，文案给出「安装桌面 App，或用 `WORKBUDDY_APP_EXECUTABLE` 指定其位置」，并明说重新登录无效。**健康路径一个检查请求都不跑。
-
-    **
+  - 新增 `WorkBuddyEncryptedCredentialError`（以 `ENCRYPTED_CREDENTIAL_CODE` 标记而非 `instanceof`，跨打包边界仍可靠，与 `WorkBuddyCredentialRejectedError` 同一约定）：`resolve()` 在**失败路径上**跑一次 `diagnose()`，只要有一个桌面文件归因 `encrypted`，就改抛这条，文案给出「安装桌面 App，或用 `WORKBUDDY_APP_EXECUTABLE` 指定其位置」，并明说重新登录无效。健康路径不额外运行该诊断。
   - **诊断自身抛错不得顶掉真正的错误**：探测会读盘，失败时退回原来那句通用文案（有测试）。
-  - **顺带删掉一句不可达的过滤**：初版写了 `reason === 'encrypted' && source === 'desktop'`，但 `encrypted` 只由 `probeAuthFile()` 赋予，而插件自有副本从不经过它（按自有文档形状解析，损坏时是 `invalid`/`unreadable`）——该条件永远为真。留着它会让代码看起来在防守一件它并没防的事；测试改为直接验证真正的每次执行都应满足的条件（自有副本必须归 `invalid`，以及不存在 `source === 'dsh'` 的 `encrypted`），恢复缺陷后的测试确认可咬住。
+  - **顺带删掉一句不可达的过滤**：初版写了 `reason === 'encrypted' && source === 'desktop'`，但 `encrypted` 只由 `probeAuthFile()` 赋予，而插件自有副本从不经过它（按自有文档形状解析，损坏时是 `invalid`/`unreadable`）——该条件永远为真。留着它会让代码看起来在防守一件它并没防的事；测试改为直接验证真正的每次执行都应满足的条件（自有副本必须归 `invalid`，以及不存在 `source === 'dsh'` 的 `encrypted`），变异测试确认可咬住。
   - **卡片文案同步**：`signedOutNotice()` 让 `encrypted` 抢在通用提示之前（新增 `row.signedOutEncrypted`），因为通用提示说的正是那个无效动作。此前该建议藏在折叠区里的 `searchedEncryptedNotice`，而**段落**仍写着「重新登录一次」——用户多半只读那一段。既然段落已经承担，折叠区里那份重复提示连同其专属样式一并删除（2.0.10 刚立下的「段落说结论、列表给细节」分工，这次是它的延伸）。
   - 优先级：`selectionLost` > `wrong-region` > `encrypted` > 通用提示。`wrong-region` 仍排在前面——那种情况下凭据是可读的，切个标签页即可，比装 App 更省事。
 
@@ -5868,7 +5853,7 @@ DSH 的随包加载检查 `evaluatePluginCompatibility`（`packages/boot/app-boo
 - `tests/auth.spec.ts`（+5 例）：加密文件 + 取不到密钥必须抛 `WorkBuddyEncryptedCredentialError`、`paths` 指向该文件、文案含 `WORKBUDDY_APP_EXECUTABLE` 且**明确不含**「sign in again」与通用那句（对渲染出的字符串断言，不是对输入）；真正没有凭据的机器仍走通用文案；密钥可用时照常解析成功；**自有副本损坏必须归 `invalid` 且不得产生加密结论**；`diagnose()` 抛错时退回通用文案。
 - `tests/searched-paths.spec.ts`（+1 例，改 2 例）：加密原因必须在**段落**里被回答、且不回落去回显 `resolve()` 的消息；对渲染后的字符串断言「重新登录」这句话没有以任何形式残留。删掉了 `SearchedView.encrypted` 的两条断言——该字段已随折叠区那份重复提示一并删除（见下）。
 
-**恢复缺陷后的测试（实测）**：共 8 处定向改写，7 处被测试咬住。**其中 1 处（`source === 'desktop'` 过滤）逃脱**——正因如此才发现它是不可达的死代码并删除，同时把测试改为验证真正的每次执行都应满足的条件，再次恢复缺陷后确认测试能够发现可咬住。其余：把 macOS 二进制名改回 `'WorkBuddy'`、从候选里删掉 `WorkBuddy AI.app`、让身份校验恒为 `true`、关掉加密归类、去掉穿越防护、把 `encrypted` 移出段落优先级、调换 `wrong-region` 与 `encrypted` 的次序——逐一挂掉对应用例。
+**变异测试（实测）**：共 8 处定向改写，7 处被测试咬住。**其中 1 处（`source === 'desktop'` 过滤）逃脱**——正因如此才发现它是不可达的死代码并删除，同时把测试改为验证真正的每次执行都应满足的条件，再次变异后确认对应测试能够发现差异。其余：把 macOS 二进制名改回 `'WorkBuddy'`、从候选里删掉 `WorkBuddy AI.app`、让身份校验恒为 `true`、关掉加密归类、去掉穿越防护、把 `encrypted` 移出段落优先级、调换 `wrong-region` 与 `encrypted` 的次序——逐一挂掉对应用例。
 
 **顺带清掉两处「看着像在防守、其实没有引用位置」的代码**（与上面那句同源）：`describeMissingCredential()` 里不可达的 `source === 'desktop'` 过滤，以及 `SearchedView.encrypted`。后者的引用位置是折叠区那份重复提示；提示既已由段落取代，字段留着只会让「列表」与「段落」在下次改动时再次漂移。
 
@@ -5906,7 +5891,7 @@ DSH 的随包加载检查 `evaluatePluginCompatibility`（`packages/boot/app-boo
 - `tests/diagnose.spec.ts`（10 → 14 例）：**跨区域的桌面凭据必须上报为 `wrong-region`**（直接验证上面那个 `(1)` 的根因）、**它报告的路径条数必须与它给出的路径数一致**（总数不许少报）、`missing` 不带消息、`unreadable` 保留消息且不含路径。
 - `tests/web-status.spec.ts`（+1 例）：`wrong-region` 原样穿过到浏览器——这条处理过程任何一环丢掉它，用户的登录就既不可见、计数也短一位。
 
-**恢复缺陷后的测试（实测）**：本轮共 8 处定向改写，全部被测试咬住（0 逃脱）——恢复 `diagnose()` 的静默跳过、段落重新复述 `resolve()` 消息、去掉 `wrong-region` 头部结论、降低 `selectionLost` 的显示优先级、把 `wrong-region` 归入 `missing`、原因标签表回落到 `invalid`、提示语重新加上「未找到登录信息」、恢复 ENOENT 消息。
+**变异测试（实测）**：本轮共 8 处定向改写，全部被测试咬住（0 逃脱）——恢复 `diagnose()` 的静默跳过、段落重新复述 `resolve()` 消息、去掉 `wrong-region` 头部结论、降低 `selectionLost` 的显示优先级、把 `wrong-region` 归入 `missing`、原因标签表回落到 `invalid`、提示语重新加上「未找到登录信息」、恢复 ENOENT 消息。
 
 ### Docs
 
@@ -5921,7 +5906,7 @@ DSH 的随包加载检查 `evaluatePluginCompatibility`（`packages/boot/app-boo
   - **四档原因，而不是笼统的「读不到」**：`missing`（不存在）/ `unreadable`（在但读不了）/ `invalid`（读到了但没有可用 token）/ `encrypted`（读到了、字段是加密的、拿不到密钥）。探测在 `probeAuthFile()` 里一次完成，`readAuthFile()` 退化为只要凭据的薄包装，既有调用方一行未改。
   - **`encrypted` 是 workbuddy 特有的、也是本版最重要的新增档位**：Windows 新版桌面端把 token 字段加密，读它需要桌面 App 自身的原生绑定（`WORKBUDDY_APP_EXECUTABLE` 可指定）。此时用户**多半已经登录了**，卡片若沿用「重新登录一次」就是在指一条无效的路。
 
-    因此这类探测结果会额外顶出一条提示，明说「需要桌面 App 在场，单纯重新登录解决不了」。把它并入 `invalid` 会让这句提示永远显示不出来——这正是恢复缺陷后的测试专门盯住的一条。
+    因此这类探测结果会额外顶出一条提示，明说「需要桌面 App 在场，单纯重新登录解决不了」。把它并入 `invalid` 会让这句提示永远显示不出来——这正是变异测试专门盯住的一条。
   - **同一档内按处理需要分类**：普通机器上多数候选路径都是 `missing`（App 只写一个文件，平台却有好几个候选目录），全部平铺会把真正解释失败的那一条淹掉。因此 `encrypted`/`invalid`/`unreadable` 直接展开，`missing` 收在第二层折叠后；而当**全都是** `missing` 时它就是答案本身，直接展开，不需要再点一次。
 
     trae 定义了 `row.searchedMore` 文案却从未接上，这里真正实现。
@@ -5940,7 +5925,7 @@ DSH 的随包加载检查 `evaluatePluginCompatibility`（`packages/boot/app-boo
 - `tests/web-status.spec.ts`（新增 7 例）：路径列表下发、`encrypted` 原因原样穿过到浏览器、空结果**不下发空数组**、无 `diagnose()` 的旧 store 缺少该方法时继续返回原有状态数据、探测抛错不影响状态路由、`selectionLost` 时不列路径、消息里的 token 形状内容被脱敏而路径本身保留。
 - `tests/searched-paths.spec.ts`（新增 14 例）：展示规则（`missing` 何时隐藏/何时展开、分组内保持 Host 探测顺序、四档原因各自转换为不同文案键、来源标签、总数采用的规则），以及**两套语言里四档原因的文案互不相同**——文案合并会让 `encrypted` 在用户眼里退回成「文件不存在」，而其余测试全部通过。
 
-**恢复缺陷后的测试（实测）**：共 14 处定向改写，全部被测试咬住（0 逃脱）——`encrypted` 并入 `invalid`、`missing` 误报为 `unreadable`、把插件副本的空缺也上报、无密钥的加密文件报成 `invalid`、空结果下发空数组、消息不脱敏、`selectionLost` 时也列路径、`missingOpen` 恒为 `false`、`encrypted` 移出「需要处理」集合、原因标签丢掉来源、`encrypted` 转换为别的文案键、总数只数可见组、加密提示丢掉 `WORKBUDDY_APP_EXECUTABLE`、以及四档文案合并成一条。
+**变异测试（实测）**：共 14 处定向改写，全部被测试咬住（0 逃脱）——`encrypted` 并入 `invalid`、`missing` 误报为 `unreadable`、把插件副本的空缺也上报、无密钥的加密文件报成 `invalid`、空结果下发空数组、消息不脱敏、`selectionLost` 时也列路径、`missingOpen` 恒为 `false`、`encrypted` 移出「需要处理」集合、原因标签丢掉来源、`encrypted` 转换为别的文案键、总数只数可见组、加密提示丢掉 `WORKBUDDY_APP_EXECUTABLE`、以及四档文案合并成一条。
 
 ### Docs
 
@@ -5955,8 +5940,8 @@ DSH 的随包加载检查 `evaluatePluginCompatibility`（`packages/boot/app-boo
 
   - **关闭动作落到注册层，不是 UI 层**：`AdapterRegistrationHandle.replace([])` 抽掉该区域的路由，`DirectoryRegistrationHandle.replace([])` 摘掉它在「设置 → 模型」页的目录条目。已验证 `listProviders()` 在该区域关闭后不再含它——这正是 DSH 构造模型选择器的取数来源，所以分组是**真的消失**，不是被藏起来。注册仍是「先正常注册、再 replace([])」两步在同一同步段内完成：空数组的**首次**注册会被 DSH 拒绝（`INVALID_ADAPTER`），而 `replace([])` 明确合法。
   - **配置**：`regions.<cn|global>.enabled`，**opt-out**——只有显式 `false` 才关闭。**开关出现前的配置、以及区域拆分前的扁平旧字段一律视为开启**，老用户零感知。
-  - **状态不丢**：开关只改该区域 `enabled` 一个字段，该界面扩展位置的目录 / 勾选 / 图片开关 / 上下文预算，以及另一个区域的整个界面扩展位置，全部原样带过。关掉再打开能完整恢复。
-  - **保存模型不会偷偷重开**：卡片保存目录时会**回写 `enabled`**——那次写入替换整个界面扩展位置，漏掉它就会「保存一次模型列表 = 悄悄重新打开已关闭的供应商」。
+  - **状态不丢**：开关只改该区域 `enabled` 一个字段，该区域配置中的目录 / 勾选 / 图片开关 / 上下文预算，以及另一个区域的完整配置，全部原样带过。关掉再打开能完整恢复。
+  - **保存模型不会偷偷重开**：卡片保存目录时会**回写 `enabled`**——那次写入替换整个区域配置，漏掉它就会「保存一次模型列表 = 悄悄重新打开已关闭的供应商」。
   - **已关闭的区域不再做无意义的启动请求**：跳过它的启动目录刷新与 `registerModelDiscovery` 回退，顺带消掉「无账号区域每次启动报一次错」的失败面。
   - **已知代价**：若某会话此前选中的正是被关闭供应商的模型，该会话再调用会报 `NO_ADAPTER`（`no adapter registered for provider "..."`）。这是「彻底移除」的必然结果，卡片在关闭态的 tab 上给出明确提示文案，不静默失败。
   - **与 issue #12 的「无账号自动隐藏」是两个独立维度**：`WorkBuddyCatalog` 现在同时持有 `usable`（自动：本机有无该区域账号）与 `enabled`（用户显式开关），`current()` 在**两者都成立**时才返回模型。只有用户重新勾选、且该区域确有账号时，模型才会回来。
@@ -5966,11 +5951,11 @@ DSH 的随包加载检查 `evaluatePluginCompatibility`（`packages/boot/app-boo
 测试总数 236 → 255（新增 19 例）：
 
 - `tests/region.spec.ts`（新增 11 例）：`regionEnabledOf` 的 opt-out 缺省、**同时接受「整个 settings 段」与「`regions` 子对象」两种入参**（这正是 trae 上真实发生过的 bug：卡片传错一半 → 判定恒为 `true` → 勾选「点了没反应」）、`nextRegionEnabled` 只改目标字段且不碰另一区域、以及 DSH 端 `regionEnabled` 对扁平旧配置判定为开启。
-- `tests/catalog.spec.ts`（新增 4 例）：`setRegionEnabled` / `isRegionEnabled`、关闭后 `current()` 为空、重新开启恢复、以及 **`usable` 与 `enabled` 两个版本检查互不干扰**（只开开关不足以让无账号区域复活）。
+- `tests/catalog.spec.ts`（新增 4 例）：`setRegionEnabled` / `isRegionEnabled`、关闭后 `current()` 为空、重新开启恢复、以及 **`usable` 与 `enabled` 两个条件互不干扰**（只开开关不足以让无账号区域复活）。
 - `tests/settings-integration.spec.ts`（新增 4 例，走真实 DSH 组合加载）：关闭国际版后 `listProviders()` 不含 `workbuddy-global`、目录条目同步消失、**国内版的目录条目必须仍在**（守护「目录是一次性注册持有两个条目」这一约束）、另一侧不受影响、重新开启恢复、两个都关仍可恢复、旧配置两边都开。
 - `tests/web-status.spec.ts`：`enabled` 在 signed-in / signed-out 两个分支都下发。
 
-**恢复缺陷后的测试（实测）**：把「撤掉路由」改成「照常注册」（即只隐藏 tab 的假实现），3 条集成测试立刻失败；把目录 `replace` 改回**按区域分别调用**，`registers both regional providers` 与 `both switched off can still be restored` 两条失败，失败现场收到的正是 `[{workbuddy-global}]`——国内版条目被覆盖掉了，与 trae 记录的这个 bug 完全一致。测试确实咬得住。
+**变异测试（实测）**：把「撤掉路由」改成「照常注册」（即只隐藏 tab 的假实现），3 条集成测试立刻失败；把目录 `replace` 改回**按区域分别调用**，`registers both regional providers` 与 `both switched off can still be restored` 两条失败，失败现场收到的正是 `[{workbuddy-global}]`——国内版条目被覆盖掉了，与 trae 记录的这个 bug 完全一致。测试确实咬得住。
 
 ### Docs
 
@@ -6047,7 +6032,7 @@ DSH 的随包加载检查 `evaluatePluginCompatibility`（`packages/boot/app-boo
 
   **选择器说可选、实际必失败**，对单区域用户是纯噪音。
 
-  - **根因**：静态 fallback 的初衷是「上游离线也不让 provider 空着」，但它无条件保存初始目录（`new WorkBuddyCatalog(region)` 即装载整份 fallback），而 `deriveCatalog` 的「空勾选 = 全量」又把整份放行；启动时的真实刷新对无账号区域必然失败、只留一条 `logger.warn`，fallback 便永久留存。DSH DSH 对凭据一无所知（`buildModelCatalog` 只过滤 `models.length > 0`），于是原样渲染。
+  - **根因**：静态 fallback 的初衷是「上游离线也不让 provider 空着」，但它无条件保存初始目录（`new WorkBuddyCatalog(region)` 即装载整份 fallback），而 `deriveCatalog` 的「空勾选 = 全量」又把整份放行；启动时的真实刷新对无账号区域必然失败、只留一条 `logger.warn`，fallback 便永久留存。DSH 对凭据一无所知（`buildModelCatalog` 只过滤 `models.length > 0`），于是原样渲染。
   - **修复**：`WorkBuddyCatalog` 新增「本区域是否有本机登录」状态（`setRegionUsable()` / `isRegionUsable()`），无账号时 `current()` 返回空数组 → DSH 的空分组过滤让该分组**直接消失**。**provider 本身照常注册**：它的设置卡片与账号选择器正是用户登录的入口，隐藏分组是目录层决定，不是注册层决定。
   - **与 `set()` 的非空检查分开**，没有放宽它：两者回答不同问题——`set()` 承载**上游真实答案**，永不允许为空；「本区域没有账号」是**合法的空状态**，且必须能跨刷新存活。合并二者会要么丢掉检查、要么丢掉隐藏分组的能力。测试专门锁定这一点：区域不可用期间上游刷新仍会在内部恢复目录，账号一出现即可立即服务。
   - **默认可用（宽松方向）**：`setRegionUsable` 由异步扫描调用，扫描尚未完成或失败时保持原状，因此**一次瞬时文件系统错误不会把正常区域清空**。
@@ -6092,7 +6077,7 @@ DSH 的随包加载检查 `evaluatePluginCompatibility`（`packages/boot/app-boo
     对三处写入的影响：
     - **清除账号**：只有确认写入文件才显示「已清除」，失败则显示错误并说明原选择仍生效——否则会给出一个被旧选择默默反驳的假确认，比不提示更糟；
     - **切换账号**：同样校验。静默丢弃会让下拉框显示一个账号、实际计费另一个；
-    - **保存模型**：尤其要紧——保存成功会**丢弃草稿**，若写入没写入文件就丢，用户唯一的副本就没了，却还被告知「已保存」。校验对照重新读取的 `lastCatalog` id 序列（不能只看「界面扩展位置存在」，截断/残缺的写入同样要检出）。
+    - **保存模型**：尤其要紧——保存成功会**丢弃草稿**，若写入没写入文件就丢，用户唯一的副本就没了，却还被告知「已保存」。校验对照重新读取的 `lastCatalog` id 序列（不能只看「区域配置存在」，截断/残缺的写入同样要检出）。
 
   **核查**：报告的根因链在 HEAD 上不成立，逐条复现如下。**注意措辞更正**：2.0.5 初稿曾断言「清除本来就生效」，该结论只在 DSH 端成立；在 Windows 上写入可能被静默丢弃，因此报告的「点了没反应」在那里是真实存在的，只是机制与报告所述不同（具体原因为配置写入未完成）。重新读取并核对修复的正是后者。
 
@@ -6116,7 +6101,7 @@ DSH 的随包加载检查 `evaluatePluginCompatibility`（`packages/boot/app-boo
 > 源码，差异只来自沙箱能否执行 `ps`。
 
 - `settings-integration.spec.ts` 新增 15 例：`selectAccountFor` 的 6 例（显式选择优先、旧值只归属本区域、哨兵终止回退、清除与未配置可区分、两区域同时清除、清除一侧不影响另一侧）；`legacyAttributionRegion` 的 6 例（归属、跳过已清除区域、跳过但继续扫描另一区域、账号已消失、无旧字段、跨区域共享 id）；另有 3 例走真实 settings 处理过程 —— 清除后旧字段仍在但选不中、**重启后**已清除区域不被重新归属、以及清除前后经 usage 路由可见 `selectionExplicit` 翻转（账号名不变，这正是报告里「看起来没反应」的场景）。
-- `client-account-selection.spec.ts` 新增 13 例（新文件）：`configuredAccountsOf` 的容错读取；`writeAccountSlot` 的保存与「保留另一区域」、哨兵写成 `""` 而非删键、**锁文件导致的静默尚未写入文件必须抛错**、错误携带字段名、**不把「键缺失」误判为清除成功**、正常写入文件不误报、重新读取与卡片读取同源（scope 的 flush 默认 `sync`，写入文件后同步可见，故不会误失败）；`writeRegionModels` 的保存与区域保留、**静默尚未写入文件必须抛错**、目录被截断也要检出（不能只看「界面扩展位置存在」）、错误字段名、正常写入文件不误报。
+- `client-account-selection.spec.ts` 新增 13 例（新文件）：`configuredAccountsOf` 的容错读取；`writeAccountSlot` 的保存与「保留另一区域」、哨兵写成 `""` 而非删键、**锁文件导致的静默尚未写入文件必须抛错**、错误携带字段名、**不把「键缺失」误判为清除成功**、正常写入文件不误报、重新读取与卡片读取同源（scope 的 flush 默认 `sync`，写入文件后同步可见，故不会误失败）；`writeRegionModels` 的保存与区域保留、**静默尚未写入文件必须抛错**、目录被截断也要检出（不能只看「区域配置存在」）、错误字段名、正常写入文件不误报。
 - `auth.spec.ts` 新增 1 例：`hasExplicitSelection()` 在未选择/已选择/选择失效/哨兵清除四种状态下的取值。
 - `web-status.spec.ts` 新增 2 例：signed-in 与两个 signed-out 分支都携带 `selectionExplicit`。
 
@@ -6180,7 +6165,7 @@ DSH 的随包加载检查 `evaluatePluginCompatibility`（`packages/boot/app-boo
 - **修复「同一账号多个凭据文件时选中已失效的那一个」，导致积分/签到/模型全部返回 openresty HTML 401**。此前按**存储的 `expiresAt` 最大**来挑选凭据，但 `expiresAt` 描述的是「签发时有效期有多长」，**不代表上游仍然接受** —— 上游吊销 token 时不会同步改写该字段，于是一个早已失效的备份文件可以声称比真实可用的文件**更晚过期**，从而永远被选中。
 
   - **实测复现**：本机某账号有 8 个凭据文件，其中 `2026-07-08` 的备份声称 `2027-07-06` 过期（最远），而真正可用的当前登录文件只到 `2026-11-14`。旧逻辑因此始终选中那个 07-08 的死文件，三个端点（`get-user-resource` / `checkin-activity-status` / `models`）全部返回 `401 Authorization Required` + `openresty`。
-  - **改用 `auth.lastRefreshTime` 作为新鲜度判据**：这是上游自己的签发时间，是唯一可靠的信号。新增 `WorkBuddyCredential.lastRefreshAtMs` 字段并在解析时读入；`preferred()`、多账号去重、以及插件自有副本的合并**三处**统一改用新的 `isFresher()` 比较器。
+  - **改用 `auth.lastRefreshTime` 作为新鲜度判据**：这是上游自己的签发时间，可作为凭据新鲜度的线索，但不能证明上游仍接受该凭据。新增 `WorkBuddyCredential.lastRefreshAtMs` 字段并在解析时读入；`preferred()`、多账号去重、以及插件自有副本的合并**三处**统一改用新的 `isFresher()` 比较器。
   - **排序优先级**：① live 文件 `workbuddy-desktop.info`（应用当前登录）→ ② `lastRefreshAtMs` 较新者 → ③ `expiresAtMs`（仅作为文档缺失该字段时的回退，保证比较是全序的）。
   - **实测验证**：切换判据后，本机 11 个账号选中的凭据**全部返回 200**（此前 `老丁`、`LaoDing` 等均命中死文件）。
   - 插件自有刷新副本（无 `lastRefreshTime`）不参与签发时间比较：它只在**确实更长寿**时取代桌面端备份，且**永不顶替 live 登录**。
@@ -6268,10 +6253,10 @@ DSH 的随包加载检查 `evaluatePluginCompatibility`（`packages/boot/app-boo
 ### Fixes
 
 - **目录与勾选按区域隔离（国内 / 国际各一套）**：此前 `lastCatalog` 与 `enabledModelIds` 是全局单槽。国内账号下勾选的模型（含 `deepseek-v4.1-flash`、`hy3-x`）在切到国际账号后，会与**国际目录**求交集——凡是国际目录里没有的 id 都被静默丢弃：国际账号实际只剩 `hy3`、`hy4-preview` 两个模型可用（`src/index.ts` 启动时 `deriveCatalog(国际目录, 国内勾选)`）。
-  - 现改为 `regions.cn` / `regions.global` 两套独立界面扩展位置（目录、勾选、图片开关、上下文预算各一份），互不干扰；切换账号不再覆盖另一区域的配置。
+  - 现改为 `regions.cn` / `regions.global` 两套独立配置（目录、勾选、图片开关、上下文预算各一份），互不干扰；切换账号不再覆盖另一区域的配置。
   - 新增按区域区分的静态 fallback 目录：国际账号在首次拉取前不再被塞入国内模型清单（`FALLBACK_WORKBUDDY_MODELS_GLOBAL`，2026-09-11 从国际网关桌面渠道配置实测捕获 20 个模型及其倍率，含免费的 `deepseek-v4.1-flash`）。
   - 旧的扁平字段保留为**国内区域的迁移来源**（旧配置一律来自国内端点），国际区域绝不继承——这正是丢勾选的根源。
-  - 卡片保存改为写入当前账号所属区域的界面扩展位置；usage 文档新增 `region` 字段供卡片定位。
+  - 卡片保存改为写入当前账号所属区域的配置；usage 文档新增 `region` 字段供卡片定位。
 - 三个探测脚本（`probe-models` / `probe-credits` / `probe-account-switch`）同步改用 `/v2/...` 路径：此前它们对国际账号同样会 500，导致诊断输出误导。
 - 新增只读评估脚本 `scripts/probe-global-eval.mjs`：对比国际网关 `/v2/...`（500）与 `/v3/config`（200）两条取目录路径，并验证积分与签到端点——本轮的渠道发现即由它得出。
 
@@ -6279,7 +6264,7 @@ DSH 的随包加载检查 `evaluatePluginCompatibility`（`packages/boot/app-boo
 
 - 新增 `fetchModels` 回归测试：stub 上游后断言 CN 凭据（`codebuddy.cn` / `workbuddy.cn`）拼出 `copilot.tencent.com/v2/enterprises/personal/models`、国际凭据（`workbuddy.ai`）拼出 `www.workbuddy.ai/v3/config`，并断言国际请求携带**桌面端 User-Agent**（`WorkBuddy/5.5.2`，CLI UA 会拿到缺模型的 35 个）、CN 请求**不得**携带桌面端 UA（国内桌面配置的 `cli` agent 为空）。把「按渠道取目录」验证，防止日后退回会丢模型的取法。
 - `regionOf` 测试补上 `www.workbuddy.cn`（国内版新 domain 形态，实测本机存在）。
-- 新增区域隔离测试：`regionStateOf` 断言旧扁平字段只被读作国内状态、国际区域绝不继承、显式界面扩展位置优先；`fallbackModelsFor` 断言国内清单不得泄漏进国际（国内无 `gpt-*`/`gemini-*`，且 `default-model` 仅属国际）；web-status 断言文档携带的 `region` 与凭据域一致、且四个区域化访问器收到的都是该区域。
+- 新增区域隔离测试：`regionStateOf` 断言旧扁平字段只被读作国内状态、国际区域绝不继承、显式区域配置优先；`fallbackModelsFor` 断言国内清单不得泄漏进国际（国内无 `gpt-*`/`gemini-*`，且 `default-model` 仅属国际）；web-status 断言文档携带的 `region` 与凭据域一致、且四个区域化访问器收到的都是该区域。
 - **每日签到（领取）路由的检查逻辑首次获得直接 handler 测试**（实测两区域端点行为后补齐）：
   - 活动未开启（国际账号实测形态，`active:false`）→ 409 且**绝不调用**上游领取；
   - 今日已签到 → 200 `alreadyCheckedIn` 且不调用上游领取（防止重复处理的检查）；
@@ -6296,7 +6281,7 @@ DSH 的随包加载检查 `evaluatePluginCompatibility`（`packages/boot/app-boo
   - **`ResolvedPiAiProviderProfile.modelErrors` 变为必填**：`dsh-llm-pi-ai` 的 provider profile 在 0.1.5-rc.1 新增必填字段 `modelErrors`，`PiAiAdapter.modelOf` 会在每次请求时读取，并对其中列出的任何 model id 抛出 `INVALID_CONFIG`。本插件的目录来自上游实时读取，因此填**空 Map**——即「无已知失败模型」，绝不预先否定目录后续提供的模型。
 
     这是本次跃迁中本插件唯一的一处源码编译失败。
-  - **`@deepseek-ai/dsh-client-runtime` 已停止发布**：该包停在 `0.1.1-rc.2`，在 0.1.5 线上既未发布也不在桌面捆绑集内（其界面扩展位置/会话服务迁至 `dsh-client-ui-renderer/client`）。此前客户端入口从它取 `ClientContext` 类型、并在 `dsh.client.inject` 中声明它。现改为：运行期传入以真实提供 `slots` 服务的 5 个包为准（移出 `dsh-client-runtime`），类型侧用具名 `WorkBuddyClientContext`（cordis `Context` + `slots`/`locale`/`settingsScope` 三个界面扩展位置），使客户端入口在两条主机线上都能编译。
+  - **`@deepseek-ai/dsh-client-runtime` 已停止发布**：该包停在 `0.1.1-rc.2`，在 0.1.5 线上既未发布也不在桌面捆绑集内（其界面扩展位置/会话服务迁至 `dsh-client-ui-renderer/client`）。此前客户端入口从它取 `ClientContext` 类型、并在 `dsh.client.inject` 中声明它。现改为：运行期传入以真实提供 `slots` 服务的 5 个包为准（移出 `dsh-client-runtime`），类型侧用具名 `WorkBuddyClientContext`（cordis `Context` + `slots`/`locale`/`settingsScope` 三项服务），使客户端入口在两条主机线上都能编译。
   - `@earendil-works/pi-ai`：`0.85.0` → `0.85.1`。
 
 ### Fixes
@@ -6358,7 +6343,7 @@ DSH 的随包加载检查 `evaluatePluginCompatibility`（`packages/boot/app-boo
 
 ### Fixes
 
-- **兼容当前 DSH DSH（dsh-plugin-desktop@2.0.4，@deepseek-ai/* = 0.1.2-alpha.1）**：peerDependencies 中 8 个 `dsh-*` 包的预发布分支范围扩展为 `>=0.1.0-rc.1 <0.2.0 || >=0.1.1-rc.1 <0.2.0 || >=0.1.2-alpha.0 <0.1.3`，覆盖 0.1.0-rc / 0.1.1-rc / 0.1.2-alpha 全部已发布分支；`@earendil-works/pi-ai` 由精确 `0.82.1` 放宽为 `>=0.82.1 <0.85.0`（兼容 DSH 0.84.3）。
+- **兼容当前 DSH（dsh-plugin-desktop@2.0.4，@deepseek-ai/* = 0.1.2-alpha.1）**：peerDependencies 中 8 个 `dsh-*` 包的预发布分支范围扩展为 `>=0.1.0-rc.1 <0.2.0 || >=0.1.1-rc.1 <0.2.0 || >=0.1.2-alpha.0 <0.1.3`，覆盖 0.1.0-rc / 0.1.1-rc / 0.1.2-alpha 全部已发布分支；`@earendil-works/pi-ai` 由精确 `0.82.1` 放宽为 `>=0.82.1 <0.85.0`（兼容 DSH 0.84.3）。
 
   修复用户环境版本不匹配导致的 ERESOLVE / 静默排除。
 
@@ -6402,15 +6387,15 @@ DSH 的随包加载检查 `evaluatePluginCompatibility`（`packages/boot/app-boo
 - **本机账号切换**：扫描 WorkBuddy auth 目录（活跃文件 + 时间戳备份），按 uin 去重为多个可选账号，默认跟随 App 当前登录。
 - **凭据路径多候选**：macOS / Windows(Local+Roaming) / Linux(XDG) 逐一探测，支持环境变量与配置覆盖。
 - **只读积分概览**：按套餐聚合展示剩余积分，区分「月度周期套餐」与「一次性礼包」；查询不消耗积分。
-- **每日签到**：卡片下方提供一键签到按钮，查询状态与领取均走 `/plugins/dsh-connect-workbuddy/checkin`（POST），回环来源校验 + 领取前二次确认，不会重复领取。
-- **只读路由 trio**：`/plugins/dsh-connect-workbuddy/{usage,models/refresh,accounts/refresh}`，回环来源校验 + token 脱敏，积分查询失败改为 `creditsError`。
+- **每日签到**：卡片下方提供一键签到按钮，查询状态与领取均走 `/plugins/dsh-connect-workbuddy/checkin`（POST），校验回环来源并在领取前重读状态；已签到时跳过领取，并发请求仍依赖上游去重。
+- **三个查询与刷新路由**：`/plugins/dsh-connect-workbuddy/{usage,models/refresh,accounts/refresh}`，回环来源校验 + token 脱敏，积分查询失败改为 `creditsError`。
 - **CLI 诊断**：`status` / `doctor` / `logout`（`--json` 支持），doctor 列出每个发现的账号及其文件来源。
 
 ### Fixes
 
 - **凭据选择优先活跃文件**：实测所有备份文件都声称 2027 年到期，但只有 `workbuddy-desktop.info` 的 token 被上游接受。改为活跃文件优先，到期时间仅作备份间排序。
 - **无头 profile 下不再崩溃**：`ctx.effect()` 的回调同步执行，无 `webServer` 服务时（TUI）会同步抛错。现改为先 `ctx.get('webServer')` 判空再注册。
-- **刷新保留用户选择**：从 WorkBuddy 刷新目录后，已启用的模型、已勾选的图片与上下文预算均按模型 id 重新对应规则保留，不再丢失。
+- **刷新保留用户选择**：从 WorkBuddy 刷新目录后，已启用的模型、已勾选的图片与上下文预算均按模型 id 对齐并保留，不再丢失。
 - 测试不再污染真实 `$DSH_HOME`：vitest 配置隔离 DSH_HOME，避免写心跳与凭据副本到开发者真实 profile。
 
 ### Docs

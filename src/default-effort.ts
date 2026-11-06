@@ -24,7 +24,8 @@
  *
  * So the rule is always "name one tier, and only ever one this model declares",
  * with the user's saved choice winning over the upstream's own default — and the
- * last-resort fallback NEVER the model's weakest tier (qoder 518ecbb).
+ * last-resort fallback using the upper middle of the declared tiers.
+ * A model that declares only one tier necessarily uses that tier.
  */
 
 import type { WorkBuddyReasoning } from './upstream.ts'
@@ -70,7 +71,7 @@ export function declaredEfforts(reasoning: WorkBuddyReasoning | undefined): stri
  * @param model - the catalog entry, carrying the upstream's own declaration.
  * @param saved - the user's per-model choice, keyed by model id; an absent (or
  *   unsupported, or stale) entry falls through to the upstream default, then to
- *   this model's own MIDDLE tier (never its weakest one).
+ *   this model's upper middle tier, or its sole tier when only one exists.
  * @returns a tier the model declares, or `undefined` when it declares none — in
  *   which case the adapter's existing `off` normalization (issue #90) is still
  *   the right answer and this module must not invent one.
@@ -94,7 +95,7 @@ export function defaultEffortFor(
   const upstreamDefault = model.reasoning?.defaultEffort
   if (typeof upstreamDefault === 'string' && declared.includes(upstreamDefault)) return upstreamDefault
   // Neither the user nor the upstream has an opinion, so fall back to THIS
-  // model's own MIDDLE tier — never to `declared[0]`, its weakest one.
+  // model's upper middle tier. A single-tier model uses `declared[0]`.
   //
   // That last step is qoder 518ecbb's fix, and its own test suite is what caught
   // it: the fallback was the first declared tier, and for the `low/high/max`

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>账号池 · 演示设置界面 — dsh-connect-workbuddy</title>
+<title>dsh-connect-workbuddy 账号池设置演示</title>
 <style>
 /* ============================================================================
    沿用插件真实设计令牌（--dsw-alias-*）与类名前缀 dsm-workbuddy-*。
@@ -259,11 +259,9 @@ body{
 <div class="wrap">
 
   <div class="demo-note">
-    <b>演示稿（Demo）</b> — 这是<b>国内版 tab 的完整卡片</b>，非最终实现。
-    上半部分是插件<b>原有的设置</b>（区域状态 / 积分与签到），
-    下半部分蓝色虚线以下是<b>本次新增的账号池</b>。数据均为示例值，按钮只驱动本地假状态，
-    不发任何模拟请求。视觉沿用插件真实的 <code>--dsw-alias-*</code> 令牌与 <code>dsm-*</code> 类名，
-    配色随系统深浅色切换。<br />
+    <b>历史账号池演示</b>。本页保留当时的国内版设置方案，实际功能以插件为准。
+    上半部分展示账号状态，下半部分展示账号池与模型设置。所有数据均为示例值，按钮仅修改本页内存状态，关闭页面后即丢失；不会发送网络请求或写入配置文件。
+    页面沿用插件的 <code>--dsw-alias-*</code> 令牌与 <code>dsm-*</code> 类名，配色随系统深浅色切换。<br />
     规划文档：<code>docs/ACCOUNT_POOL_PLAN.md</code>
   </div>
 
@@ -301,8 +299,7 @@ body{
             <span class="dsm-workbuddy-usage-text" style="font-size:13px">账号A · 138****6621</span>
           </div>
           <!-- 「重新检测账号」已移到下面的账号池区块：那里才是管理账号的地方，
-               新登录的账号会以「一行待勾选」的形式出现。（真机同样如此；未登录状态
-               下卡片仍保留一个副本，因为那时账号池整块不渲染。） -->
+               此处仅说明历史布局；真实插件的账号发现与空状态以当前实现为准。 -->
         </div>
 
         <!-- ==================== 【新增】账号池区块 ==================== -->
@@ -322,7 +319,7 @@ body{
           </div>
           <p class="region-independent">
             国内版与国际版是<b>各自独立</b>的两个账号池：账号与目标模型互不影响。
-            切到「国际版」tab 可以看到另一套同样的控件。
+            正式插件在国际版面板提供对应控件；本页的地区按钮仅作布局展示。
           </p>
 
           <!-- 当前使用的账号：这是个显式标注，不是靠行底色的深浅去猜 -->
@@ -409,20 +406,18 @@ body{
         <div class="pool-section">
           <div class="pool-head">
             <p class="pool-title">自动换号规则</p>
-            <p class="pool-sub">开启「启用账号池」即生效：失败时依次用池内其他可用账号重试</p>
+            <p class="pool-sub">本页模拟账号池启停和失败换号；偏好在点击“保存”后生效</p>
           </div>
           <div class="pool-rule">
             <div class="pool-rule-line">
               <span class="pool-rule-idx">1</span>
-              <span><b>演示按候选账号规则处理请求</b>（可用优先，其次积分高、快过期的积分包、凭据更新的），
-                所以上面那行「当前使用」是排序的结果，不一定是你手动选的那个。该账号失败时，
-                再按同一个排序取下一个<b>可用</b>成员重试，直到请求成功或候选账号用尽；全部失败才把错误报出来（并注明尝试过几个账号）。</span>
+              <span><b>本演示先尝试选定账号</b>。该账号失败后，按表格顺序寻找其他可用成员，遇到第一个可用成员即模拟成功。正式插件还会根据可用状态和积分等信息排序，并限制重试次数。</span>
             </div>
             <div class="pool-rule-line">
               <span class="pool-rule-idx">2</span>
               <span><b>只跳过「已知不可用」的成员</b>：仍在冷却期内的限流账号、凭据被上游拒绝的账号。
-                <b>从没测试过的账号默认视为可用</b>。
-                积分也参与排序，但只在有新鲜读数时（卡片轮询 / 批量测试 / 保存时读到的），请求路径不会为了排序去打上游。</span>
+                <b>从没测试过的账号可作为候选</b>。
+                本页不会读取真实积分。正式插件使用已有积分读数排序，不会为每次请求额外查询余额。</span>
             </div>
             <div class="pool-rule-line">
               <span class="pool-rule-idx">3</span>
@@ -541,7 +536,7 @@ function expiryText(a){
   return { text:`最近积分包 ${d} 天后过期`, warn: d <= 3 };
 }
 
-/* ---- 换号候选：从未测试过的账号视为可用；限流/耗尽的先排除 ---- */
+/* ---- 换号候选：从未测试过的账号可作为候选；限流/耗尽的先排除 ---- */
 /*
  * 此处实现历史演示的候选账号规则：
  *   - 最近一次测试为「可用」→ 候选；
@@ -596,7 +591,7 @@ function render(){
         <div class="pool-expiry${e.warn?' pool-expiry-warn':''}">${e.text}</div>
       </span>
       <span>${badge(a)}
-        <div class="pool-expiry" style="margin-top:3px">${a.probe==='testing'?'正在发送模拟请求…':agoText(a.probeAgo)+'测试'}</div>
+        <div class="pool-expiry" style="margin-top:3px">${a.probe==='testing'?'正在模拟测试…':agoText(a.probeAgo)+'测试'}</div>
       </span>
       <span>${checkinCell}</span>`;
     rows.appendChild(row);
@@ -612,7 +607,7 @@ function renderCurrent(){
   if (!cur){
     el.querySelector('.pool-bar-dot').style.background = 'var(--dsw-alias-state-error-primary)';
     el.querySelector('.pool-bar-name').textContent = '当前没有可用的账号';
-    meta.textContent = '本机没有可结算的登录，请先在 WorkBuddy 桌面端登录。';
+    meta.textContent = '演示中没有可用账号。正式插件需要先在 WorkBuddy 桌面端登录。';
     badgeEl.className = 'badge badge-err';
     badgeEl.innerHTML = '<span class="badge-dot"></span>无账号';
     return;
@@ -686,18 +681,18 @@ async function runTest(){
     await sleep(900);
     if (a.credits === 0){
       a.probe = 'out-of-credit'; a.note = '积分耗尽'; a.probeAgo = 0;
-      addLog(`${a.name}：out-of-credit —— 积分耗尽，按配额刷新时间回池`, 'log-err');
+      addLog(`${a.name}：out-of-credit：模拟积分耗尽，恢复后可重新测试`, 'log-err');
     } else if (a.id === 'a2'){
       a.probe = 'rate-limited'; a.note = '上游：将在 02:30:30 重置'; a.probeAgo = 0;
-      addLog(`${a.name}：rate-limited —— 模型本身可用，仅在限流，按上游重置时间回池`, 'log-warn');
+      addLog(`${a.name}：rate-limited：模拟限流，待恢复后重试`, 'log-warn');
     } else {
       a.probe = 'ok'; a.note = ''; a.probeAgo = 0;
-      addLog(`${a.name}：ok —— 可用（credit 0.00，耗时 1.8s）`, 'log-ok');
+      addLog(`${a.name}：ok：模拟成功，示例费用 0.00、耗时 1.8s`, 'log-ok');
     }
     render();
   }
   addLog('测试完成，已按规则重算候选账号', 'log-ok');
-  persistRuntime('测试结果与每个账号的可用状态已写入运行时记录（不占草稿）');
+  persistRuntime('测试结果已记录到本页内存，偏好草稿保持不变');
   renderCurrent();
   running = false; setBusy(false); render();
 }
@@ -710,13 +705,13 @@ function setBusy(on){
 }
 
 /* ============================================================================
-   两种状态，两套写入处理规则（与项目插件一致）：
-   - savedPrefs：偏好设置，改动进草稿，点「保存」才写入文件
-   - runtime    ：探测结果，插件自动写入文件，不经过保存按钮
+   演示分别保存偏好和测试结果，仅保存在当前页面内存：
+   - savedPrefs：偏好设置，改动进草稿，点击“保存”后更新 savedPrefs
+   - runtime    ：探测结果，演示自动更新 runtimeSnap，无需点击保存
    ========================================================================== */
 const savedPrefs = { enabled:true, targetModel:'auto' };
 let draftPrefs = null;          // null = 无未保存修改
-let runtimeSnap = {};           // 模拟 DSH 端自动写入文件的运行时事实
+let runtimeSnap = {};           // 本页内存中的测试结果
 
 const prefsOf = () => draftPrefs ?? savedPrefs;
 const isDirty = () => draftPrefs !== null;
@@ -739,7 +734,7 @@ function renderPrefs(){
   $('btnSavePool').disabled = !dirty;
   $('btnDiscardPool').disabled = !dirty;
   $('saveHint').textContent = dirty
-    ? '有未保存的修改 —— 保存后写入本区域配置。'
+    ? '有未保存的修改，保存后应用本页偏好。'
     : '修改任一设置后即可保存。';
   document.querySelectorAll('.pool-set').forEach(n => n.classList.remove('is-dirty'));
   if (dirty){
@@ -756,7 +751,7 @@ function savePrefs(){
   Object.assign(savedPrefs, after);
   draftPrefs = null;
   const changed = Object.keys(after).filter(k => before[k] !== after[k]);
-  addLog(`已保存账号池设置（${changed.join('、') || '无变化'}）—— 写入本区域偏好，未触碰运行时结果`, 'log-ok');
+  addLog(`已保存账号池设置（${changed.join('、') || '无变化'}），已应用本页偏好并保留测试结果`, 'log-ok');
   renderPrefs(); render();
 }
 
@@ -767,10 +762,10 @@ function discardPrefs(){
   renderPrefs(); render();
 }
 
-/* 运行时事实的"自动写入文件"：只记录，不参与草稿 */
+/* 更新本页内存中的测试结果，不改变偏好草稿 */
 function persistRuntime(note){
   runtimeSnap.updatedAt = clock();
-  addLog(`（自动写入文件）${note}`, 'log-swap');
+  addLog(`（内存记录）${note}`, 'log-swap');
 }
 
 /* ---- 目标测试模型：按区域 catalog 自动挑倍率为 0 的 ---- */
@@ -810,31 +805,31 @@ function renderAutoPick(){
   const note = $('autoPickNote');
   const row = $('autoPickRow');
   if (target.manual){
-    note.innerHTML = `已手动指定 <b class="mono">${target.id}</b> —— 自动挑选不再生效，注意该模型可能收费。`;
+    note.innerHTML = `已指定 <b class="mono">${target.id}</b>，测试将使用该模型并按其费率计费。`;
     return;
   }
   if (target.id === undefined){
     // 国内版静态目录里没有倍率为 0 的模型：不静默回退到收费模型
     note.innerHTML = `<b style="color:var(--dsw-alias-state-warn-primary)">本区域暂无免费模型</b>
-      —— 国内版要等模型目录刷新后才会出现倍率为 0 的条目。
+      自动模式需要目录中存在明确标记为免费的模型。
       为避免产生你没预期的开销，<b>不会</b>自动回退到收费模型；请先刷新模型目录，或手动指定一个目标模型。`;
     return;
   }
   note.innerHTML = `自动选中 <b class="mono">${target.id}</b>
     （x0.00 免费，上下文 ${(target.model.contextWindow/1000).toFixed(0)}k）
-    —— 从本区域 catalog 内倍率为 0 的候选中取窗口最大的。`;
+    。自动模式从本区域免费模型中选择上下文窗口最大的模型。`;
 }
 
 /* ---- 模拟一次失败请求：把「自动换号」跑给人看 ---- */
 /*
- * 真机里这条路径是：请求先发给「当前使用」的账号 → 上游报 429/402/401/502 →
+ * 本页模拟以下路径：请求先发给「当前使用」的账号 → 上游报 429/402/401/502 →
  * 插件依次取池内其他**可用**账号重发同一个请求 → 有人接住就正常返回 →
  * 全部不可用才把错误报出来。这里按同一顺序演一遍，好让规则可验证，而不只是可读。
  *
  * 两个刻意的设计在这段演示里也能看出来：
  *   - **「当前使用」始终不变**：换号只是为这一次请求借用额度；
- *   - **从没测试过的账号算可用**：所以「当前账号被限流」时，只要池里还有没测过的
- *     账号，请求依然能跑完 —— 这正是「不点测试也能用」的意思。
+ *   - **从没测试过的账号可作为候选**：所以「当前账号被限流」时，只要池里还有没测过的
+ *     账号，该账号仍可成为重试候选；真实请求是否成功需由上游响应确认。
  */
 async function runSimulatedRequest(){
   if (running) return;
@@ -847,7 +842,7 @@ async function runSimulatedRequest(){
   if (!$('swEnabled').checked){
     // 池关闭：不换号，如实报错 —— 这正是开关关闭时的承诺。
     addLog(`账号池已关闭：${primary ? primary.name : '当前账号'} 失败即报错，不尝试池内其他账号`, 'log-err');
-    if (primary) primary.note = '上游：429（未换号 —— 账号池已关闭）';
+    if (primary) primary.note = '上游：429（账号池已关闭，未换号）';
     render();
     running = false; setBusy(false);
     return;
@@ -859,7 +854,7 @@ async function runSimulatedRequest(){
     primary.probeRetryDue = false;   // 冷却未过：真实场景里它会被排除
     primary.note = '上游：将在 02:30:30 重置';
     primary.probeAgo = 0;
-    addLog(`${primary.name}：soft_rate（429）—— 使用量超出频率限制`, 'log-warn');
+    addLog(`${primary.name}：soft_rate（429）：使用量超出频率限制`, 'log-warn');
     render();
   }
   await sleep(550);
@@ -868,16 +863,16 @@ async function runSimulatedRequest(){
   const tried = [currentId];
   for (const cand of accounts){
     if (cand.probe === 'testing'){
-      addLog(`${cand.name}：跳过 —— 上一次测试还在进行，结果未知`, 'log-warn');
+      addLog(`${cand.name}：跳过：上一次测试还在进行，结果未知`, 'log-warn');
       continue;
     }
     if (cand.probe === 'rate-limited' || cand.probe === 'out-of-credit'){
-      addLog(`${cand.name}：跳过 —— 已知不可用（${probeText(cand.probe)}，未到恢复时间）`, 'log-warn');
+      addLog(`${cand.name}：跳过：已知不可用（${probeText(cand.probe)}，未到恢复时间）`, 'log-warn');
       continue;
     }
     tried.push(cand.id);
     if (cand.probe === undefined || cand.probe === 'untested'){
-      addLog(`${cand.name}：从未测试过，按「默认可用」参与换号`, 'log-swap');
+      addLog(`${cand.name}：从未测试过，按「未测试候选」参与换号`, 'log-swap');
     }
     await sleep(450);
     addLog(`改用 ${cand.name} 重发同一个请求 → 成功返回`, 'log-ok');
@@ -890,7 +885,7 @@ async function runSimulatedRequest(){
 
   // 全部不可用：把原始错误报出来，并注明尝试过几个账号。
   addLog(`池内没有其他可用账号（尝试过 ${tried.length} 个）：原样报出上游错误 429 soft_rate`, 'log-err');
-  addLog('错误里会带上上游给的重置时间，用户据此知道何时再试', 'log-warn');
+  addLog('本演示使用固定恢复时间；正式插件显示的时间可能来自上游响应、套餐刷新时间或本地冷却规则', 'log-warn');
   render();
   running = false; setBusy(false);
 }
@@ -903,8 +898,8 @@ $('btnClearLog').addEventListener('click', () => { log = []; renderLog(); });
 $('swEnabled').addEventListener('change', e => {
   editPref('enabled', e.target.checked);
   addLog(e.target.checked
-    ? '（草稿）账号池：启用 —— 失败时依次用池内其他可用账号重试'
-    : '（草稿）账号池：关闭 —— 跟随你选的账号，失败如实报错', e.target.checked ? 'log-ok' : 'log-warn');
+    ? '（草稿）账号池：启用，失败时依次用池内其他可用账号重试'
+    : '（草稿）账号池：关闭，跟随你选的账号，失败如实报错', e.target.checked ? 'log-ok' : 'log-warn');
 });
 $('btnSavePool').addEventListener('click', savePrefs);
 $('btnDiscardPool').addEventListener('click', discardPrefs);

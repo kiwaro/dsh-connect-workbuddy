@@ -1,13 +1,13 @@
 /**
  * The pool's two batch actions: check in every account, and test every account.
  *
- * 参考：本仓库 `src/probe.ts` 的 `probeModel`（一次真实体积探测，永不抛异常）
+ * 参考：本仓库 `src/probe.ts` 的 `probeModel`（一次真实体积探测，常规失败转换为结果）
  *   与 `src/upstream.ts` 的 `fetchCheckinStatus`/`claimDailyCheckin`/
  *   `fetchCredits`。批处理只是把它们串起来，不重新定义任何一次请求。
  * 改动：新增「跨账号」的执行安排，并且把三条规则写入代码 ——
  *
- *   1. **串行，绝不并发。** 上游的限流按请求体积触发，且每个账号各自计时；
- *      同时打整池正是把好账号打成 429 的最快方式。串行 + 账号间小间隔。
+ *   1. **串行执行，账号之间留出间隔。** 已测请求体积会影响上游限流；
+ *      这里控制本批次的并发量，不据此保证账号不会被限流。
  *   2. **一个账号失败不中断整批。** 这是 `probeModel` 已确立的原则：一个坏
  *      账号不能把其余账号的结果一起藏起来。批量结果**逐个账号**返回，
  *      而不是整体成功/失败。
@@ -93,8 +93,9 @@ export const POOL_BATCH_GAP_MS = 400
 /**
  * Check in every account, one at a time.
  *
- * Idempotent by design (see the module note): an account already checked in
- * today is reported as `already` and NO write is attempted. A failure on one
+ * Reads state before claiming: an account reported as already checked in
+ * is returned as `already` without a write. Concurrent callers can still race;
+ * this pre-check alone does not guarantee idempotency. A failure on one
  * account is recorded on that row and the batch continues.
  *
  * Never throws: every problem becomes a row, because a batch that aborted on
@@ -279,7 +280,8 @@ async function testOne(
  * ago" reflects when the batch finished rather than drifting per row.
  *
  * `message` is carried through as well. `probeModel` already redacted it before
- * returning, so persisting it cannot leak a token, and without it the pool table
+ * returning. Redaction is pattern-based and cannot guarantee every secret is
+ * removed. Without the message the pool table
  * could only repeat one generic sentence for a DNS failure, a gateway 502 and a
  * cancelled request alike.
  */
@@ -338,8 +340,8 @@ export function probeUpdatesOf(
  * never the account's.
  *
  * The distinction has to stay honest in the other direction too: `status >= 500`
- * is NOT a transport failure. The gateway answered, and its answer is a
- * statement about this account's standing with it, so those rows are still kept.
+ * is NOT a transport failure. The gateway returned an HTTP response, so the current policy retains those
+ * failure records. A 5xx alone does not establish an account-specific fault.
  */
 function isTransportFailure(result: WorkBuddyProbeResult): boolean {
   if (result.status === 0) return true

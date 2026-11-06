@@ -30,8 +30,7 @@
  *   加密凭据**永远**取不到密钥，用户却被报成「未登录」。现在二进制名向 bundle
  *   自己问（`macosBundleExecutable()`），候选含国际版 `WorkBuddy AI.app`，
  *   并允许 App 被归入 applications 目录的子目录——扫到的候选必须先用
- *   `CFBundleIdentifier` 确认身份才 `execFile`，因为**每个 Electron 应用的
- *   二进制都叫 `Electron`**，只按名字匹配就可能启动另一个产品。
+ *   `CFBundleIdentifier` 确认身份才 `execFile`，因为其他 Electron 应用也可能使用这个二进制名，只按名字匹配可能启动另一个产品。
  *
  * @module dsh-connect-workbuddy/at-rest
  */
@@ -295,10 +294,8 @@ export function macosBundleExecutable(bundle: string): string | undefined {
  * set `WORKBUDDY_APP_EXECUTABLE` by hand; the installer already recorded the
  * answer, so this reads it instead.
  *
- * The registration is the app's own claim about itself, which is what makes it
- * safe to hand the path to the credential probe: a display name alone would be
- * a guess, whereas the path here was written by the installer that placed the
- * binary. The value is still checked against {@link APP_EXECUTABLE_NAME} and for
+ * Registry values supply candidate paths, not proof of binary authenticity.
+ * The value is checked against the recognized executable names and for
  * existence before use, and the callers fall through to the documented hint when
  * it is absent.
  *
@@ -436,10 +433,10 @@ export function stripRegistryQuotes(value: string): string | undefined {
  * heartbeat probe in `host-heartbeat.ts` and in `docs/WINDOWS.md` §1-3.
  *
  * `execFileSync` (not `execFile`) keeps this synchronous so the candidates list
- * stays a pure function of its inputs: it is called during `findWorkbuddyApp`
+ * is available before the lookup returns: it is called during `findWorkbuddyApp`
  * `Executable`, which `readAtRestKey()` and the `doctor` command both treat as
  * a plain lookup. The read is bounded by the registry query's own output and
- * happens at most once per discovery.
+ * may query several uninstall views during discovery.
  */
 function queryRegistry(args: readonly string[]): string | undefined {
   try {
@@ -530,8 +527,8 @@ export function workbuddyAppExecutableCandidates(
  * launched. This matters because the discovery below scans directories and then
  * execs what it finds: every Electron app is built around a binary called
  * `Electron`, so a name-only match could pick a different product's bundle and
- * run it. The identifier is the app's own claim about itself, so it is the
- * check that makes the scan safe.
+ * run it. The identifier is a bundle-metadata filter, not a cryptographic verification
+ * of its publisher or executable.
  */
 const APP_BUNDLE_IDENTIFIER_PREFIXES: readonly string[] = ['com.tencent.workbuddy', 'com.workbuddy']
 
@@ -788,8 +785,8 @@ const APP_EXECUTABLE_MISS_TTL_MS = 60_000
  * remembering a MISS for {@link APP_EXECUTABLE_MISS_TTL_MS}.
  *
  * Only this module's own lookup is cached, and only when it goes through the
- * real seams: `findWorkbuddyAppExecutable` stays a pure function of its
- * arguments for `doctor` and for the injected-platform tests, which must keep
+ * real seams: `findWorkbuddyAppExecutable` performs a fresh lookup for
+ * `doctor` and for the injected-platform tests, which must keep
  * seeing the machine as it is right now.
  */
 function discoverAppExecutable(): string | undefined {

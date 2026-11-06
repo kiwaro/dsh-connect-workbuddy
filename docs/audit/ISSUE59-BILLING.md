@@ -1,5 +1,8 @@
 # Issue #59: reasoning billing evidence
 
+> 2026-11-06 复核：下文保留 2026-10-18 至 19 日的调查过程、测量值和后续更正。源码可以说明历史推理内容如何转换为文本；报告者的请求计数及密度估算只能支持该样本中的 token 统计解释，不能单独证明实际积分扣费，也不能把已测文本密度视为所有文本的硬下限。本机未重做跨区受控实验，原文中的“定案”“已证伪”“safe”应按此范围理解。
+
+
 Scope: verification of the evidence supplied on 2026-10-18. Reporter captures and arithmetic reproduced in this repository are identified separately below.
 
 Role: independent verifier (`verifier`), follow-up to `docs/audit/ISSUE59-VERIFY.md`. The prior report left C7 (the billing premise) as **UNVERIFIABLE-LOCALLY**. The reporter now claims it is **settled** by two new arguments (A) a same-region incremental measurement and (B) a correction of our own density-discriminator. The report checks the arithmetic, assumptions and source of both arguments.

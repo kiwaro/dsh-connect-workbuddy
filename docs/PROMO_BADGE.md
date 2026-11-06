@@ -38,6 +38,8 @@
 | 缺少每日时段或为空数组 | 每日全天，仍受绝对日期约束 |
 | 提供每日时段但全部解析失败 | 设置 `dailyUnusable`，该条目保持未生效 |
 
+缺少时区时使用 UTC；时区无效时，当前实现将用于判断的分钟数设为 0。这不等于按 UTC 计算，排查异常标记时需要检查原始时区字段。
+
 解析器保留模型的所有候选活动。显示时使用当前时间重新判断，以处理夜间折扣与白天常驻标签之间的切换。设置页展开时每 60 秒刷新，界面状态随刷新重新计算。
 
 ## 4. 标记选择
@@ -85,7 +87,7 @@
 | `hy4-night-discount-badge-202609` | 夜间免费 | `hy4-preview`（+ctrl/exp） | 每日 23:00 → 次日 8:00 |
 | `hy4-night-discount-daytime-badge-202609` | 夜间免费 | 同上 | 每日 0:00 → 8:00 与 23:00 → 23:59 |
 | `ds-discount-daytime-badge-202608` | 夜间折扣 | `deepseek-v4.1-flash`、`deepseek-v4-pro`（+ioa 变体） | 每日 0:00 → 23:59 |
-| `space-bunny-discount-202610` | 限时折扣 | `space-bunny` | 10-02 → 10-08（已过期，故今日不显示） |
+| `space-bunny-discount-202610` | 限时折扣 | `space-bunny` | 10-02 → 10-08（在该次测量时已过期） |
 | `step-5-discount-daytime-badge-202610` | 独家限免 | `step-5-preview` | 10-12 → 10-26 |
 | `tier-standard-2026q3` | 订阅优先，等级标记 | `glm-5.3`、`glm-5.3-flash`、`kimi-k2.8-preview` | 全天 |
 

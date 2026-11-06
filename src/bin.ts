@@ -369,16 +369,10 @@ async function doctor(jsonOutput: boolean): Promise<number> {
     global: credentialAcl.find(([region]) => region === 'global')![1],
   }
   /**
-   * 设备身份取证（审计 `docs/DEVICE-IDENTITY-AUDIT.md` §4 的 D1 / §5.4 的隔离性）。
-   *
-   * 只读地算出两件事：现在**有没有**设备头上了线，以及派生档会给池子里的每个号
-   * 算出什么。唯一可能的写入是首次生成 `$DSH_HOME/.workbuddy-device.json`——
-   * 没有盐就算不出"这个池子会不会塌成一台设备"，而这个答案离线推不出来。
-   * 只在确有账号时生成：一台没登录的机器不该留下设备身份。
-   *
-   * 盐在这里读**一次**，同一份读数同时喂给报告和下面的头名清单。两处各读一次
-   * 就可能读到两种状态（一次 absent、一次 ok），于是同一屏里自相矛盾。
-   */
+ * 设备身份诊断：根据当前凭据、设备盐和请求头构造函数推导设备标识。
+ * 这不是实际请求的抓包结果。有账号时可能创建本机盐文件；凭据读取还可能触发相应缓存或权限处理。
+ * 同一份盐读数用于设备报告与头名清单。设计背景见 docs/DEVICE-IDENTITY-AUDIT.md。
+ */
   const deviceCredentials = (await Promise.all(
     (await anyStore.accounts()).map(async account => anyStore.credentialFor(account.id)),
   )).filter((credential): credential is WorkBuddyCredential => credential !== undefined)
@@ -393,19 +387,15 @@ async function doctor(jsonOutput: boolean): Promise<number> {
   const deviceTokenFile = (process.env[WORKBUDDY_DEVICE_TOKEN_FILE_ENV] ?? '').trim()
   const deviceToken = deviceTokenFile === '' ? undefined : await readDeviceTokenFile(deviceTokenFile)
   /**
-   * 真实值档（P3）。
-   *
-   * 档位来自磁盘上的设备设置，不是猜的：同一台机器上插件与 `doctor` 读的是同一份
-   * 文件。`probe` 只起一个 6 ms 的子进程读 `isSupported`，**不发网络请求**；只有
-   * 真的处于真实值档时才去取一枚 token——那正是"SDK 现在能不能工作"的答案，
-   * 而它恰好是排障时最想知道的。
-   */
+ * SDK 诊断读取已保存的设备模式与目录设置。info() 检查 SDK 状态；
+ * 真实值模式还调用 tokens.current() 尝试取得设备 token。耗时取决于本机 SDK 和缓存状态。
+ */
   const deviceSettings = await readDeviceSettings()
   const deviceTier = deviceSettings.mode
   const turing = createTuringSdk({
     productVersion: APP_VERSION,
     // 卡片上填的目录（作者意见 #1）：doctor 与插件读同一份设置，所以排障时
-    // 两边看到的目录不会一个有一个没有。
+    // 两边使用同一持久化来源；环境变量覆盖和缓存时机仍可能使当次读数不同。
     dirSource: async () => (await readDeviceSettings()).sdkDir,
   })
   const turingInfo = await turing.info()

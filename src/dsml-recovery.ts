@@ -1,75 +1,23 @@
 /**
- * Recovery for one upstream defect: the model writes its tool call into the
- * assistant TEXT (`delta.content`) instead of returning a structured
- * `delta.tool_calls`.
+ * Parse supported tool-call markup found in assistant text into structured calls.
+ * A recovered call must close, name a declared tool (or pass an enabled name
+ * repair), satisfy required parameter checks, and respect a pinned tool choice.
+ * These checks establish the parser's acceptance criteria, not certainty about
+ * the model's intent or full JSON-schema validity.
  *
- * `src/markup-diagnosis.ts` already establishes that this happens, and that it
- * is not this plugin's fault: the marker is the model's own transcript markup,
- * emitted into the wrong channel. What that module deliberately does NOT do is
- * act on it — it only reports. This module is the acting half: it recognises a
- * markup block, decides whether it is safe to treat as a real call, and hands
- * back either the call or the untouched text.
+ * Quoted regions are ignored. Unrecovered blocks generally return as text;
+ * supported unnamed invocations and stray markup may instead be withheld when
+ * the caller supplies the corresponding reporting hook. No-tools requests do
+ * not enable recovery. Streaming holds incomplete blocks until closure or flush.
  *
- * ============================================================================
- * The four gates (why this is not "just parse the XML")
- * ============================================================================
+ * The scanner, ignored-region handling, parameter parser and buffer were ported
+ * from src/codebuddy_proxy/dsml_parser.py in hawklithm/workbuddy2api (MIT,
+ * Copyright (c) 2026 Mayer). This port adds declared-tool checks, one call shape,
+ * optional schema inference, and optional unique one-edit tool-name repair.
  *
- * The obvious implementation — see markup looking like a call, call it a call —
- * shipped upstream and was rolled back after three classes of production
- * accident: truncated turns producing EMPTY-argument calls, prose that merely
- * DISCUSSED the markup being executed as a call, and names that the request
- * never declared being promoted to real calls. Each gate below exists because
- * of one of those:
- *
- *   1. CLOSE BEFORE COMMIT — a call is produced only once its closing tag has
- *      arrived. An unclosed block (token-limit truncation, stream cut) is
- *      handed back as text. It is never guessed at.
- *   2. NAME MUST BE DECLARED — the tool name must appear in THIS request's
- *      `tools`. A name that was not offered is not a call we may invent.
- *   3. NO TOOLS, NO RECOVERY — when the request declared no tools (which
- *      includes `tool_choice: "none"`, after `prepareChatBody` removes them),
- *      the caller must not run this at all. `declaredTools()` returning
- *      nothing is the signal.
- *   4. ANY DOUBT ROLLS BACK — required parameters missing, a name that does
- *      not match a pinned `tool_choice`, anything unparsable: the block is
- *      returned as text, VERBATIM. Gate 4 says "show it", not "hide it":
- *      silently dropping a block would lose content the user cannot see
- *      missing, and a check that swallows text looks exactly like a check that
- *      passes — a trap this project has already paid for once.
- *
- * The consequence worth stating plainly: this module converts only the shapes
- * that are unambiguously calls. The shape this project has actually captured —
- * `<｜DSML｜ validate>` where the tool name overwrote the `invoke name="…"`
- * clause — carries no tool name at all, so it can never pass gate 2 and is
- * returned as text (see `docs/DSML-RECOVERY-PLAN.md` §5 for the decided
- * fallback).
- *
- * ============================================================================
- * Provenance
- * ============================================================================
- *
- * The tag scanner, the ignored-region handling, the parameter parser and the
- * streaming buffer are a TypeScript port of `src/codebuddy_proxy/dsml_parser.py`
- * from <https://github.com/hawklithm/workbuddy2api> (MIT, Copyright (c) 2026
- * Mayer) — a DSH plugin proxying the same WorkBuddy/CodeBuddy upstream, which
- * is why its edge cases look so familiar. Three deviations are deliberate and
- * are called out at their sites:
- *
- *   - the reference defines `find_invoke_blocks` twice (the second shadows the
- *     first); only one implementation is carried here;
- *   - the reference's streaming injection reads `tc["name"]`/`tc["input"]`
- *     while its own parser returns `{id, type, function}`; this port has ONE
- *     call shape ({@link RecoveredToolCall}) so the two cannot disagree;
- *   - the reference has no gate 2 and no gate 3 at all (no declared-tool
- *     check anywhere in the repository). They are added here.
- *
- * Purity is a hard requirement: no filesystem, no network, no logging, no
- * clock. `vitest.config.ts` points `HOME`/`DSH_HOME` at an empty temp dir, so a
- * module that reached outside would simply not be testable.
- *
+ * This module performs no filesystem or network I/O.
  * @module dsh-connect-workbuddy/dsml-recovery
  */
-
 import { randomUUID } from 'node:crypto'
 
 /**
@@ -264,7 +212,7 @@ export interface RecoveryGate {
    * and gate 4 correctly refused to invent one — so the user received the raw
    * markup as the answer, four times in one session.
    *
-   * The recovery that fixes this does NOT invent a name either. It picks a
+   * This optional recovery infers a name from matching parameter names. It picks a
    * declared tool only when the evidence is the model's own: every parameter
    * tag the block carries is accepted by that tool's schema, every required
    * parameter is present, and exactly ONE declared tool satisfies both. Two
@@ -284,13 +232,13 @@ export interface RecoveryGate {
    * it (correctly: the name was never on offer), so the whole block fell back
    * to plain text and the user read a wall of markup.
    *
-   * WHY THIS IS NOT "GUESSING A NAME". The candidate set is the request's OWN
+   * This is a constrained inference. The candidate set is the request's own
    * `body.tools`; a repair can only ever select a name that was already on
    * offer, and only when exactly one declared name is within one edit of the
    * written one. It never invents anything, and the pin in gate 2 still runs
    * on the repaired name — so a request pinned to another tool still refuses.
    *
-   * The guards that make "one edit" safe rather than reckless:
+   * The guards that limit one-edit repair:
    *
    *   - both names must be at least {@link NEAR_NAME_MIN_LENGTH} long, because
    *     short names collide trivially (`bash`/`dash` are 1 apart);
@@ -580,7 +528,7 @@ function prefixLengthAt(text: string, index: number): number {
   return 0
 }
 
-/** Is a single character usable inside a tag name? Mirrors Python's `isalnum()`. */
+/** Whether a tag-name code unit matches a Unicode letter/number, underscore or hyphen. */
 function isNameCharacter(text: string, index: number): boolean {
   return /[\p{L}\p{N}_-]/u.test(text.charAt(index))
 }
@@ -928,7 +876,7 @@ function parseInvoke(
     // No attributes at all — the shape the upstream produced in
     // session-333b5f2d. If the caller turned on `inferFromSchema`, the name is
     // read from the model's own evidence (its parameter tags) under the
-    // request's schemas; anything less than certainty returns undefined and
+    // request's schema names; a missing or ambiguous match returns undefined and
     // the block keeps its gate-4 fate.
     name = inferNameFromSchema(parameters, gate)
     if (name === undefined) return undefined
@@ -1323,25 +1271,12 @@ function normalizeFullwidth(text: string): string {
 }
 
 /**
- * Buffers `delta.content` and commits a call only when the block that declares
- * it is complete.
- *
- * Ported from the reference's `ToolCallStreamBuffer` with its hard-won
- * behaviour intact:
- *
- *   - a block with no close tag yet holds the ENTIRE block (not a partial
- *     guess), and only the tail that could still become a tag is held back
- *     from otherwise-finished text;
- *   - a block that fails the gates is emitted VERBATIM (gate 4), not dropped;
- *   - {@link flush} hands back whatever is still held, so a truncated block
- *     loses none of its text.
- *
- * The reference's own comment explains why the tail rule is not "hold
- * everything from the first `<`": an architecture document that shows
- * `<tool_calls><invoke>` as an EXAMPLE would otherwise starve the rest of the
- * response until the stream ended, and then lose it.
- */
-export class DsmlStreamBuffer {
+ * Buffer delta.content until a supported block closes, then parse it through
+ * the request's recovery gate. Refused blocks generally remain text; an unnamed
+ * invocation can be withheld when a reporting hook exists. Scrub mode removes
+ * protocol blocks without recovering calls. flush also applies debris cleanup,
+ * so it does not promise to return every buffered byte unchanged.
+ */export class DsmlStreamBuffer {
   private pending = ''
   private readonly gate: RecoveryGate
   /** The first withholding reason observed in this stream, reported once. */

@@ -153,7 +153,8 @@ export interface WorkBuddyPromoSchedule {
  * says the model is on offer, and this field says HOW MUCH less it costs during
  * the offer. The plugin used to drop it, so a model could wear a "night
  * discount" badge while still showing its full price — the card and the
- * composer readout then disagreed with what the user was actually charged.
+ * composer readout then disagreed with the published discount. These fields
+ * describe the displayed multiplier; they do not verify an account's bill.
  *
  * Shapes observed on the CN feed (2026-10-21, `docs/PROMO_BADGE.md`):
  *
@@ -164,11 +165,11 @@ export interface WorkBuddyPromoSchedule {
  * `factor` is a ratio the upstream sometimes supplies (0.545 = "55% of the
  * normal price"); it is used only when `discountedCredits` cannot be read, and
  * the two disagreeing means the string wins — it is the figure the user will
- * be charged.
+ * see in the published discount.
  */
 export interface WorkBuddyPromoDiscount {
   /**
-   * The multiplier the user pays during the promotion, e.g. `0` for free.
+   * The published promotional multiplier, e.g. `0` for an advertised free offer.
    *
    * Parsed from `discountedCredits` ("0x" / "0.06x" / "0.06"), or derived from
    * `factor` when only that is present. `undefined` when neither could be read.
@@ -190,7 +191,7 @@ export interface WorkBuddyPromoDiscount {
    * An earlier version accepted only `'replace'`, which silently dropped every
    * real CN discount except the hy3 trial — the price never moved while the
    * badge was lit (issue #120, second report). Both modes mean "the discounted
-   * figure is what you pay"; they differ only in whether the old figure is also
+   * figure replaces the displayed base multiplier"; they differ only in whether the old figure is also
    * shown on screen, which this plugin does not do either way (one number per
    * row), so both are honoured identically here.
    *
@@ -429,7 +430,7 @@ function parseDiscount(value: unknown): WorkBuddyPromoDiscount | undefined {
   const fromFactor = typeof raw['factor'] === 'number' && Number.isFinite(raw['factor']) && raw['factor'] >= 0
     ? raw['factor']
     : undefined
-  // The string wins: it is the figure the user is charged. `factor` only fills
+  // The published string wins for display. `factor` only fills
   // in when the string is absent or unreadable.
   const multiplier = fromString ?? fromFactor
   const displayMode = raw['displayMode'] === 'replace' || raw['displayMode'] === 'strikethrough'
@@ -560,9 +561,9 @@ export function attachPromos<T extends { id: string }>(
  *
  * `Intl` does the zone maths, because the upstream's windows are written in
  * the zone IT names (Asia/Shanghai for the CN feed) and the user's own clock
- * is not necessarily in that zone. An unusable zone falls back to UTC rather
- * than throwing: a badge that cannot be placed is a missing badge, not a
- * broken card.
+ * is not necessarily in that zone. An absent zone uses UTC. An invalid zone
+ * or formatting failure returns minute zero; that fallback can still match a
+ * window and does not by itself hide the badge.
  */
 function zonedMinutes(nowMs: number, timeZone: string | undefined): number {
   const zone = timeZone ?? 'UTC'
@@ -707,7 +708,8 @@ function hasSchedule(promo: WorkBuddyPromo): boolean {
  *      outside the discount hours, and it must NOT discount them — that is
  *      exactly the bug this function exists to prevent. The badge admits
  *      standing entries through `selectPromoBadge`; the price does not.
- *   2. `displayMode` must say `'replace'`, and the value must parse. An entry
+ *   2. `displayMode` must say `'replace'` or `'strikethrough'`, and the value
+ *      must parse. An entry
  *      with a badge but no readable discount changes nothing, so the catalog's
  *      figure stands.
  *
@@ -727,7 +729,7 @@ export function selectPromoMultiplier(
   for (const promo of sorted) {
     const discount = promo.discount
     if (discount === undefined || discount.multiplier === undefined) continue
-    // Both observed modes mean "the discounted figure is the price" (see
+    // Both observed modes select the published discount for display (see
     // `WorkBuddyPromoDiscount.displayMode`). An unlabelled discount is skipped:
     // its absence says nothing about how to read the figure.
     if (discount.displayMode !== 'replace' && discount.displayMode !== 'strikethrough') continue

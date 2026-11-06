@@ -51,9 +51,9 @@
  * measured budget: delay sequence 20+40+80+160+200×4 ≈ 1100ms, not the
  * "600ms" an earlier draft of the docs claimed.
  *
- * Inside DSH the host's own copy always wins — the dynamic import resolves it
- * first, and the fallback is unreachable there. The fallback exists solely so
- * the standalone CLI is self-sufficient on a machine that has only the plugin.
+ * The dynamic import tries the peer first. A missing or otherwise unresolvable
+ * peer can select the fallback, including in a misconfigured host. The fallback
+ * lets the standalone CLI work when those peers are absent.
  *
  * @module dsh-connect-workbuddy/host-peers
  */
@@ -63,7 +63,7 @@ import { lstat, mkdir, rename, rm, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 
-/** Permission bits for a replacement inode: `0o600`, owner read/write only. */
+/** Permission bits for a replacement inode: `0o600`, owner read/write on POSIX; Windows access also depends on ACLs. */
 export interface WriteAtomicOptions {
   /** Permission bits the replacement inode ends up with. */
   mode: number
@@ -270,29 +270,19 @@ async function fallbackWithFileLock<T>(
 // ---------------------------------------------------------------------------
 
 /**
- * Resolve the DeepSeek Harness home.
- *
- * Deliberately SYNCHRONOUS and self-contained rather than a host-first loader.
- * The host package's `resolveDshHome` is a pure function of its arguments and
- * `process.env` — it performs no I/O — and every call site in this plugin
- * passes NO argument. The zero-argument form is `$DSH_HOME` (when non-blank)
- * else `~/.dsh`, which is reproduced exactly below, so consulting the host
- * copy could not change a single answer while it WOULD have forced the
- * synchronous call sites (credential paths, the heartbeat path) to become
- * async. The host import is therefore dropped outright.
- *
- * Cost of being wrong: nothing. Precedence is transcribed, not guessed, and
- * the two branches are pinned by `tests/host-peers.spec.ts`.
+ * Resolve the DSH home synchronously using configured path, nonblank DSH_HOME,
+ * then ~/.dsh. This local implementation avoids an async peer lookup. Tests
+ * cover the intended precedence; future peer changes require comparison again.
  */
 export function resolveDshHome(configured?: string): string {
   return fallbackResolveDshHome(configured)
 }
 
 /**
- * Replace `filename` with `content` atomically, under the sibling write lock.
+ * Replace filename atomically. This wrapper does not acquire the sibling lock;
+ * callers needing a read-modify-write transaction must use withFileLock.
  *
- * Async only because the host module is loaded lazily; inside DSH this is the
- * host's own implementation.
+ * Loads the peer lazily and uses the local implementation if it cannot load.
  */
 export async function writeFileAtomic(filename: string, content: string, options: WriteAtomicOptions): Promise<void> {
   const host = await hostAtomicWrite()

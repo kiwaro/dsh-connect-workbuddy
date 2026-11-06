@@ -1,26 +1,9 @@
 /**
- * 每账号的"虚拟设备"参数（设置里的「虚拟值」档）。
- *
- * ## 它解决什么
- *
- * P1 的设备对（`X-Machine-ID` / `X-Session-ID`）是从 `sha256(命名空间 + 本机盐 +
- * 用途 + uid)` 算出来的：稳定、按号隔离，但**不可调**。用户往往需要手上一台
- * "指定"的设备——排查某个账号为什么被判异常时，第一件事就是把它的设备标识换成
- * 一个已知值；或者反过来，怀疑两个账号被关联时，把其中一个改成明显不同的值。
- * 这个文件就是那些"指定值"的落点。
- *
- * ## 与盐的关系
- *
- * 盐是**派生输入**，这里是**覆盖结果**。两者不冲突：某个账号没有覆盖时照常派生，
- * 有覆盖时逐字段用覆盖值（只改 machine、session 仍派生是完全合法的操作）。
- * 盐不因为这里的存在而改变——覆盖只影响发出去的头。
- *
- * ## 「真实值（P3）」在这里只是被记住
- *
- * `mode` 会写入文件、会被读出来、会决定界面上齿轮是否可用，但**不改变任何发出的请求字节**：
- * 真 token 的取法与档位互斥规则都在 P3。写在这里而不是留一个前端 state，是因为
- * 一个只在浏览器内存里的切档，刷新一次就回到默认值——那不叫预留入口，那叫没做。
- *
+ * 每账号的虚拟设备覆盖值与设备模式设置。
+ * 未覆盖的字段由 device-id.ts 根据本机盐与 uid 派生；覆盖值不改变盐。
+ * 本模块持久化 mode、SDK 目录及回退偏好，请求层读取这些设置后选择设备头。
+ * 真实模式由 SDK 提供 token，获取失败时按 sdkFallbackToVirtual 处理；
+ * 因此切换 mode 会影响后续请求，并非仅保存一个界面状态。
  * @module dsh-connect-workbuddy/device-profile
  */
 
@@ -30,7 +13,7 @@ import { deriveDeviceId, isDeviceId } from './device-id.ts'
 import { readDeviceSalt } from './device-salt.ts'
 import { resolveDshHome, withFileLock, writeFileAtomic } from './host-peers.ts'
 
-/** 设备头档位。「真实值」目前只是占位，不改变发出的请求字节（P3）。 */
+/** 设备头档位：虚拟值使用派生标识，真实值使用本机 SDK 的设备凭据；请求层按回退设置处理获取失败。 */
 export type WorkBuddyDeviceMode = 'virtual' | 'real'
 
 /** 本 build 能读的文件版本；读到别的版本按"没有设置"处理。 */
@@ -49,9 +32,8 @@ export interface WorkBuddyDeviceProfile {
  * 一个账号**留空时真正会发出去**的那一对 id。
  *
  * 它由 `sha256(命名空间 + 本机盐 + 用途 + uid)` 算出（见 `device-id.ts`），
- * 因此同一台机器上不同账号必然不同、同一账号跨重启必然相同——前者是隔离，
- * 后者是设备稳定性。UI 把它显示出来，是为了让"留空"这件事有一个可核对的结果，
- * 而不是一句"自动派生"。
+ * 在盐、uid 和算法不变时，同一账号跨重启得到相同结果；不同 uid 通常得到不同结果。
+ * UI 显示派生值，便于核对留空字段在虚拟模式下采用的值。
  */
 export interface WorkBuddyDeviceDerived {
   machineId: string
@@ -193,8 +175,8 @@ async function readStored(dir?: string, nowMs: number = Date.now(), fresh = fals
   try {
     parsed = JSON.parse(text) as unknown
   } catch {
-    // 坏文件按"没有设置"处理（不是"重新生成"）：覆盖值是用户手填的，丢了就是丢了，
-    // 但设备身份不会因此改变——没有覆盖时一切照旧派生。
+    // 无法解析时使用默认设置，不重写坏文件。覆盖值无法读取后将回到派生值，
+    // 因此请求使用的设备身份可能与原先的手填值不同。
     return remember(emptyDocument())
   }
   const record = typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)
@@ -301,11 +283,8 @@ async function writeStored(document: StoredDocument, dir?: string): Promise<void
 }
 
 /**
- * Switch the device-head tier.
- *
- * 「真实值」目前只被记住，不改任何发出的请求字节——P3 才接真 token 与互斥规则。
- * 界面上必须把这件事说清楚（`row.deviceModeRealNote`），否则用户会以为切过去
- * 就换成了真实设备。
+ * 保存设备模式。后续请求由 upstream.ts 读取模式并选择 SDK token 或虚拟设备头；
+ * 真实模式获取失败时按已保存的回退设置处理。
  */
 export async function setDeviceMode(
   mode: WorkBuddyDeviceMode,
@@ -326,7 +305,7 @@ export async function setDeviceMode(
  *
  * 两项都是**可选**参数，`undefined` 表示"不要动这一项"——与
  * {@link saveDeviceProfile} 同一条约定：卡片上有两个独立控件，其中一个的保存
- * 不该把另一个刚改的值写回旧值。
+ * 必须保留另一次操作刚保存的字段值。
  *
  * `sdkDir` 只做去空白，不做存在性校验：一个路径填错的正确反馈是「探不到 SDK」
  * （`probe` 会答 `missing` 或 `error` 并带上那个路径），而不是在这里拒绝保存——
@@ -418,7 +397,7 @@ export interface WorkBuddyDeviceSettingsPort {
 export interface WorkBuddyDeviceProfileLookup {
   forUid(uid: string): Promise<WorkBuddyDeviceProfile | undefined>
   /**
-   * 当前档位。真实值档下 `forUid` 的结果会被忽略（所有账号共用这台机器的真实
+   * 当前档位。真实值档成功取得 SDK token 时，`forUid` 的结果会被忽略（所有账号共用这台机器的真实
    * 设备），但仍然要能读出来——构头时必须先知道自己在哪一档。
    */
   mode(): Promise<WorkBuddyDeviceMode>

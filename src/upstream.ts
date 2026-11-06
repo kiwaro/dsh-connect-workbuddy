@@ -198,8 +198,8 @@ export interface WorkBuddyUpstreamModel {
    *
    * The effective flag stays {@link multimodal}, stamped at runtime from the
    * user's saved `imageModelIds` — so a user can still uncheck an upstream-
-   * advertised model, and the checked state only changes on an explicit
-   * refresh/save.
+   * advertised model, and reviewed defaults can seed the effective selection until the user
+   * explicitly edits it (effectiveImageIds).
    */
   supportsImages?: boolean
   /**
@@ -390,13 +390,9 @@ export type WorkBuddyChatResult =
     }
 
 /**
- * Chat answer that also carries the response headers.
- *
- * Used by the model probe, whose whole point is to ask "is this usable right
- * now, and if not, when?" — and the only place an upstream ever names a
- * cooldown is the `Retry-After` header, which {@link WorkBuddyChatResult}
- * deliberately does not surface. Returning a separate shape keeps the ordinary
- * chat path (and its callers) untouched.
+ * Probe transport result including Retry-After and either a live response or
+ * failure text. Retry information can also appear in the body; the header is
+ * not the only source used by probe.ts.
  */
 export interface WorkBuddyProbeAnswer {
   ok: boolean
@@ -572,7 +568,7 @@ const PROBE_TIMEOUT_MS = 30_000
  *
  * 实测一张 1024x1024 的图在官方网关要 17–39 秒（`hunyuan-image-alpha`，
  * 2026-10-21，两个国内入口各测一次），比任何 JSON 接口都慢一个数量级，
- * 因此不能复用 {@link JSON_TIMEOUT_MS}。三分钟足够覆盖一次正常的排队+推理，
+ * 因此不能复用 {@link JSON_TIMEOUT_MS}。三分钟用于覆盖已测的排队和推理时长，仍可能在负载更高时超时；
  * 又不至于让一个卡死的连接占住工具界面扩展位置太久。
  */
 const IMAGE_TIMEOUT_MS = 180_000
@@ -827,7 +823,8 @@ function isContentPolicyBody(body: string): boolean {
  *
  * WHY THE CODE HALF IS NOT OPTIONAL HERE. The verdict is the heaviest in the
  * classifier: `account_restricted` is failover-worthy AND benches the account
- * with NO cooldown — nothing but a re-authorisation returns it. Measured before
+ * with NO cooldown — the stored exclusion requires a successful retest or explicit reset.
+ * Reauthorisation alone need not clear a stored account measurement. Measured before
  * the code was required (see `classifyUpstreamError`), a body that merely
  * MENTIONS the phrase classified as `account_restricted` whatever else it was:
  * a 402 credit exhaustion, a 401 dead session, and even a 500 whose generic
@@ -856,8 +853,8 @@ const ACCOUNT_RESTRICTED_MARKERS: readonly string[] = [
  * 1. **Code-gated.** Only a `11140` envelope can reach the phrase test
  *    ({@link isContentPolicyBody}). The phrase alone is not evidence about the
  *    account: a risk-control throttle, a credit notice or an HTML edge page can
- *    carry the same sentence, and this verdict is the only IRREVERSIBLE one in
- *    the classifier — it benches the account with no cooldown.
+ *    carry the same sentence, and this verdict can produce an exclusion with no automatic cooldown.
+ *    A successful retest or explicit reset can replace the stored measurement.
  * 2. **Decoded text.** The match runs on `displayMsg` / `displayTips` / `msg`
  *    after `JSON.parse`, not on the raw bytes. An upstream or proxy that
  *    serializes non-ASCII as `\uXXXX` (Python's `json.dumps` default) would
@@ -1093,32 +1090,14 @@ export function carriesModelBusyTip(body: string): boolean {
 }
 
 /**
- * Which member of the `11128` family a failure body belongs to.
- *
- * ISSUE #113, AND WHY THE `msg` WORDING CANNOT BE TRUSTED. The three members
- * of this family share one business code and one `displayTips` sentence, so
- * the `msg` is the only thing that used to tell them apart — and the `msg` is
- * NOT reliable. Issue #113 measured a CN refusal whose `msg` literally read
- * `conversation id missing` while the three conversation-id headers were all
- * present and correct; the refusal was about the request's CONTENT, not its
- * headers. (The plugin's own conversation-id workarounds were in place — see
- * {@link conversationHeaders} — so the wording was simply wrong.)
- *
- * The consequence was not cosmetic. `isChannelRejectBody()` EXCLUDES a body
- * carrying the conversation-id wording, so such a body was not recognised as
- * the channel gate at all: it was filed as `client`, which means the plugin's
- * two-step retry ladder (`forceNeutralHead`, then the invisible perturbation)
- * NEVER RAN, and the user got the generic "refused on its parameters"
- * sentence instead of the channel diagnosis. That is very likely why the
- * reporters in issue #98's thread found that upgrading changed nothing for
- * them: their bodies never entered the path that could have helped.
- *
- * So the family is now recognised BY ITS CODE, and the member is named by
- * evidence the plugin can gather ITSELF — the request it just sent — rather
- * than by a wording the upstream may misreport.
+ * Channel-gate subtype used to select recovery advice.
+ * The plugin combines upstream wording with locally recorded request facts.
+ * This is a local diagnosis: headers present before sending do not prove how
+ * the gateway interpreted them, and they do not by themselves establish a
+ * content fingerprint as the cause.
  */
 export type ChannelGateMember =
-  /** The prompt's content was fingerprinted. The plugin can retry this. */
+  /** Locally inferred prompt-related refusal. Recovery may retry a transformed body. */
   | 'prompt'
   /** A request header the gateway wants was missing or rejected. */
   | 'headers'
@@ -1139,38 +1118,10 @@ export function isChannelGateFamilyBody(body: string): boolean {
 }
 
 /**
- * Whether a failure body is the gateway's CHANNEL gate — i.e. whether it
- * belongs to the `11128` FAMILY.
- *
- * ISSUE #113, AND WHY THIS NOW ANSWERS "IS IT THE FAMILY" RATHER THAN "IS IT
- * THE PROMPT MEMBER". The family has three members (prompt fingerprint,
- * missing conversation id, missing system head) sharing one business code and
- * one `displayTips` sentence, so the `msg` wording used to be the only thing
- * that could tell them apart — and the wording is NOT reliable. Issue #113
- * measured a CN refusal whose `msg` read `conversation id missing` while the
- * three conversation-id headers were all present and correct; the refusal was
- * about the request's CONTENT.
- *
- * The old rule required the channel wording AND the absence of the sibling
- * wordings, so such a body was excluded from the channel gate entirely and
- * filed as a plain `client`. That was not cosmetic: `client` never enters the
- * plugin's two-step retry ladder (`forceNeutralHead`, then the invisible
- * perturbation), so the rescue path that exists for precisely this refusal
- * never ran. That is very likely why the reporters in issue #98's thread found
- * that upgrading changed nothing.
- *
- * Every member of this family is a CHANNEL-verification refusal — the
- * upstream's own shared sentence says so — so acting on the family is correct
- * whoever the member is. Which member it is decides only what the reply
- * ADVISES, and that is {@link channelGateMemberOf}'s job, decided by the
- * plugin's own evidence rather than by a wording the upstream may misreport.
- *
- * The code is read by {@link statesBusinessCode}, exactly as the family test
- * above it does — this function adds nothing to that decision and must not
- * appear to own a rule of its own. The reason the code is READ rather than
- * text-matched is unchanged (issue #155): a request id is hexadecimal and can
- * contain the digits `11128` by coincidence, and a bare substring search over an
- * arbitrary failure body is how a red herring gets promoted into a diagnosis.
+ * Recognize the 11128 family through statesBusinessCode.
+ * This predicate does not distinguish a missing conversation id, a missing
+ * system head or a prompt-related refusal; channelGateMemberOf supplies the
+ * local subtype used for advice.
  */
 export function isChannelRejectBody(body: string): boolean {
   return isChannelGateFamilyBody(body)
@@ -1200,18 +1151,9 @@ export function isConversationIdGateBody(body: string): boolean {
 }
 
 /**
- * Whether a failure body is the FIRST-MESSAGE gate (`11128`).
- *
- * The global gateway's own rule: a chat request must OPEN with a system
- * message, and a user-first body is refused with `11128` / "first message is
- * not system prompt". The plugin's `ensureSystemHead()` satisfies it, so a
- * body carrying this wording says the request never had a system head — not
- * that a system prompt was fingerprinted.
- *
- * Excluded from the prompt diagnosis for the same reason as
- * {@link isConversationIdGateBody}, and named by the same rule: the CODE plus
- * the WORDING, the code read rather than text-matched (issue #155), the wording
- * case-insensitively.
+ * Whether the body states code 11128 and first-message wording.
+ * The wording is an upstream report, not proof of the actual transmitted shape.
+ * channelGateMemberOf also considers the request's recorded system head.
  */
 export function isFirstMessageGateBody(body: string): boolean {
   return statesBusinessCode(body, CHANNEL_REJECT_CODE)
@@ -1219,31 +1161,12 @@ export function isFirstMessageGateBody(body: string): boolean {
 }
 
 /**
- * Which member of the `11128` family a body is, decided by the plugin's OWN
- * evidence rather than by the upstream's wording.
- *
- * THE EVIDENCE, IN ORDER OF STRENGTH.
- *
- * 1. The body carries the channel wording (`unapproved channel` /
- *    `illegal api invocation`). That is the upstream naming the PROMPT gate
- *    explicitly, so it is trusted.
- * 2. The body says `conversation id missing`. The wording is only believable
- *    when the request did NOT carry the conversation-id triple; the plugin's
- *    `chatHeaders` adds it to every chat request, so in practice it is always
- *    there and the wording is always a misreport — which is issue #113's
- *    exact measurement. The refusal is then about the CONTENT, i.e. the
- *    PROMPT gate, which is also the only member the plugin can act on.
- * 3. The body names the first-message gate. That gate is about the request's
- *    SHAPE, and `ensureSystemHead` guarantees a `system` head whenever the
- *    request carries messages, so it is only reported as that gate when the
- *    request genuinely had none.
- * 4. Otherwise: `unknown`. The family is still the family — the retry ladder
- *    applies — but the reply says it cannot name the member rather than
- *    guessing, because a confidently wrong diagnosis sends the user to edit a
- *    prompt that is not at fault.
- *
- * @param body The failure body.
- * @param request What the plugin knows about the request it just sent.
+ * Choose a channel-gate subtype using wording and optional request facts.
+ * Explicit channel wording selects prompt. Conversation-id wording selects
+ * conversation-id unless local headers are recorded as present, in which case
+ * the implementation infers prompt. First-message wording is checked against
+ * the recorded system head. Other cases return unknown.
+ * These branches describe the plugin's inference, not verified gateway internals.
  */
 export function channelGateMemberOf(
   body: string,
@@ -1286,13 +1209,10 @@ function clip(text: string, limit: number): string {
 }
 
 /**
- * Classify an upstream failure from its HTTP status and body excerpt.
- *
- * The `11128` family is classified BY ITS CODE, not by the `msg` wording —
- * see {@link isChannelRejectBody} and {@link channelGateMemberOf}. Which
- * member of the family it is decides the ADVICE in the reply, never the
- * classification: every member is a channel-verification refusal that no
- * account, region or top-up can change.
+ * Classify status and a failure-body excerpt using the ordered rules below.
+ * The 11128 family maps to channel_reject by code; its local subtype affects
+ * advice rather than this classification. Classes guide retry policy and do not
+ * prove the root cause or its scope across other accounts and regions.
  */
 export function classifyUpstreamError(status: number, body: string): UpstreamErrorKind {
   if (status === 402) return 'hard_credit'
@@ -1568,7 +1488,7 @@ function originReferer(credential: WorkBuddyCredential): string {
  * 5.16.0 的公共头，**不含 P1 增补**。
  *
  * 只给 {@link refreshHeaders} 用，而且是有意的：refresh 是整条处理过程里唯一
- * "失败就等于掉登录"的一跳，它的字节不该因为一次身份统一而变化。B 的
+ * "失败可能影响登录续期"的一跳，它的字节不该因为一次身份统一而变化。B 的
  * `RefreshHeaders` 确实也走 `CommonHeaders`（因此带 `X-CodeBuddy-Request`），
  * 但那是 B 一直在跑的形状；本插件没有在 refresh 上验过任何新头，
  * "别人这么发" 不等于 "我们可以这么改"。
@@ -1586,7 +1506,7 @@ function legacyCommonHeaders(credential: WorkBuddyCredential): Record<string, st
 /**
  * 客户端调用（chat 家族）的公共头 = {@link legacyCommonHeaders} + P1 增补。
  *
- * 目前只有 chat 一条路径用它（`chatStream` 与 `probeChat`，两者是同一个合同）。
+ * 目前只有 chat 一条路径用它（`chatStream` 与 `probeChat`，两者是相同的请求约定）。
  * 元数据读与维护跳走 `legacyCommonHeaders`，见那条注释里的边界说明。
  */
 function commonHeaders(
@@ -1634,16 +1554,16 @@ function commonHeaders(
  * alongside `X-Conversation-ID` (that one alone still fails), and each of the
  * extras is satisfied by the triple without it. Hence exactly three.
  *
- * VALUES. The gateway does not verify where these ids come from — any well-formed
- * UUID passes — so nothing here is a secret and nothing is persisted. They are
+ * VALUES. Recorded tests accepted freshly generated UUIDs. That does not establish
+ * every check the gateway may perform. These ids are not credentials and are not persisted. They are
  * still freshly generated per request, as the official client generates
  * its own per call: reusing one value across requests would forge a
  * conversation identity the plugin does not actually have, and the first thing
  * that would break is the upstream's own correlation of a session it is being
  * told about twice under one id.
  *
- * APPLIED TO BOTH REGIONS on purpose. The CN gateway tolerates their absence
- * today, so this is harmless there — and a header that is only ever sent on one
+ * APPLIED TO BOTH REGIONS on purpose. The CN gateway tolerated their absence
+ * in the recorded tests, and also accepted the added headers — and a header that is only ever sent on one
  * side is exactly how the 3.1.0 defect became international-only and invisible
  * from the CN side. One code path, both regions.
  *
@@ -1826,7 +1746,7 @@ function profileOf(identity: WorkBuddyWireIdentity): WorkBuddyWireProfile {
  * 从不会这么称呼自己；A（`client_name` 默认 `WorkBuddy`）与 B
  * （`attributionClientName` 默认 `WorkBuddy`）都发 `WorkBuddy`，而 B 的注释直接
  * 把 `SaaS` 称作"还原旧行为"。同值三头（Name / Type / Product）也是两家的共同
- * 形状——官方客户端不会一边说自己是 WorkBuddy、一边说自己是 CLI。
+ * 形状——本实现按该档位为三个字段使用同一产品名；这只是请求形状，不能证明请求来自官方客户端。
  */
 const ATTRIBUTION_CLIENT_NAME = 'WorkBuddy'
 
@@ -1835,7 +1755,7 @@ const ATTRIBUTION_CLIENT_NAME = 'WorkBuddy'
  *
  * 官方客户端按账号所属区发对应语言（B 的 D5：CN `zh-CN` / global `en-US`）。
  * 一个中文账号发 `en-US` 是"这台机器换了语言"，而语言是设备指纹里最廉价、
- * 也最常被用来做聚类的一维——顺手对齐没有成本。
+ * 也最常被用来做聚类的一维——本实现随区域选择该值；语言头对服务端校验的实际影响仍需实验确认。
  */
 function acceptLanguageOf(credential: WorkBuddyCredential): string {
   return regionOf(credential.domain) === 'global' ? 'en-US' : 'zh-CN'
@@ -1867,7 +1787,7 @@ function attributionHeaders(identity: WorkBuddyWireIdentity): Record<string, str
     'X-IDE-Name': ATTRIBUTION_CLIENT_NAME,
     // Name 与 Type 同源。5.16.0 刻意混搭（Name=WorkBuddy / Type=CLI）是"最小
     // 身份声明"时期的取舍；P1 的目标是统一的客户端身份，混搭本身就是一处
-    // 会被比对的矛盾。
+    // 请求字段差异；是否被服务端比对不能只凭字段名称确定。
     'X-IDE-Type': ATTRIBUTION_CLIENT_NAME,
     'X-IDE-Version': APP_VERSION,
     'X-Product': ATTRIBUTION_CLIENT_NAME,
@@ -1875,20 +1795,15 @@ function attributionHeaders(identity: WorkBuddyWireIdentity): Record<string, str
 }
 
 /**
- * 设备头：真实值档只发真 token；虚拟值档发派生的 id 对（+ P2 的文件 token，若有）。
+ * 按设备档位构造请求头。
  *
- * 盐来自本机 `$DSH_HOME/.workbuddy-device.json`（见 `src/device-salt.ts`），由
- * 客户端解析一次后放进 identity；**盐缺席就整对不发**——只发 Machine-ID 不发
- * Session-ID 是一个真实客户端不会出现的形状。token 来自
- * `deviceToken.file`（见 `src/device-token.ts`），每 5 分钟重读。
+ * 真实值档仅发送非空的 deviceReal token，取不到时不发送设备头。
+ * 虚拟值档可发送文件 token，并按字段优先采用显式配置的机器、会话 ID；
+ * 未配置的字段使用账号 UID 与本机设备盐派生。缺少盐或 UID 时不生成派生 ID，
+ * 但显式配置的 ID 仍可发送，因此不能保证两个 ID 总是同时出现。
  *
- * ## 两档互斥，且互斥在**代码**里
- *
- * 真 token 内含设备信息（A 调 `fetchDeviceToken({includesDeviceInfo:true})`），
- * 再配一对伪造 id 等于自证不一致（审计 §5.3）。P2 把这个组合先放上线是为了让
- * 档位规则由实测决定；P3 的决定是：真实值档只发 token，派生对整对不发。这里不是
- * "少发几个头"，是两条互斥的返回路径——同时带着两者发出去的那条路已经不存在了，
- * 也就没有配置能配出矛盾组合。
+ * 本实现将真实值档与派生 ID 分开。这是本地请求构造策略，不能据此推断
+ * 服务端如何比对设备身份。文件 token 的读取方式见 src/device-token.ts。
  */
 function deviceHeaders(
   credential: WorkBuddyCredential,
@@ -1930,7 +1845,7 @@ function deviceHeaders(
  *   - 非 `balanced`：这一档根本不发设备头，去读盘只是浪费一次 IO；
  *   - 调用方已经给了盐（测试、或 doctor 已经解析过）：不复读；
  *   - 读不到（absent / unreadable / unwritable）：原样返回，`deviceHeaders`
- *     会因为 `deviceSalt === undefined` 整对不发。**绝不现场造一个临时盐**。
+ *     不会生成派生 ID；显式配置的 ID 仍可发送。此处不创建临时盐。
  */
 async function resolveWireIdentity(identity: WorkBuddyWireIdentity): Promise<WorkBuddyWireIdentity> {
   if (profileOf(identity) !== 'balanced') return identity
@@ -1985,24 +1900,14 @@ function refreshHeaders(credential: WorkBuddyCredential): Record<string, string>
 }
 
 /**
- * Billing request headers.
+ * 构造积分与账单接口请求头。
  *
- * ## 为什么这条路径要补这么多（审计 §1.3 的 D2）
+ * balanced 档添加客户端版本、来源、语言、归属和设备字段；归属与设备字段
+ * 使用 chat 路径的同一组构造器。conservative 档仅保留鉴权、JSON 类型以及
+ * 非空的用户、企业和域字段。具体输出以本函数及请求头测试为准。
  *
- * 5.16.0 的 billing 只发三件套 + 用户/企业/域，**没有 UA、没有 Origin/Referer、
- * 没有 X-Requested-With、没有任何归属头**。于是同一个 token 在同一分钟里发出
- * 两种客户端：chat 声称自己是 CLI，billing 声称自己是一个连 UA 都没有的裸 HTTP
- * 客户端。这种"两条路径互不承认"的反差不需要任何启发式就能被静态规则挑出来，
- * 而 billing 恰好是签到、领补偿这类**写操作**所在的域——最不该显得可疑的地方。
- *
- * 补齐的四类，每一类都有参照实现：
- *   - `User-Agent: WorkBuddy/<ver>`：B 的 billing 域用单段形态（官方 banner
- *     白名单头组不带 CLI 段），A 则对所有路径复用同一套头。
- *   - `Origin` / `Referer` / `X-Requested-With`：B 的 `CommonHeaders` 全路径发送。
- *   - `X-CodeBuddy-Request` + `Accept-Language`：B 在 billing 域单独添加（D1/D5）。
- *   - 归属头与设备头：与本插件的 chat 路径同源，保证"同一个客户端"这个说法成立。
- *
- * `conservative` 档整段跳过，billing 逐字节还原 5.16.0 的裸形状。
+ * 字段对齐用于保持本插件各请求路径的一致性，不证明客户端身份，
+ * 也不能据此判断服务端是否存在特定风控规则。
  */
 function billingHeaders(
   credential: WorkBuddyCredential,
@@ -2033,43 +1938,18 @@ function billingHeaders(
 }
 
 /**
- * 生图请求头。
+ * 构造生图请求头。
  *
- * 实测方法（2026-10-21，国内区）：`Authorization: Bearer` + `X-Product: SaaS` +
- * 用户/企业/域三连 + 会话身份三连 + `PRODUCT_UA`，在 `copilot.tencent.com` 与
- * `www.workbuddy.cn` 两个入口都返回 200。刻意**不带** `Origin` / `Referer`：
- * 检查请求当时没带，带了只是多一个可能被网关拒掉的变量，没有收益。
+ * 保留 2026-10-21 国内区请求样本中的鉴权、用户、企业、域及会话字段，
+ * 并通过公共构造器按 wireProfile 添加归属和设备字段。该样本曾在两个入口
+ * 返回 200，只能说明当时的请求成功，不能保证其他账号、区域或时间同样成功。
  *
- * 2026-10-31（P1）：`X-Product` 由 `SaaS` 改为 `WorkBuddy`，并补上
- * `X-Agent-Purpose` / `X-IDE-*` 与设备对，与 chat / billing 同一份自称（见
- * {@link attributionHeaders}）。这里遵守的是一条明确的界线：
+ * 此路径不添加 Origin、Referer、X-CodeBuddy-Request 或 Accept-Language。
+ * 这是当前实现的选择，不表示这些字段与生图无关或服务端永远不要求它们。
+ * conservative 档减少公共构造器新增的字段，不能保证逐字节恢复历史请求。
  *
- *   - **身份类头**（`X-Product` / `X-IDE-*` / `X-Agent-Purpose` / 设备对）跟着
- *     统一走。不统一的代价是新的 D2：同一个 host 上 chat 说自己是 WorkBuddy、
- *     生图说自己是 SaaS，而这个矛盾恰恰是这次要消掉的东西。
- *   - **网络环境类头**（`Origin` / `Referer`）保持上表的实测形态。它们回答的是
- *     "这条请求从哪来"，与"谁在说话"不是一个判据，当时特意排除就先不请回来。
- *
- * 代价说清楚：这毕竟是在一条逐字节测过的路径上加了几个头。若生图那项检查哪天
- * 开始拒，第一个该试的是把 `wireProfile` 切到 `conservative` —— 那一档会把这
- * 一行连同所有新增头一起还原成 5.16.0。
- *
- * 增量的边界是"**自我描述**"：`X-Product` / `X-IDE-*` / `X-Agent-Purpose` /
- * 设备对 / `X-Root-Request-ID` 进，`X-CodeBuddy-Request` 与 `Accept-Language`
- * **不进**。后两个不是身份而是传输层标记：若检查真的要求 `X-CodeBuddy-Request`，
- * 生图（从来没发过它）今天就该失败，而它一直是 200；语言同理，生图输出不是
- * 语言相关的东西。没有收益的变量不加——这条正是上面那段实测留下的规则。
- *
- * 复用 {@link conversationHeaders}：官方 CLI 的 ImageService 也是每次现生成
- * 一组会话 UUID。但这里**传 `'image'`，且刻意不跟 `usageIdentity` 开关走**：
- * issue #132 的实测只覆盖 chat，而生图这两个入口在 2026-10-21 是用带连字符的
- * v4 答的 200，而 id 的**格式**从来不是生图那项检查问的事。把对齐「顺手统一」到
- * 这里，等于用一条没人测过的字节去换一次显示对齐——`tests/upstream.spec.ts` 里
- * 那条生图检查钉的就是这一点，而 `shape` 是**唯一**挡住它的东西：客户端把
- * `usageIdentity` 一路传进了 `imageHeaders`，是 `'image'` 这个形状参数让它即便带着开关
- * 也不采用 chat 的形状。检查因此真能失败——两个方向都实跑过：把 `'image'` 改成
- * `'chat'` 会红，删掉 `shape === 'chat'` 判据也会红。（identity 没接进来之前，`shape`
- * 是空转参数、只改它检查照样绿；接进来是这一步的前提，别退回成不传 identity。）
+ * conversationHeaders 使用 image 形状，保留带连字符的会话 UUID；
+ * usageIdentity 对 chat 的格式调整不应用于此路径。对应行为由请求头测试约束。
  */
 function imageHeaders(
   credential: WorkBuddyCredential,
@@ -2241,30 +2121,11 @@ const IDENTITY_CLAUSE =
   /(you)(\s+are\s+(?:(?:an?\s+)?[\w-]*\s*agent\s+powered\s+by|interacting\s+with\s+the\s+user\s+through\s+the\s+deepseek\s+harness))/giu
 
 /**
- * Break an identity clause at EVERY word boundary inside it.
- *
- * NOT one break, and that is deliberate. The plugin does not know which span the
- * upstream listed: #533's minimal failing sample is the whole sentence, but the
- * gate is a substring match, so the listed span could equally be a shorter piece
- * of it (`a coding agent powered by`). One break at the front defeats only the
- * spans that start there. Breaking at every internal word boundary defeats every
- * span inside the clause, whatever its endpoints, for about ten invisible
- * characters.
- *
- * The cost is why this can run on EVERY request instead of only in a rescue:
- * measured on a real 10,818-character DSH system prompt it adds ~28 characters
- * (+0.26%), against the dense rescue's 7,742 (+70.7%). Both break all three
- * sites; only this one is cheap enough to send unconditionally.
- *
- * The break goes AFTER each whitespace run, so the text keeps its own spacing
- * and a reader (or a tokenizer) sees the same words in the same order.
- *
- * Naturally idempotent: once a clause carries a break, `IDENTITY_CLAUSE` no
- * longer matches it — `\s+` does not match U+200B, so the second alternative
- * fails at the inserted character and the clause is left alone on every later
- * pass. That is a property this function has to have on its own, because
- * {@link perturbChannelFingerprints} can no longer refuse to touch text that
- * already carries an invisible break.
+ * Insert U+200B at internal word boundaries matched by IDENTITY_CLAUSE.
+ * Previously inserted breaks stop that clause regex matching on a later pass.
+ * The transform changes request bytes and can change tokenization or meaning.
+ * Historical successful probes do not guarantee acceptance; later reports
+ * observed gateways normalizing invisible characters before matching.
  */
 export function breakIdentityClauses(text: string): string {
   return text.replace(IDENTITY_CLAUSE, (clause: string) =>
@@ -2272,30 +2133,10 @@ export function breakIdentityClauses(text: string): string {
 }
 
 /**
- * Whether this text OPENS with an opening the gateways refuse.
- *
- * The gate is a PREFIX match on the START of a `system` message, so this is
- * the one predicate that decides it — used by the request path (which prepends
- * the neutral head on a hit) and by the failure path (which names the
- * offending line).
- *
- * THREE MEASURED RULES are folded in here, all from the live CN gateway on
- * 2026-10-21 (account `ba217455…`, `deepseek-v4.1-flash`, every other request
- * field held fixed):
- *
- *   1. Only the START counts — the same sentence mid-content answers 200.
- *   2. LEADING WHITESPACE is trimmed before the comparison — " <banned>" and
- *      "\n<banned>" both answer 200 today.
- *   3. The comparison is CASE-INSENSITIVE — the lower-cased sentence fails too.
- *
- * (2) is a gift that can be withdrawn, so the comparison is made the way a
- * trimming gate would make it even while the gateway is lenient: a rule that
- * only holds while the gateway forgets to trim is a rule waiting to break.
- *
- * The list itself stays the measured snapshot. It is deliberately NOT
- * extended by guesswork: an opening nobody measured is an opening nobody knows
- * the gateway refuses, and inventing entries would neutralise prompts that
- * answer 200 today.
+ * Check text against the local snapshot of reported refused openings.
+ * Comparison trims leading whitespace and ignores case. Historical 2026-10-21
+ * samples motivated these rules; a local match does not prove the current
+ * gateway will refuse it, and a miss does not establish acceptance.
  */
 export function isUnapprovedChannelOpening(text: string): boolean {
   const opening = text.replace(/^\s+/u, '').toLowerCase()
@@ -2303,12 +2144,8 @@ export function isUnapprovedChannelOpening(text: string): boolean {
 }
 
 /**
- * Whether this text already begins with the plugin's own neutral head.
- *
- * The question the failure path has to answer per system message: "is the
- * line the gateway refused OURS, or the HOST's?" — the plugin's head is the
- * one line it has ever added to a prompt, so it is the only opening that
- * cannot be a third-party-agent fingerprint.
+ * Whether text begins with the plugin's fallback system head.
+ * This identifies a local marker, not which line caused an upstream refusal.
  */
 function startsWithNeutralHead(text: string): boolean {
   const opening = text.replace(/^\s+/u, '').toLowerCase()
@@ -2316,19 +2153,10 @@ function startsWithNeutralHead(text: string): boolean {
 }
 
 /**
- * The roles whose message OPENINGS the gateway scans.
- *
- * MEASURED on the live CN gateway (2026-10-21, every other request field held
- * fixed): `system` and `assistant` are scanned; `user` and `tool` are not (a
- * body whose `user` or `tool` content opens with the banned identity answers
- * 200). That second role is the one the plugin missed until 4.15.0, and it is
- * why issue #98's sessions stayed broken: an `assistant` history message that
- * opens with the fingerprint poisons EVERY later turn of that session, on
- * every account and in every region.
- *
- * `developer` is not listed because `prepareChatBody` rewrites it to `system`
- * before this module looks at the body — and because both gateways refuse
- * `developer` outright, so neutralising its content would not save the request.
+ * Roles processed by the local opening transforms: system and assistant.
+ * Historical CN samples motivated this scope. It does not establish that every
+ * gateway inspects only these roles. prepareChatBody normalizes developer roles
+ * before applying these transforms.
  */
 function scansOpening(role: unknown): boolean {
   if (typeof role !== 'string') return false
@@ -2504,27 +2332,9 @@ function rewriteChannelFingerprintPhrasesInBody(obj: Record<string, unknown>): v
 }
 
 /**
- * Move every scanned message (`system` and `assistant`) off the content
- * fingerprint above by prepending the placeholder head.
- *
- * A no-op for a body whose messages start with anything else, so a request the
- * gateways already answer keeps its prompt byte-for-byte — only the messages
- * the gate would refuse grow, by one short line.
- *
- * BOTH ROLES, because the gate reads both. Until 4.15.0 this only handled
- * `system`, and the failure that left behind is issue #98: a conversation
- * whose HISTORY contains an assistant message opening with the banned identity
- * (the model echoing its own prompt, a restored session, a compaction
- * artefact) was refused on every single turn, and no account or region could
- * change a byte of it.
- *
- * ARRAY CONTENT IS HANDLED PART BY PART, and that is not a nicety. Measured on
- * the live CN gateway (2026-10-21): when a scanned message's `content` is an
- * array of parts, the gate reads EVERY TEXT PART of it — a banned opening in
- * the FIRST part is refused, and a banned opening in the SECOND part is
- * refused just the same. Prepending to the first part only would therefore
- * fix the first half of the failure and leave the second half to the users who
- * report it again.
+ * Apply neutralizeScannedText to system and assistant string/text-part content.
+ * Unrecognized parts are left unchanged. This prepares candidate request text;
+ * it does not guarantee that the gateway will accept the result.
  */
 function neutralizeChannelFingerprints(obj: Record<string, unknown>): void {
   const messages = obj['messages']
@@ -2556,24 +2366,10 @@ function neutralizeChannelFingerprints(obj: Record<string, unknown>): void {
 }
 
 /**
- * Both neutralising transforms, applied to one scanned text part.
- *
- * `undefined` means the text goes on the wire byte-for-byte, which is the case
- * for every ordinary message: an ordinary conversation contains no identity
- * clause, so this changes nothing at all and the body is not re-serialised.
- *
- * THE ORDER IS LOAD-BEARING. The prefix rule reads the START of the text, so it
- * has to look at the text the HOST wrote; running {@link breakIdentityClauses}
- * first would insert an invisible break inside `You are an AI agent powered by
- * DeepSeek Harness`, and {@link isUnapprovedChannelOpening} would then no longer
- * match it — silently dropping the neutral head the prefix gate still needs. So
- * the head goes on first, and the clause breaks land in the text underneath it.
- *
- * BOTH RUN, because they defend different gates. The head defeats the prefix
- * match at offset 0; the clause breaks defeat the exact-substring match
- * anywhere inside. A body that needs only one of them gets only that one:
- * the Claude Code opening on the prefix list carries no identity clause, and an
- * identity clause nobody put on the prefix list needs no head.
+ * Prepare one scanned text part in order: rewrite listed phrases, detect an
+ * opening requiring the neutral head, then insert identity-clause breaks.
+ * Return undefined when no text changes. The order preserves opening detection
+ * before invisible breaks are inserted. These edits can affect model behavior.
  */
 function neutralizeScannedText(text: string): string | undefined {
   const headed = isUnapprovedChannelOpening(text)
@@ -2584,48 +2380,11 @@ function neutralizeScannedText(text: string): string | undefined {
 }
 
 /**
- * A body in which EVERY scanned opening (`system` and `assistant`) is moved
- * behind the neutral head.
- *
- * THE ONE-SHOT SELF-HEALING RETRY'S BODY BUILDER. The gateway's fingerprint
- * list is a SNAPSHOT the upstream can extend at any time, and the plugin
- * cannot see it: the two entries in {@link UNAPPROVED_CHANNEL_OPENINGS} are
- * what was MEASURED on 2026-10-21, not a contract. So the day the gateway
- * adds an entry, this plugin's own prepend stops matching and the banned
- * opening goes out on the wire unchanged — exactly the dead end issue #98
- * describes, and exactly what a longer guess-list cannot prevent (nobody can
- * measure the next entry before it bites).
- *
- * The remedy is a second attempt that does not depend on knowing the
- * fingerprint at all: this builds a body in which EVERY scanned message,
- * whatever it opens with, gets the neutral head in front. The gateway matches
- * the START of a scanned message, so a neutral first line moves the whole
- * opening out of the matched region — whether the banned text is a known
- * entry, a new one, or a fingerprint this plugin has never heard of.
- *
- * `assistant` messages are included for the measured reason
- * {@link neutralizeChannelFingerprints} documents: a history message that opens
- * with a refused identity is what keeps a whole session failing, so a retry
- * that only moved the system prompt would spend a request to be refused for the
- * same reason.
- *
- * WHEN IT IS USED: only AFTER the gateway refused the first attempt with the
- * channel gate. A request the gateway already answers keeps its bytes
- * unchanged, because this function is never called for it — the normal path
- * is {@link prepareChatBody}, which only touches the openings it has MEASURED
- * as fingerprinted.
- *
- * `undefined` means "this body cannot change": every scanned opening already
- * starts with the neutral head, so a retry would send the same bytes and
- * spend a request for the same refusal. The caller uses that to avoid
- * spending the round trip.
- *
- * Empty contents are skipped: an empty string cannot open with anything, so it
- * cannot be the culprit, and an assistant message that carries `tool_calls`
- * with `content: ""` is a replay shape this function has no reason to touch.
- *
- * Never throws. A body it cannot read is the upstream's to reject, and a
- * parse error must not turn a retry into a crash.
+ * Build a recovery candidate by prepending the fallback head to each nonempty
+ * system/assistant text part that lacks it. Return undefined for unreadable or
+ * unsupported bodies and when no change is needed. Changed bodies are parsed
+ * and serialized again; whitespace and numeric spelling need not be preserved.
+ * This recovery attempt does not guarantee acceptance.
  */
 export function forceNeutralHead(bodyJson: string): string | undefined {
   let parsed: unknown
@@ -2664,40 +2423,22 @@ export function forceNeutralHead(bodyJson: string): string | undefined {
   }
   if (!changed) return undefined
   // Re-serialized from the PARSED object, so the key order of the original
-  // body is preserved — the retry is the same request, not a reshuffled one.
+  // object follows JavaScript property ordering. Whitespace and number
+  // spelling from the original JSON are not preserved.
   return JSON.stringify(obj)
 }
 
 /**
- * The invisible character used to break a content fingerprint.
- *
- * U+200B ZERO WIDTH SPACE: it renders as nothing, it is not whitespace for the
- * gateway's own matching, and a model reads straight through it. Measured on
- * the live CN gateway: putting one inside the refused span turns 400 into 200,
- * while the text the model reads is unchanged.
+ * U+200B ZERO WIDTH SPACE used by the perturbation transforms.
+ * It is visually unobtrusive but changes bytes and may change tokenization or
+ * model behavior. Gateway matching can normalize or ignore it.
  */
 const ZERO_WIDTH_SPACE = '\u200b'
 
 /**
- * Where an invisible break is inserted INSIDE a capitalised word pair, so a
- * bare product name stops matching as an exact substring.
- *
- * WHY THE PUNCTUATION RULE IS NOT ENOUGH. The boundary rules above only land
- * where there is a `.`, `!`, `?`, `,`, `;` — so a scanned message that ends
- * with a bare product name and no trailing punctuation (``… powered by
- * DeepSeek Harness ``, the host's own agent line, ending at end-of-text) is
- * left COMPLETELY UNCHANGED. `perturbChannelFingerprints` then answers
- * `undefined`, the shim spends no retry, and the fingerprint survives the
- * rescue — measured, and it is the shape issue #113's reporter is most likely
- * to hit, because that line is the first line of every DSH agent prompt.
- *
- * This rule breaks between a capitalised word and the following capitalised
- * word (“DeepSeek|Harness”, “Visual|Studio”), which covers product names
- * without touching ordinary prose: a sentence rarely has two capitalised
- * words adjacent UNLESS they are a proper name, and breaking a proper name is
- * exactly the intent. The model reads straight through U+200B, so what it
- * understands is unchanged — that is the whole point of using it for this
- * rather than rewriting the text.
+ * Match capitalized word pairs for inserting an internal U+200B break.
+ * This also matches ordinary adjacent capitalized words, not only product names.
+ * It supplements punctuation rules without guaranteeing equivalent model behavior.
  */
 const WORD_INTERNAL_BREAK = /([A-Z][A-Za-z0-9]*)(\s+)(?=[A-Z][A-Za-z0-9])/gu
 
@@ -2764,51 +2505,13 @@ function spaceDenseBreaks(text: string): string {
 }
 
 /**
- * A body whose scanned message TEXT is perturbed just enough to break an exact
- * content fingerprint.
- *
- * THE SECOND HALF OF ISSUE #98, found on 2026-10-21 after 4.15.0 shipped. The
- * gateway does not only match the OPENING of a scanned message; it also matches
- * one long substring INSIDE the system prompt. Measured byte-exactly on a real
- * failed request (CN gateway, `deepseek-v4.1-flash`, the host's own body):
- *
- *   - the refusal is reproducible, and it is not the opening: the plugin had
- *     already prepended the neutral head, and the request still answered 400;
- *   - bisecting the host's 10,956-character system prompt by lines and then by
- *     sentences found a 221-character span: the DSH Web-GUI paragraph's first
- *     two sentences ("You are interacting with the user through the DeepSeek
- *     Harness Web GUI … they mean this GUI.");
- *   - that span ALONE reproduces the 400, and the SAME span with ANY change
- *     inside it answers 200 — one character rewritten, one quoted word
- *     replaced, even a zero-width space inserted. An outer prefix or suffix
- *     does not help, so the match is an exact substring, not an opening rule;
- *   - the paragraph's individual sentences each answer 200, which is why the
- *     plugin's opening-based normalisation never saw this.
- *
- * SO THE RESCUE CANNOT BE "prepend a line" (that is {@link forceNeutralHead},
- * and it is a no-op here). Nor can it be a list of refused spans: the list is
- * the upstream's own data, it already grew once without notice, and it will
- * grow again. What DOES generalise is the observation that an exact-substring
- * match dies on any perturbation inside it — so this inserts a zero-width space
- * at every sentence and clause boundary of the scanned messages, which is
- * invisible to the reader, meaningless to the model, and inside the refused
- * span with near-certainty for any prose fingerprint.
- *
- * WHEN IT IS USED: only as the last retry, after the gateway already refused
- * the request AND the neutral head could not change anything. Requests the
- * gateway answers keep their bytes untouched.
- *
- * `dense` adds word-boundary breaks for the last-resort rescue. The default
- * sparse form is still used first because it is the least invasive and has been
- * measured; dense mode exists for the refusal both the neutral head and the
- * sparse form could not clear.
- *
- * Idempotent: a body that already carries U+200B in a scanned message is left
- * alone, so a retry never stacks perturbations. Returns `undefined` when
- * nothing would change, which is the caller's signal not to spend a request.
- *
- * Never throws: a malformed body is the upstream's to reject, and a parse error
- * must not turn a rescue into a crash.
+ * Build a perturbation candidate from system/assistant text parts.
+ * Sparse mode inserts U+200B around supported punctuation and capitalized pairs;
+ * dense mode also processes non-space runs. Existing breaks are accounted for
+ * by the individual rules rather than causing the entire message to be skipped.
+ * Return undefined when parsing fails, the shape is unsupported or nothing changes.
+ * Callers choose when to use this candidate. The edit can affect tokenization,
+ * cost and behavior, and does not guarantee that a refusal will be cleared.
  */
 export function perturbChannelFingerprints(
   bodyJson: string,
@@ -2915,14 +2618,9 @@ export function perturbChannelFingerprints(
 }
 
 /**
- * One opening of a message the gateway scans, as the HOST wrote it.
- *
- * The failure path needs to name the line the gateway reacted to, and "the line
- * the host wrote" is not the same thing as "the line that went on the wire" —
- * after {@link neutralizeChannelFingerprints} the wire carries the plugin's
- * neutral head in front of every opening it recognises. Reporting the HOST's
- * line and saying whether the plugin covers it is what stops the reader being
- * sent to a line that is not at fault.
+ * Excerpt of a system/assistant text part supplied to the evidence reader.
+ * The caller can supply the original DSH body or a prepared body. This is not
+ * proof of the final wire content or of the text that caused an upstream refusal.
  */
 export interface OpeningEvidence {
   /** The opening line, whitespace-collapsed and clipped. */
@@ -2932,14 +2630,9 @@ export interface OpeningEvidence {
   /** Last non-empty line of the same text part, clipped; absent for a one-line text. */
   readonly closing?: string
   /**
-   * Which message the opening belongs to — the role verbatim (`system` or
-   * `assistant`).
-   *
-   * Reported because the two are scanned by the same rule but mean opposite
-   * things to the reader: a `system` entry is the prompt they can edit, while
-   * an `assistant` entry is HISTORY, i.e. the session is poisoned and every
-   * later turn will fail the same way until that line changes.
-   */
+ * Message role retained for context. Assistant content can be conversation
+ * history; its presence does not establish that later turns must fail.
+ */
   readonly role: 'system' | 'assistant'
   /**
    * True when the plugin's own neutralisation already covers this opening —
@@ -3133,9 +2826,8 @@ export interface PrepareChatBodyOptions {
    * which keeps every message, its text and every tool result intact (the one
    * textual edit is the recorded prompt's leading marker, documented at
    * {@link ACP_LEADING_TAG}). It is
-   * therefore invisible to the model's instruction order (a runtime-context block
-   * is context wherever it sits) and it is what makes the usage column show what
-   * the user actually typed.
+   * intended to make the usage column show the real prompt. Reordering can still
+   * affect model behaviour, which is why the setting remains optional.
    *
    * It also removes the leading `<acp …>mNNNNN</acp>` marker from THAT prompt and no
    * other message, because otherwise the recorded row still opens with the marker
@@ -3214,18 +2906,10 @@ function injectedPrefixPattern(extras?: readonly string[]): RegExp {
 }
 
 /**
- * The per-message marker `billion-context` puts in front of every message.
- *
- * Stripped from the REAL prompt only (issue #132), because the usage page takes
- * that message verbatim and the recorded row would otherwise open with
- * `<acp …>m00042</acp>` instead of what the user typed. Only the marker is
- * removed, never any text: the earlier messages keep theirs, so a model that
- * cites a past message by its `mNNNNN` id can still do it — the one id lost is
- * the message being answered right now, which is the only reference that cannot
- * matter. Injected messages keep their marker too: they are not the row being
- * recorded, and touching them would widen the edit for no benefit. Done only
- * under the same opt-in as the reorder, since it deletes bytes the upstream
- * counts.
+ * Leading acp marker recognized in the selected prompt message.
+ * Under keepPromptLast, the marker is removed from that prompt while other
+ * messages retain theirs. Removing it changes content and can affect references
+ * to the current message; it is not guaranteed to be behavior-neutral.
  */
 const ACP_LEADING_TAG = /^<acp\b[^>]*>m\d{1,8}<\/acp>[ \t]*\r?\n?/u
 
@@ -3417,8 +3101,8 @@ const SESSION_TITLE_PROMPT_HEAD = 'Generate the session title from this JSON arr
  *
  * DETECTION is fail-closed: the body is rewritten only when it has NO
  * assistant or tool messages and EXACTLY ONE `user` message, and that message
- * opens with the host's title template above. A real conversation can hardly
- * collide with the template (the host's own validator asserts it), and the
+ * opens with the host's title template above. A conversation quoting that shape
+ * can still match; detection has no separate purpose marker. The
  * failure direction if the host ever rewords it is safe: the rewrite simply
  * stops, and the title is billed as before. `keepPromptLast` is unaffected —
  * the template prefix is not an injected-context marker, so a title body is
@@ -3564,13 +3248,11 @@ export function declaredTools(bodyJson: string): {
   names: Set<string>
   requiredParameters: Map<string, string[]>
   /**
-   * Every parameter name each declared tool's schema accepts, from
-   * `parameters.properties`. The entry exists for every tool whose `parameters`
-   * is an object — possibly EMPTY, which is a fact ("accepts nothing") and not
-   * an absence, so the schema-gated recovery can clear a tool rather than
-   * refuse on all of them. It is absent only when the schema itself is not an
-   * object, which refuses that recovery instead of guessing.
-   */
+ * Top-level property names extracted from each tool's parameters schema.
+ * Recovery uses this map for its name-matching heuristic. An empty properties
+ * map does not imply that JSON Schema forbids additional properties, and this
+ * projection is not a complete argument-schema validator.
+ */
   acceptedParameters: Map<string, Set<string>>
   pinnedToolName?: string
 } | undefined {
@@ -3605,7 +3287,8 @@ export function declaredTools(bodyJson: string): {
     const schema = parameters as Record<string, unknown>
 
     // Every parameter name this schema accepts. A schema with no `properties`
-    // accepts nothing (not "unknown") — the map entry EXISTS so the
+    // produces an empty name set for this heuristic. This is not full schema
+    // validation: additionalProperties may still allow other names. The entry lets
     // schema-gated recovery can clear the tool, and only a schema that is not
     // an object at all stays absent, which refuses that recovery outright.
     const accepted = new Set<string>()
@@ -3646,13 +3329,9 @@ interface Envelope {
 }
 
 /**
- * Gateway (openresty/APISIX) rejection of a token it no longer accepts.
- *
- * The business APIs answer JSON; an edge rejection answers an HTML error page
- * instead. A 401 that is not JSON therefore means the credential was refused
- * before routing — almost always a revoked/expired token rather than a bug in
- * the request. Detected from the body so a proxy's own error page (which would
- * also be HTML) is still described accurately.
+ * Credential-refusal error used for rejected billing/auth reads.
+ * Non-JSON HTTP 401/403 bodies can be emitted by the gateway or an intervening
+ * proxy. Their shape does not establish token expiry, revocation or routing stage.
  */
 function isGatewayAuthRejection(status: number, text: string): boolean {
   if (status !== 401 && status !== 403) return false
@@ -3664,16 +3343,10 @@ function isGatewayAuthRejection(status: number, text: string): boolean {
 export const CREDENTIAL_REJECTED_CODE = 'WORKBUDDY_CREDENTIAL_REJECTED'
 
 /**
- * The upstream refused the CREDENTIAL itself rather than failing the request.
- *
- * This is a distinct, actionable class: the token is not usable and no retry
- * with the same token will help. Callers use it to tell the user what to do
- * about it (switch accounts, or sign in again) instead of showing a raw HTTP
- * error, and the card must never confuse it with a transient upstream fault.
- *
- * Identified by {@link CREDENTIAL_REJECTED_CODE} rather than `instanceof`, so
- * the check keeps working when the caller and the thrower end up in different
- * module instances (bundled host half vs. a test's source import).
+ * Error class used when a read is classified as credential rejection.
+ * Callers use it to offer account recovery. The class does not prove that the
+ * same token can never succeed later. Its marker supports detection across
+ * bundled module instances without relying on instanceof.
  */
 export class WorkBuddyCredentialRejectedError extends Error {
   readonly code = CREDENTIAL_REJECTED_CODE
@@ -3988,24 +3661,11 @@ function withPromos(
 }
 
 /**
- * What the plugin can tell about the request it just sent, for telling the
- * `11128` family apart.
- *
- * TWO FACTS, both read from the request body rather than from the upstream's
- * `msg` — which issue #113 measured to be unreliable (a content refusal
- * reported as `conversation id missing`).
- *
- * - `hasSystemHead`: does the request open with a `system` message? The
- *   plugin guarantees it does whenever the request carries messages
- *   (`ensureSystemHead`), so a body claiming the first-message gate is only
- *   believable when this is false.
- * - `hasConversationHeaders`: did the request carry the conversation-id
- *   triple? `chatHeaders` always adds it, so this is true in practice — and
- *   that is exactly what makes a `conversation id missing` wording
- *   unbelievable.
- *
- * Never throws: a body that cannot be read answers "unknown", which is the
- * safe direction (the wording is then believed).
+ * Local request facts used by the channel-gate diagnosis.
+ * hasSystemHead is read from the supplied body. hasConversationHeaders is set
+ * true by convention because chatHeaders constructs the header triple; it is
+ * not captured from a response or proof of gateway receipt. Unreadable bodies
+ * report no recognized system head.
  */
 export function requestEvidenceOf(bodyJson: string): {
   hasSystemHead: boolean
@@ -4054,9 +3714,9 @@ export class WorkBuddyUpstreamClient {
   private readonly baseIdentity: Promise<WorkBuddyWireIdentity>
   /** 外部 device token 的 TTL 读取器；未配置时为 undefined。 */
   private readonly deviceTokens: DeviceTokenReader | undefined
-  /** 每账号覆盖值的读取器（设置里齿轮保存的那些）；未调用关系时为 undefined。 */
+  /** 每账号覆盖值的读取器（设置里齿轮保存的那些）；未提供读取函数时为 undefined。 */
   private readonly deviceProfiles: WorkBuddyDeviceProfileLookup | undefined
-  /** 真实值档的 token 源（本机安装的桌面端 SDK）；未调用关系时为 undefined。 */
+  /** 真实值档的 token 源（本机安装的桌面端 SDK）；未提供读取函数时为 undefined。 */
   private readonly realDevice: TuringTokenSource | undefined
 
   constructor(
@@ -4207,37 +3867,15 @@ export class WorkBuddyUpstreamClient {
   }
 
   /**
-   * Send one minimal chat request for `bodyJson` and report the RAW answer.
-   *
-   * Shares {@link chatHeaders} and the chat base with {@link chatStream} on
-   * purpose: a probe is only meaningful if it reaches the same endpoint with the
-   * same authentication as a real request. The differences are deliberate and
-   * narrow — it returns the headers (for `Retry-After`) and the failure body
-   * (for classification) instead of a pre-classified error, so the probe module
-   * owns the interpretation and the network layer stays a transport.
-   *
-   * The caller MUST drain {@link WorkBuddyProbeAnswer.response}; an unread body
-   * holds the connection open.
-   *
-   * ALWAYS bounded in time. The pool's batch runner is serial and passes no
-   * signal, so without a ceiling here one stalled connection blocks every account
-   * behind it — the batch looks hung with no way to tell which member did it.
-   * A supplied signal is COMBINED with the timeout rather than replacing it, so
-   * the single-model route keeps its cancellation behaviour and still cannot
-   * hang forever.
-   *
-   * The ceiling covers ONLY the wait for a response — it is cleared the moment
-   * `fetch` resolves. Holding a timer over the body would put a healthy but slow
-   * model on the same clock as a dead endpoint, and the whole point of the
-   * period is to answer "did the upstream answer at all". A probe asks for a
-   * single token, so the body that follows is one SSE line.
-   *
-   * It likewise does not cover building the headers. That step became slow in P3
-   * (the device-token path is a subprocess with a 20 s budget), and starting the
-   * clock first made a healthy gateway answer `status 0` on a cold start — which
-   * the pool reads as "unreachable" and acts on by benching the account. Hence
-   * the deliberate order below: resolve identity, THEN arm the timer.
-   */
+ * Send the caller's probe body using the chat endpoint and identity headers.
+ * Return the response headers and either the stream or failure excerpt so the
+ * probe module can classify the result. The caller must consume or cancel the body.
+ *
+ * Resolve identity before arming PROBE_TIMEOUT_MS. That timeout covers the fetch
+ * until headers arrive and is then cleared; identity preparation and response
+ * body consumption are outside it. The entire probe is therefore not bounded
+ * by this timer. A caller cancellation signal is combined with the fetch timeout.
+ */
   async probeChat(
     credential: WorkBuddyCredential,
     bodyJson: string,
@@ -4441,7 +4079,7 @@ export class WorkBuddyUpstreamClient {
    *     `minimax-video-h3`（`text-to-video` + `image-to-video`）。
    *   - 国际区 29 条 / 7 条带 tag：`hy-image-3.5`（`text-to-image` +
    *     `image-to-image`）、`kling-video-v3`（两种视频 tag）。
-   * 两边目录完全不重叠，所以「国际区一条都没有」是 2026-10-21 的旧观测，
+   * 两区目录分别读取，但包含同名模型；因此「国际区一条都没有」是 2026-10-21 的旧观测，
    * 已经过期 —— 目录真的没标时才返回空数组（而不是编一个模型出来）。
    *
    * 返回的是**未分组**的全集：谁要 `text-to-image` 就自己按 tag 过滤
@@ -4651,7 +4289,7 @@ export class WorkBuddyUpstreamClient {
    * 就是每 5 秒查一次、直到 `status === 'completed' | 'failed'`。这里照搬同样的
    * 轮询节奏与整体超时（默认 ~600s，远大于生图的 180s，因为视频要生成几十秒到几分钟）。
    *
-   * 注意：轮询**已经花过钱**（提交那次就扣了），所以轮询期间的临时网络故障、超时要
+   * 注意：任务已提交，可能已产生费用。轮询期间的临时网络故障、超时要
    * 当成真实失败——调用方据此进冷却。只有"提交那一次"因为参数写错 / 没登录而没
    * 发出去，才不进冷却（同生图工具的设计）。
    */
@@ -4695,7 +4333,7 @@ export class WorkBuddyUpstreamClient {
           )
         }
       } catch (error: unknown) {
-        // 轮询中的瞬时错误也算"已经花钱"的真实失败（任务已经提交）。
+        // 轮询中的瞬时错误也作为已提交任务的失败处理，是否扣费需另行核对。
         if (error instanceof WorkBuddyVideoError) throw error
         throw new WorkBuddyVideoError(
           `workbuddy video: 轮询请求失败：${error instanceof Error ? error.message : String(error)}`,
@@ -4884,9 +4522,8 @@ export class WorkBuddyUpstreamClient {
    * POST + loopback checks the check-in route carries.
    *
    * The response is not parsed: the documented envelope of these two endpoints
-   * is an empty success, and the caller re-reads the status afterwards. That
-   * re-read, not this answer, is what the user is shown — which is why a claim
-   * that silently did nothing still cannot leave the card saying 待领取.
+   * is an empty success, and the caller re-reads the status afterwards. The UI displays that reading,
+   * rather than assuming success. If the claim did nothing, 待领取 may remain.
    */
   async claimBenefit(
     credential: WorkBuddyCredential,
@@ -5010,11 +4647,8 @@ export class WorkBuddyUpstreamClient {
     if (credential.enterpriseId !== undefined && credential.enterpriseId !== '') {
       const enterprise = await this.fetchEnterpriseCredits(credential)
       if (enterprise !== undefined) return enterprise
-      // Fall through to the personal table only when the enterprise endpoint
-      // gave us nothing usable. Returning an empty answer there is NOT an
-      // option: `total: 0` on a funded account is the exact symptom #124
-      // reports, so an unreadable enterprise response is reported as a
-      // failure, not as a balance.
+      // Do not fall back to personal credits for an enterprise credential.
+      // An unreadable enterprise balance is an error rather than a zero balance.
       throw new Error('workbuddy upstream enterprise credit: no readable balance in the response')
     }
     const now = new Date()

@@ -1,15 +1,14 @@
 /**
  * 设备头设置在浏览器侧的读写（「虚拟值 / 真实值」+ 每账号覆盖参数）。
  *
- * 这一层只做三件事：把 DSH 的文档取回来、把改动写回去、以及给弹窗的
- * 「一键随机」造一个形状正确的 id。**它不做任何本地持久化**——设置的真源在
+ * 本模块读取 DSH 的设备设置、保存修改，并为弹窗的“一键随机”操作生成格式正确的标识。**它不做任何本地持久化**——设置的真源在
  * DSH 的 `$DSH_HOME/.workbuddy-device-profiles.json`，浏览器内存里存一份副本
  * 只为了让弹窗有内容可编辑。
  *
  * @module dsh-connect-workbuddy/client/device-profile
  */
 
-/** 设备头档位。「真实值」目前只是占位（P3），不改变发出的请求字节。 */
+/** 设备头档位：virtual 使用派生标识；real 使用本机 SDK 提供的设备凭据，获取失败时按回退设置处理。 */
 export type WorkBuddyDeviceMode = 'virtual' | 'real'
 
 /** 一个账号的覆盖值；空字段表示"这一项仍然派生"。 */
@@ -125,7 +124,8 @@ function normalizeRealTier(value: unknown): RealTierAvailability | undefined {
 /**
  * GET the current settings.
  *
- * `undefined` means "this Host has no such route" (404/503) — a different answer
+ * `undefined` represents a 404 or 503 response, which can mean an absent or
+ * temporarily unavailable route. This differs
  * from "the Host has one and it says virtual/empty". The card uses that to HIDE
  * the toggle and the row gears instead of rendering controls that cannot work;
  * `EMPTY_DEVICE_SETTINGS` is only the initial value before the first read.

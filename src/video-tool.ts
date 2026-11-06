@@ -4,7 +4,7 @@
  *
  * 与生图工具（一次同步请求就拿回图片）不同，视频是**异步任务**：
  * 先 `submitVideo` 拿到 task id，再 `pollVideoTask` 轮询到 completed，
- * 最后 `downloadVideo` 把每条视频 URL 落成本地 `.mp4`。这一整段都照搬
+ * 最后由 `downloadVideo` 将视频下载为本地 `.mp4` 文件。流程参考
  * 官方 CLI 的 `VideoService`（submitTask / pollTask / downloadVideos），
  * 详见 docs/VIDEO_GEN.md。
  *
@@ -57,9 +57,9 @@ export const WORKBUDDY_VIDEO_TOOL_NAME = 'workbuddy_draw_video'
  * ## 为什么必须比 DSH 的 600 秒**明显小**（issue #187 的第三种现象）
  *
  * 这个值原本正好是 `600_000`，与 DSH 自己给工具调用的上限**完全相等**。两者同时到
- * 期，而 DSH 的计时器先落地：调用被 DSH 直接掐断，用户看到的是裸的
- * `tool call timed out after 600000ms`——没有 `taskId`、没有 `POLL_TIMEOUT`、没有
- * 任何结构化错误，日志里也找不到是提交卡住还是轮询卡住。
+ * 期时，DSH 的计时器可能先触发并中止调用，只留下
+ * `tool call timed out after 600000ms`。这个错误不包含 taskId 或
+ * POLL_TIMEOUT，无法据此区分提交超时和轮询超时。
  *
  * 内部超时短于 DSH 上限，插件就能**先**抛 `POLL_TIMEOUT`，把 task id 带出去。那个
  * id 是这个故障里唯一能拿去问上游的东西，丢掉它等于把可排障的失败变成不可排障的。
@@ -263,10 +263,10 @@ function asVideoImageInput(value: unknown): string | undefined {
 
 /**
  * 这些失败说明请求真的打到了上游、可能已经扣了积分，才值得进冷却。
- * 参数写错 / 未登录 / 目录里没有模型都还没花钱，轮询也已先花过提交那次的钱。
+ * 本地参数校验、未登录或目录缺少模型时，尚未提交生成请求。提交后是否扣费仍需结合响应与账号记录判断。
  *
  * 注意 `REJECTED` **不在**这里：提交阶段被上游 4xx 退回时任务根本没创建、
- * 积分没花，冷却只会让一次「参数写错了」变成白等一分钟。
+ * 本地不把这种拒绝纳入冷却；是否产生费用不能仅凭 HTTP 状态证明。
  */
 const BILLABLE_FAILURE_CODES: ReadonlySet<string> = new Set([
   'AUTH',
@@ -281,7 +281,7 @@ const BILLABLE_FAILURE_CODES: ReadonlySet<string> = new Set([
 /**
  * 是否该进冷却——由「这一次到底有没有把生视频请求发出去」决定。
  * 读目录 / 选模型 / 参数校验全在「发请求」之前，失败了不花积分、不冷却。
- * 一旦 `submitVideo` 被调用，提交那次就花钱了，后续轮询 / 下载失败一律进冷却。
+ * 一旦调用 `submitVideo`，请求可能已被计费，后续轮询或下载失败同样进入冷却；请求发出不等于已证实扣费。
  */
 function isBillableFailure(error: unknown, sent: boolean): boolean {
   if (!sent) return false
@@ -305,11 +305,11 @@ function isBillableFailure(error: unknown, sent: boolean): boolean {
  * 2. **上游不接受外链。** 即使 HEAD 通过，图生视频的 `image_url` 与图生图的
  *    `image` 是同一条规则（PR #145 记录过："image 必须是 data URI，传 COS 原始
  *    URL → invoke model error"）。原样传 URL 只是把失败推迟到上游，并且那时已经
- *    建了 task、扣了积分。
+ *    提交了任务，可能产生费用。
  *
  * 所以这里与 `image-tool.ts` 的 `resolveImageInput` 采用相同处理方式：**下载并编码成
  * data URL**。这也顺带让签名过期、上游改域名的场景在本地就报出可读的错，而不是
- * 变成一个花了钱才发现的 `TASK_FAILED`。
+ * 变成提交生成请求后才发现的 `TASK_FAILED`。
  *
  * 仍然不做缩放或格式转换——用户给什么就传什么，只改承载形式。
  */
@@ -611,7 +611,7 @@ export function createVideoTool(deps: VideoToolDeps): VideoToolDefinition {
       let chosen: WorkBuddyMediaModel | undefined
       try {
         const models = await listModels(credential, signal)
-        // 先把输入图归一成 URL / 本地路径：发生在「发请求」之前，失败不花积分。
+        // 先读取输入图并规整成 data URL：发生在「发请求」之前，失败不花积分。
         const imageInput = image === undefined ? undefined : await resolveVideoImageInput(image, signal)
         const tag = imageInput === undefined ? VIDEO_TAG_TEXT_TO_VIDEO : VIDEO_TAG_IMAGE_TO_VIDEO
         // 谁写的名字决定写错了谁负责：显式 `model` 是这次调用者写的，不在组里
@@ -655,7 +655,7 @@ export function createVideoTool(deps: VideoToolDeps): VideoToolDefinition {
           aspectRatio: resolved.aspectRatio,
           enableAudio: requestedEnableAudio,
         }
-        // 真正的请求从这里开始——置位 sent，此后任何失败都算花钱、进冷却。
+        // 真正的请求从这里开始——置位 sent，此后失败按错误码决定冷却，不能仅凭 sent 认定扣费。
         sent = true
         const submission = await deps.submitVideo(credential, request, signal)
         const outcome = await deps.pollVideoTask(credential, submission.taskId, signal)
@@ -684,7 +684,7 @@ export function createVideoTool(deps: VideoToolDeps): VideoToolDefinition {
         if (outcome.credit !== undefined) value['credit'] = outcome.credit
         return value
       } catch (error: unknown) {
-        // 上游把参数退回来时**什么都没创建**：把它自报的支持区间记进本次进程，
+        // 上游把参数退回来时**什么都没创建**：把返回的支持区间记进本次进程，
         // 下一次同样的越界值在本地就被拦下，不再多打一次注定失败的请求。
         if (error instanceof WorkBuddyVideoError && error.code === 'REJECTED' && chosen !== undefined) {
           const range = parseSupportedSecondsRange(error.message)

@@ -21,7 +21,7 @@
   .old .cap{color:#e78387}
   .strike{text-decoration:line-through;opacity:.9}
 
-  /* DSH 当前渲染：本轮运行失败 行（复刻，未改动） */
+  /* 历史 DSH 布局：本轮运行失败行（静态复刻） */
   .turnErrorRow{display:grid;grid-template-columns:10px minmax(0,1fr) auto;align-items:start;gap:8px;padding:2px 0;font-size:13px;line-height:20px}
   .turnErrorDot{width:6px;height:6px;border-radius:50%;background:var(--error);margin-top:7px;justify-self:center}
   .turnErrorCopy{min-width:0;overflow-wrap:anywhere}
@@ -29,7 +29,7 @@
   .turnErrorMessage{color:var(--label-secondary)}
   .turnErrorCode{color:var(--label-tertiary);font-family:var(--mono);font-size:11px}
 
-  /* ---- 本插件现在组件渲染的样式（与 src/client/styles.ts 一致） ---- */
+  /* ---- 历史插件组件样式（静态对照） ---- */
   .dsm-workbuddy-quota-notice{display:inline}
   .dsm-workbuddy-quota-notice-body{color:var(--dsw-alias-label-tertiary,var(--label-tertiary));font-size:12px}
 
@@ -62,7 +62,7 @@
 </div>
 
 <div class="block old">
-  <p class="cap"><span class="strike">已撤除</span><span class="tag">v2 · 占用 overlay 后的真实落点</span></p>
+  <p class="cap"><span class="strike">已撤除</span><span class="tag">v2 · overlay 定位示意</span></p>
   <div class="overlaySim">
     <span class="dsm-workbuddy-quota-notice" role="status"><span class="dsm-workbuddy-quota-notice-head">当前请求的额度已用尽</span><span class="dsm-workbuddy-quota-notice-body">（模型每日额度与账号积分分别计算）</span></span>
     <span class="seatLabel">shell.overlay（absolute, inset:0）</span>

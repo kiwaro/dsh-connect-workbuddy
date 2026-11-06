@@ -1,50 +1,5 @@
-/**
- * The route from a readout to THIS plugin's settings page.
- *
- * ## Why this is a module and not three lines inside `apply`
- *
- * The entry (`src/client/index.tsx`) imports browser-only DSH packages that the
- * Node test environment cannot load, so anything worth asserting on has to live
- * outside it — the same seam `panel-switch.ts` provides for the opt-in switch and
- * `ComposerCreditsGate.tsx` provides for the readout's own visibility rule. This
- * module holds the whole decision, so the spec exercises the REAL chain instead
- * of a mirror of it.
- *
- * ## Why two routes
- *
- * On this host line a plugin's settings are not a "page in Settings" at all:
- * the Plugins page owns them, and each bundle's page (`plugins.bundle.config` /
- * `plugins.row.config`) IS the configuration surface — Settings keeps only the
- * read-only built-in inventory. So "open the plugin's settings" means "open the
- * Plugins page on this bundle", and the supported way to ask for that is the
- * `pluginNavigation` service the Plugins page provides:
- * `openBundle(packageName)` selects that page without changing the Session.
- *
- * `pluginNavigation` is provided by `@deepseek-ai/dsh-client-ui-plugin-manager`,
- * NOT by the shell. A profile can be composed without it, and plugin load order
- * is not something a contributor may assume — so the probe happens at CALL time
- * rather than at registration time. Probing once in `apply` would capture
- * `undefined` on a page whose Plugins bundle simply applied after ours, and the
- * button would be dead for the rest of the session with nothing to re-evaluate
- * it.
- *
- * The fallback reaches the SAME page through the lower-level `layout` service.
- * `selectPanel('plugins')` is the shipped main key of the Plugins page (the
- * plugin-manager bundle registers `sidebar.panellist` id / `main` key
- * `'plugins'`), so a host that predates `pluginNavigation` still lands the user
- * where the settings are, one click from the row. It is a fallback and not the
- * primary route deliberately: `'plugins'` is another package's private key,
- * while `openBundle` is that package's published seam. `selectPanel` THROWS when
- * the key is not registered (the Plugins page disabled, a trimmed profile), so
- * the call is guarded rather than trusted.
- *
- * ## Why `false` rather than an exception
- *
- * A caller here is a popover button. There is no host line this plugin supports
- * that lacks both routes, but "cannot" must not become a thrown error inside a
- * click handler on a user's machine; it becomes a `false` the caller reports and
- * a button that stays honest.
- */
+/** Open the dedicated WorkBuddy settings section, with plugin-detail fallbacks for older DSH layouts. */
+export const WORKBUDDY_SETTINGS_ID = 'dsh-connect-workbuddy'
 
 /**
  * The package name the Plugins page knows this plugin by.
@@ -82,6 +37,14 @@ export interface LayoutNavigationLike {
  *   not have been offered; see the module note.
  */
 export function openPluginSettingsPage(get: (name: string) => unknown): boolean {
+  try {
+    const slots = get('slots') as { entries?: (name: string) => readonly { store?: { create?: () => { actions?: { openSection?: (id: string) => void } } } }[] } | undefined
+    const shell = slots?.entries?.('sidebar.settings')[0]?.store?.create?.()
+    if (typeof shell?.actions?.openSection === 'function') {
+      shell.actions.openSection(WORKBUDDY_SETTINGS_ID)
+      return true
+    }
+  } catch { /* Older layouts can still expose plugin details. */ }
   const navigation = get('pluginNavigation') as PluginNavigationLike | undefined
   if (navigation !== undefined && typeof navigation.openBundle === 'function') {
     try {

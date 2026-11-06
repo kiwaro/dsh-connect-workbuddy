@@ -6,11 +6,11 @@
  * 参考：dingminhua/dsh-connect-trae（MIT，Copyright (c) 2026 LaoDing）
  *   — 路由的注册方式（`ctx.webServer.register({kind:'exact', path, handler})`）、
  *     回环来源校验、`safeMessage` 的脱敏规则（JWT 与 token 查询参数截断至
- *     500 字符）、以及「积分查询失败在 creditsError 中记录查询错误 而非让整个文档失败」
+ *     500 字符）、以及「积分查询失败时，在 creditsError 中记录错误，而不让整个状态文档失败」
  *     的处理，均来自该项目。
  *   单条 status 路由的原始形态来自
  *     corrinehu/dsh-workbuddy-connect（MIT）。
- * 改动：由 1 条路由扩展为 3 条（新增模型刷新与账号重扫），
+ * 初期由 1 条路由扩展为 3 条，新增模型刷新与账号重扫；后来又增加账号管理、能力设置及设备状态等路由。
  *   并加入多账号字段与按套餐聚合的积分文档；
  *   双 provider 化后每条路由再按 `?region=cn|global` 参数化，
  *   国内版与国际版两套 store 各自应答自己区域的请求。
@@ -305,7 +305,7 @@ export interface WorkBuddyStatusRouteOptions {
    *
    * Optional, and absent means "nothing to report" — the card then renders no
    * warning rather than a permanent one. Process-local and last-wins: it
-   * describes the turn the user is looking at, not a historical tally.
+   * describes the latest recorded repair, which may belong to another conversation.
    */
   latestForeignThinking?(): { blocks: readonly { messageIndex: number, blockIndex: number, characters: number, variant: 'flattened' | 'dropped' }[], atMs: number } | undefined
   /**
@@ -324,7 +324,7 @@ export interface WorkBuddyStatusRouteOptions {
    * built without it (or a route mounted for a status-only consumer) simply
    * answers 503 and the button reports that instead of failing the card.
    *
-   * Every request costs real credits (measured `credit: 0.72` for one probe), so
+   * Probes can consume credits (one historical sample reported 0.72), so
    * the card drives this ONE model per click and never as a batch.
    */
   probeModels?(
@@ -333,30 +333,21 @@ export interface WorkBuddyStatusRouteOptions {
     options?: { signal?: AbortSignal },
   ): Promise<readonly WorkBuddyWebProbeResult[]>
   /**
-   * Measure OUTPUT SPEED for each named model of a region (issue #92).
-   *
-   * Separate from {@link probeModels} because it answers the opposite question
-   * with the opposite request shape: tiny input, long output. The availability
-   * probe's `max_tokens: 1` means its `elapsedMs` is time-to-first-token and
-   * carries no rate information at all.
-   *
-   * Costs a fraction of a probe per model (measured `credit 0.01`–`0.15` against
-   * `0.72`), because this gateway prices by INPUT. It still spends real credit,
-   * so it stays one model per click like every other spending route.
-   */
+ * Measure output speed using small input and a larger output cap.
+ * Historical credit samples are described in tps.ts; they do not establish
+ * current cost or a fixed ratio to availability probes. Availability elapsedMs
+ * includes stream draining and is not a time-to-first-token measurement.
+ */
   measureTps?(
     region: WorkBuddyRegion,
     modelIds: readonly string[],
     options?: { signal?: AbortSignal },
   ): Promise<readonly WorkBuddyWebTpsResult[]>
   /**
-   * The region's next monthly quota refresh, when the upstream declares one.
-   *
-   * Used ONLY to answer "when can I use this again" for an out-of-credit
-   * outcome, which is the one cooldown the service actually states: a monthly
-   * resource that resets at a known time. Every other limited outcome has no
-   * time from any source and must be reported as such.
-   */
+ * Known monthly quota refresh used as a fallback for out-of-credit results.
+ * Other retry sources include Retry-After, reset text and a local congestion
+ * waiting period; this is not the service's only source of retry information.
+ */
   quotaRefreshAtMs?(region: WorkBuddyRegion): number | undefined
   /**
    * Report whether a region still has at least one local sign-in.
@@ -657,7 +648,7 @@ export interface WorkBuddyPoolDeps {
    */
   checkinSupported?(region: WorkBuddyRegion): boolean
   /**
-   * Claim the daily reward for every account of one region.
+   * Attempt daily claims for opted-in supported pool members of one region.
    *
    * Absent means the action answers 503 — the same contract as {@link
    * WorkBuddyStatusRouteOptions.probeModels}, so a Host without the dependency
@@ -679,7 +670,7 @@ export interface WorkBuddyPoolDeps {
    */
   autoCheckinToday?(region: WorkBuddyRegion): WorkBuddyWebAutoCheckinToday | undefined
   /**
-   * Test every account of one region against the resolved target model.
+   * Test eligible pool members of one region against the resolved target model.
    *
    * `onRow` is optional and exists so the route can STREAM each account as it
    * finishes. An older Host ignores it and answers with the whole batch at once;
@@ -1022,20 +1013,10 @@ function volatileFlagOf(field: string): boolean {
 
 
 /**
- * Per-account credit balances for one region, for the composer panel's table.
- *
- * ONE upstream read per account, which is exactly why this is its own route:
- * the panel calls it only while it is open, so the 5-minute readout never
- * multiplies its cost by the account count.
- *
- * Every account is listed even when its balance cannot be read — a credential
- * that no longer resolves, or an upstream that refused — because the panel's
- * job is to show which accounts exist and let the user switch. Such a row
- * carries NO `credits` field rather than `0`, so the panel renders "—" instead
- * of telling the user they are out of credits.
- *
- * Failures are contained per account: one dead credential must not blank the
- * table for the accounts that are fine.
+ * Assemble credit rows for the composer's account panel.
+ * Each account can require credential resolution and upstream credit reads.
+ * Failures are contained per account and represented by an absent credits field
+ * rather than a zero balance. The panel fetches this route while open.
  */
 export async function workBuddyAccountCredits(
   deps: WorkBuddyStatusRouteOptions,
@@ -1063,18 +1044,11 @@ export async function workBuddyAccountCredits(
 }
 
 /**
- * How much live measurement a status document carries (issue #77).
- *
- * `full` is the original answer: the selected account's credit and check-in
- * plus every pool account's credit and check-in, all read from upstream now.
- * It is what the card's 60-second poll, the composer panel and every
- * measurement-driven control expect.
- *
- * `fast` is the FIRST PAINT. It answers from local state only — no token
- * refresh, no billing endpoint, no check-in endpoint — so the account list can
- * render in the first round trip and cannot be held up by a slow or
- * rate-limited upstream. Live figures are absent from it by construction; the
- * card then asks for the full document and upgrades the same snapshot.
+ * Select full or fast snapshot assembly.
+ * Full includes live-figure reads, some of which may use caches. Fast omits the
+ * selected account's liveFigures call and uses locally available/cached pool
+ * readings. It can contain previously measured values; fast does not mean all
+ * credit fields are absent or that every returned value is current.
  */
 export type WorkBuddyStatusDetail = 'full' | 'fast'
 
@@ -1133,7 +1107,7 @@ async function liveFigures(
  * Assemble one region's card document. `region` is the tab the card is on;
  * the region-scoped store already answers with only that region's accounts,
  * so the document's model slots and account list are that region's by
- * construction. Sign-in state is read-only; credit is a live billing answer
+ * construction. Local scans can mirror credentials into the vault; credit is a billing answer
  * whose failure degrades to `creditsError` rather than failing the document.
  *
  * `options.detail` selects the first-paint variant: it uses the credential
@@ -1211,7 +1185,7 @@ export async function workBuddyWebStatus(
   try {
     // The first paint reads the credential that is ALREADY known locally.
     // `resolve()` is the right call for the full document — it makes sure the
-    // tokens handed to the upstream are usable — but it can refresh them over
+    // tokens can be refreshed when needed, without guaranteeing acceptance. It may use
     // the network, and no token refresh may decide when the account list
     // appears. An expired token is fine here: the card only needs identity and
     // expiry to paint, and the follow-up full document still validates it.
@@ -1259,8 +1233,8 @@ export async function workBuddyWebStatus(
       ...webAccounts.length === 0 ? await searchedPaths(store) : {},
     }
   }
-  // Only user-facing identity and expiry cross to the browser. Token material
-  // and stable user IDs stay on the Host.
+  // Return display fields, the derived account id and token expiry here.
+  // This snapshot omits tokens; the separate transfer route can return them.
   const selected = accounts.find(account => account.selected)
   const account = {
     accountId: selected?.id ?? '',
@@ -1301,7 +1275,8 @@ export async function workBuddyWebStatus(
     imageModelIds: [...deps.imageModelIds(region)],
     offModelIds: [...deps.offModelIds(region)],
   }
-  // The first paint carries no live figures at all: this is the await that used
+  // Fast mode skips this selected-account live read; cached pool readings can
+  // still appear. This is the await that used
   // to make the account list wait on a billing endpoint (issue #77).
   const figures: WorkBuddyLiveFigures = fast
     ? {}
@@ -1387,7 +1362,8 @@ async function poolSectionOf(
  *
  * `current` is answered by the Host too (`currentAccountId`), not inferred from
  * the ranking, because those are different questions: the ranking says who
- * SHOULD serve, `current` says who IS serving. Marking the winner as current
+ * is eligible; `current` reflects the resolved selection at snapshot time.
+ * Concurrent requests may already be using a different borrowed credential. Marking the winner as current
  * would make the card claim a switch that may not have been applied yet.
  */
 async function workBuddyWebPool(
@@ -1614,7 +1590,7 @@ function requestRegion(req: IncomingMessage, res: ServerResponse): WorkBuddyRegi
 }
 
 /**
- * Mount the read-only routes on a context where `webServer` is available.
+ * Mount status and action routes when webServer is available.
  * The caller uses `ctx.inject(['webServer'], ...)`, so Desktop startup order
  * cannot make this registration disappear.
  */
@@ -2496,15 +2472,14 @@ export function registerWorkBuddyStatusRoute(ctx: Context, deps: WorkBuddyStatus
     /**
      * 真实设备参数（本机安装的桌面端 SDK）。
      *
-     * 三个动作的权限不一样：读状态是 GET，强制重取与取完整值是 POST。把完整值
-     * 放在 POST 后面不是形式主义——它会进浏览器历史、会被 proxy 记日志、会被截图，
-     * 而 `GET` 是三者里最容易被动触发的（预取、刷新、插件间的探测）。
+     * 三个动作的权限不一样：读状态是 GET，强制重取与取完整值是 POST。完整值仅由显式 POST 操作取得，避免 GET 预取或刷新触发敏感读取。
+     * HTTP 方法本身不能防止代理记录或截图，响应仍需按敏感数据处理。
      */
     const disposeDeviceSdk = ctx.webServer.register({
       kind: 'exact',
       path: WORKBUDDY_DEVICE_SDK_PATH,
       handler: async (req: IncomingMessage, res: ServerResponse) => {
-        // 同上：请求来源检查先于"是否调用关系"，否则 503 会把这条路由的存在性告诉外部来源。
+        // 同上：请求来源检查先于“是否已连接所需服务”，否则 503 会把这条路由的存在性告诉外部来源。
         if (!requireLoopback(req, res)) return
         const port = deps.deviceSdk
         if (port === undefined) {

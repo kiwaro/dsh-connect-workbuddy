@@ -34,13 +34,9 @@ export interface WorkBuddyRegionState {
    */
   showCreditsInMainUi?: boolean
   /**
-   * Whether the model may call the image-generation tool here (opt-IN).
-   *
-   * The only switch in this interface where an ABSENT value means OFF. Every
-   * other flag here governs something the user can undo by clicking again;
-   * this one authorizes the model to spend real credits on its own, so an
-   * upgrade — or a config whose value could not be read — must leave it off.
-   */
+ * Whether models may call the image-generation tool in this region.
+ * This is opt-in: an absent value means off, as with videoToolEnabled.
+ */
   imageToolEnabled?: boolean
   /**
    * Same opt-IN shape as `imageToolEnabled`, but for the video-generation tool
@@ -177,21 +173,11 @@ export interface WorkBuddyPoolPreferences {
    * rather than replaced, so no credits are spent on a model nobody chose.
    */
   /**
-   * How much input a probe sends, in tokens — the pool's biggest single knob.
-   *
-   * The upstream's rate limit (6004) fires on request SIZE, and the threshold
-   * was measured to sit between 20k and 30k tokens. The probe has to be sized
-   * near where the user's REAL conversations land: too small and it reports
-   * "usable" while every long conversation is refused (the exact false positive
-   * that made this knob necessary), too large and it costs real credit on every
-   * batch AND excludes accounts that would have served the shorter requests the
-   * user actually sends.
-   *
-   * A fixed value therefore cannot be right for everyone — the right size is a
-   * property of the user's own traffic, which only they know. `undefined` keeps
-   * the measured default ({@link DEFAULT_PROBE_INPUT_TOKENS}), so an existing
-   * profile is unaffected.
-   */
+ * Approximate input size for pool probes. Request size can affect rate-limit
+ * results, so choose a size representative of the user's conversations.
+ * A small successful probe does not establish that a larger request will work.
+ * An absent or unsupported value uses DEFAULT_PROBE_INPUT_TOKENS.
+ */
   probeInputTokens?: number
   /**
    * The account ids checked into this region's pool.
@@ -295,7 +281,7 @@ export interface Config {
    *
    * `failure` (default) learns from a successful channel-gate rescue and starts
    * later requests with the learned form; `always` starts every request with
-   * the dense form for a gateway whose plain attempt is a guaranteed refusal;
+   * the dense form for a gateway where plain attempts have repeatedly been refused;
    * `off` keeps only the post-failure rescue ladder.
    */
   channelPerturbation?: 'off' | 'failure' | 'always'
@@ -316,25 +302,17 @@ export interface Config {
    */
   wireProfile?: 'conservative' | 'balanced'
   /**
-   * SDK 功能的**总开关**（默认开）。
+   * SDK 功能总开关，默认关闭。创建 SDK 实例时读取该值，保存后需重载插件或重启 DSH。
    *
-   * 关掉之后：不发现 SDK 目录、不起取 token 的子进程、不后台预热——真实值档因此
-   * 永远取不到 token。这是"我根本不想让这个插件碰桌面端的原生模块"的那条退路：
-   * 在此之前这项能力是无条件启动的，一个只想用虚拟值档的人也照样每 10 分钟付一次
-   * 子进程与一次风控取数。
-   *
-   * 与「取不到真实设备时退回虚拟值」不是一回事：那个管**取不到时怎么办**（落在设备
-   * 设置文件里），这个管**要不要去取**。两者都关时真实值档零设备头；总开关关而回退
-   * 开时，退到虚拟值。
-   *
-   * 关掉不影响虚拟值档：派生值全靠本机盐，与 SDK 无关。
+   * 关闭时不发现 SDK 目录、不启动获取 token 的子进程，也不安排后台预热。
+   * 真实值档无法从本机 SDK 获取 token；是否退回虚拟值由设备设置中的回退开关决定。
+   * 虚拟值档通过本机盐派生身份，不依赖 SDK。
    */
   deviceSdkEnabled?: boolean
   /**
    * 外部设备 token（`docs/DEVICE-IDENTITY-AUDIT.md` 的 P2）。
    *
-   * 只收**文件**，不收内联字符串：token 是分钟级过期的，写在配置里的值十分钟后
-   * 就是死值，只能靠人改配置——那条路只在一次性排障里成立。文件可以由 A 自己的
+   * 只收**文件**，不收内联字符串：内联 token 无法自动更新。文件可以由 A 自己的
    * `.turing_token_cache.json`、一个 cron 或任何脚本刷新，插件按 `ttlMs` 重读。
    *
    * 文件支持两种形状：裸 token，或 A 的 `{"token":"v3:…","ts":…}` 信封。上限
@@ -350,7 +328,7 @@ export interface Config {
      * 指向 A 的缓存文件即可直接复用它的设备身份，不需要额外脚本。
      */
     file?: string
-    /** 重读周期，默认 5 分钟。token 本身约 10 分钟过期。 */
+    /** 文件重读周期，默认 5 分钟；这不是上游 token 的有效期声明。 */
     ttlMs?: number
   }
   /**
@@ -476,34 +454,18 @@ const poolConfig = z.object({
   enabled: z.boolean().default(false).description('Whether this region\'s account pool is active (opt-in). While on, a failed chat request is retried against the other usable pool members before the error is reported.'),
   targetModelId: z.string().default('').description('Model id to test; empty means pick a zero-multiplier model from this region\'s catalog'),
   /**
-   * Sizing of the test probe, as a token count the user picks from a fixed set.
-   *
-   * A closed set rather than a free number: each step is a meaningful position
-   * relative to the measured 20k~30k threshold, and an arbitrary value would
-   * invite a size that is neither safely under nor clearly over it. `0` (and any
-   * unknown value) falls back to the measured default, so a profile written by
-   * an older build — and one hand-edited to something odd — behaves identically.
-   */
+ * Approximate probe input size selected from the supported choices.
+ * An absent or unsupported value uses the default. These sizes are samples,
+ * not verified boundaries between usable and rate-limited requests.
+ */
   probeInputTokens: z.number().step(1).default(0).description('Input tokens each test probe sends: 10000 / 20000 / 30000 / 50000 / 100000. Bigger probes catch a rate limit real conversations would hit, but cost more credit per test and may mark an account unusable for large requests only. 0 uses the measured default (25000)'),
   memberAccountIds: z.array(z.string()).default([]).description('Account ids checked into this pool (opt-in; empty means the pool covers nothing)'),
   /**
-   * Whether the plugin claims the daily check-in by itself (opt-IN, default off).
-   *
-   * OFF BY DEFAULT, and that is the whole design (issue #191). Claiming a daily
-   * reward is a real WRITE on the user's account, and this plugin shipped with no
-   * automatic check-in precisely so it would never make that decision for
-   * someone. The reasoning still holds — what changed is that the user can now
-   * make the decision once and have it honoured.
-   *
-   * The alternative was worse than it looks: a missed day resets the streak to
-   * zero (the reporter was at 32), and the claim costs no credits and is
-   * idempotent upstream. So the trade is "one switch" against "a 32-day streak
-   * lost to a weekend".
-   *
-   * Only the CN region has a check-in; the switch is hidden elsewhere and the
-   * runner refuses to start there, so a hand-edited profile cannot make the
-   * background path spend a request per account per day learning a refusal.
-   */
+ * Enable automatic daily check-in for CN accounts. Default: off.
+ * The runner skips other regions and accounts outside its supported scope.
+ * It checks recorded status before claiming, but concurrent attempts can still
+ * occur. The upstream determines rewards and streak rules.
+ */
   autoCheckin: z.boolean().default(false).description('Claim the daily check-in automatically for the accounts checked into this pool (opt-in). Idempotent: an account already checked in today is reported, never re-claimed. Only the CN region has a daily check-in.'),
   orderAccountIds: z.array(z.string()).default([]).description('The user\'s hand-ordered pool order, as account ids. Independent of membership: an id need not be checked in (it only takes effect once the account is a member), and ids not listed sort last. Separate from memberAccountIds so reordering never conflicts with, or is destroyed by, a membership edit.'),
 })
@@ -531,39 +493,17 @@ const regionStateConfig = z.object({
   enabledModelIds: z.array(z.string()).default([]),
   imageModelIds: z.array(z.string()).default([]),
   /**
-   * Whether the model may call the image-generation tool (opt-IN, default off).
-   *
-   * Per-REGION like the credit switches, and it now means the same thing on both
-   * tabs: each region's catalog carries its own `text-to-image` model (CN
-   * `hunyuan-image-alpha`, international `hy-image-3.5`; measured 2026-10-25,
-   * see `docs/IMAGE_GEN.md`). Whichever region is switched on AND opted in owns
-   * the tool; CN wins when both qualify (see `imageToolRegionOf`).
-   *
-   * Every other spending path in this plugin requires a human action: a chat
-   * request is one the user sent, and the per-model "test" button is one the
-   * user clicked. `workbuddy_draw_image` is the first capability where the
-   * MODEL decides to spend — it calls the tool on its own, at about 5.71 credits
-   * an image on CN and 0.03 on the international gateway (measured, not a price
-   * list: the media catalog carries no cost, so the tool reports the
-   * `usage.credit` the upstream actually settles), and there is no per-call
-   * approval seam in the host to ask the user first (`needsApproval` /
-   * `toolApproval` do not exist; verified against the shipped `app.asar`).
-   *
-   * So it is opt-in, the same way the account pool's credit-based rotation is
-   * opt-in (3.0.0's reasoning): a feature that can move money on its own must be
-   * one the user switched on, not one that arrives with an upgrade. Off also
-   * means that region contributes nothing, and with no opted-in region at all
-   * the tool is not REGISTERED, so the model never sees it and cannot attempt a
-   * call that would be refused.
-   */
+ * Allow models to call the image tool through this region. Default: off.
+ * The provider must also be enabled. When both regions qualify, CN owns the tool.
+ * Reported usage.credit is shown when available; historical measurements do not
+ * establish current pricing. With no eligible region, the tool is not registered.
+ */
   imageToolEnabled: z.boolean().default(false).description('Let the model call workbuddy_draw_image on its own (opt-in; an image costs ~5.71 credits on the CN gateway and ~0.03 on the international one, and there is no per-call approval). Off by default, and off means no region registers the tool at all.'),
   /**
-   * Whether the model may call the video-generation tool (opt-IN, default off).
-   * Per-REGION like `imageToolEnabled`, gated the same way: the region must be
-   * switched on AND the user must opt in. CN wins when both qualify. A video
-   * costs real credits per generation and the task runs tens of seconds to
-   * minutes, so no per-call approval exists in the host — hence opt-in.
-   */
+ * Allow models to call the video tool through this region. Default: off.
+ * The provider must also be enabled. CN wins when both regions qualify.
+ * Generation may consume credits; the toggle controls tool registration.
+ */
   videoToolEnabled: z.boolean().default(false).description('Let the model call workbuddy_draw_video on its own (opt-in; a video is an async task that costs WorkBuddy credits and runs tens of seconds to minutes). Off by default, and off means no region registers the tool at all.'),
   /**
    * The video model pinned for one tag (`text-to-video` / `image-to-video`),
@@ -606,8 +546,8 @@ const regionStateConfig = z.object({
    * An ABSENT key means "follow this model's own upstream `defaultEffort`",
    * which the great majority of the live catalog declares (measured 2026-10-30:
    * `high` on thirteen of fifteen, `max` on the two five-tier ones) — and where
-   * the upstream declares none, "follow this model's own MIDDLE tier", never its
-   * weakest one (qoder 518ecbb's rule; see `src/default-effort.ts`). That is NOT
+   * the upstream declares none, "follow this model's upper middle tier", or its sole tier
+   * when only one exists (qoder 518ecbb's rule; see `src/default-effort.ts`). That is NOT
    * the same as "no opinion": the adapter must still pin SOMETHING for the request
    * paths that name no tier, and issue #83 is the record of what happens when
    * that is left to pi-ai's level map — it filled in `off`, the upstream answers
@@ -771,7 +711,7 @@ export const Config: z<Config> = z.object({
   channelPerturbation: asVolatile(
     z.union([z.const('off'), z.const('failure'), z.const('always')])
       .default('failure')
-      .description('When to perturb scanned messages with invisible characters: "off" only rescues after a channel-gate refusal, "failure" (default) learns from a successful rescue and starts later requests perturbed, "always" starts every request with the dense rescue for a gateway whose plain attempt is guaranteed to fail.'),
+      .description('When to perturb scanned messages with invisible characters: "off" only rescues after a channel-gate refusal, "failure" (default) learns from a successful rescue and starts later requests perturbed, "always" starts every request with the dense rescue without first trying the unmodified request. This changes request text and does not guarantee acceptance.'),
   ) as unknown as z<'off' | 'failure' | 'always'>,
   usageIdentity: asVolatile(
     z.boolean()

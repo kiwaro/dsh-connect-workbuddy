@@ -69,7 +69,8 @@ export { WORKBUDDY_AUTH_FILENAME, WORKBUDDY_AUTH_FILE_ENV, isLiveDesktopAuthFile
 const SCAN_SHARE_WINDOW_MS = 1000
 
 /**
- * Read-only credential store with demand-driven refresh and multi-account
+ * Credential store with discovery, mirroring, imports, removal, and demand-driven refresh.
+ * Multi-account
  * discovery.
  *
  * Refresh policy: refresh only when the access token is inside the margin
@@ -94,23 +95,10 @@ export class WorkBuddyCredentialStore {
   private accountId: string | undefined
   private inflight: Promise<WorkBuddyCredential> | undefined
   /**
-   * In-flight/completed scan for the CURRENT `readAll` generation.
-   *
-   * One page open calls `readAll` six times: the usage route asks for the
-   * account list, the sign-in state and the resolved credential, then the
-   * per-account credits panel asks once PER ACCOUNT (`credentialFor`), and both
-   * region tabs poll on the same timer. Each call re-read every auth file,
-   * re-parsed it, and re-ran the vault merge — measured at 6 `readdir` + (6N+12)
-   * `readFile` for N accounts, i.e. the cost grew with the account count on a
-   * path whose answer cannot change within one tick.
-   *
-   * This is deliberately NOT a time-based cache: a TTL would make the card show
-   * a stale account list after an OAuth add or an import, which is the very
-   * class of bug this card keeps chasing. Instead the promise is shared while it
-   * is in flight, and every WRITE clears it (see `invalidateScan`) — so a read
-   * after a write always scans again, and a read during a scan joins it.
-   *
-   * Undefined means "no scan in flight and nothing cached".
+   * Shared scan promise for the current generation. Concurrent callers join it;
+   * completed results remain reusable for SCAN_SHARE_MS after completion.
+   * Store writes invalidate it, while external desktop edits can remain unseen
+   * during that window. This is a short-lived cache of the scan result.
    */
   private scanInflight: Promise<readonly WorkBuddyCredential[]> | undefined
   /**
@@ -420,7 +408,7 @@ export class WorkBuddyCredentialStore {
       // The plugin's refreshed copy carries no `lastRefreshTime` of its own, so
       // it cannot be ranked by issuance time. It supersedes a desktop file only
       // when it actually lives longer — and never displaces the live sign-in,
-      // which the app keeps up to date and which the upstream always accepts.
+      // which this precedence rule prefers; upstream acceptance can still fail.
       if (existing === undefined) {
         byId.set(id, own)
       } else if (fileRank(existing.filePath) !== 0 && own.expiresAtMs > existing.expiresAtMs) {
@@ -490,8 +478,8 @@ export class WorkBuddyCredentialStore {
       // desktop file backs it), so it joins unconditionally.
       //
       // When the scan DID re-find the account the live sign-in keeps priority,
-      // per {@link fileRank}: the app holds a current token and the upstream
-      // rejects the ones in its timestamped backups. There is exactly one
+      // per fileRank. Historical observations favored the live token over backups;
+      // neither file age nor source guarantees upstream acceptance. There is exactly one
       // exception — the entry records, in `refreshedFrom`, that the plugin
       // itself refreshed THAT file. The plugin's token was issued in answer to
       // it and is strictly newer than the copy the app last wrote, so serving
@@ -716,7 +704,7 @@ export class WorkBuddyCredentialStore {
    * `resolve()` seeing zero accounts has two very different causes, and the
    * generic "sign in once" message is only correct for one of them. When a
    * probe finds a credential file whose fields are encrypted and the key could
-   * not be obtained, the user is signed in and re-authenticating cannot help —
+   * not be obtained, the file suggests a stored sign-in, but its usable state cannot be established —
    * so that case gets {@link WorkBuddyEncryptedCredentialError} instead, naming
    * the file and the environment variable that actually fixes it.
    *
@@ -750,7 +738,7 @@ export class WorkBuddyCredentialStore {
     )
   }
 
-  /** Read-only sign-in summary; never refreshes and never throws. */
+  /** Sign-in summary without a token exchange; discovery may mirror vault entries. */
   async status(): Promise<WorkBuddyAuthStatus> {
     try {
       const credential = await this.current()
@@ -960,7 +948,7 @@ export class WorkBuddyCredentialStore {
     // user's "forget what the plugin stored" action, and the vault is plugin
     // storage. The sibling region's directory is untouched.
     await rm(this.vaultDir(), { recursive: true, force: true })
-    // The account list this store hands out is now empty.
+    // Invalidate the scan. A later scan can discover desktop credentials again.
     this.invalidateScan()
   }
 

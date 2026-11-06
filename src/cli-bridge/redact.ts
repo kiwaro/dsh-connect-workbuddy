@@ -5,7 +5,7 @@
  * ends with `.slice(0, PROBE_MESSAGE_LIMIT)` — 300 characters, enough for a
  * probe failure body and far too little for a CodeBuddy reply. Reusing it here
  * would silently truncate every review to its first paragraph, so this module
- * carries its own implementation of the same two patterns plus the one thing
+ * carries its own implementation of token-matching patterns plus the one thing
  * the probe route does not have: an explicit secret list.
  *
  * WHY THE SECRET LIST MATTERS MORE THAN THE PATTERNS. The bridge hands the CLI
@@ -39,12 +39,12 @@ const PATTERNS: readonly (readonly [RegExp, string])[] = [
  * Remove token-shaped content from CLI text.
  *
  * `secrets` are exact strings to scrub first (case-sensitive, literal): the
- * credential this turn handed the child. Empty strings are ignored because
- * `String.prototype.split('')` would explode the text into characters.
+ * credential this turn handed the child. Only strings from 8 through 4096
+ * characters are replaced literally; shorter or longer values are skipped.
  *
- * Never throws, never shortens the text. Length is the caller's business — a
- * reply that is still too long is truncated by the caller with a marker, not
- * here where the reason would be lost.
+ * Replacements can change text length. This helper applies no overall output
+ * limit; the caller truncates an oversized reply and adds a marker. Pattern
+ * matching does not guarantee removal of encoded or transformed secrets.
  */
 export function redactCliText(text: string, secrets: readonly string[] = []): string {
   let out = text

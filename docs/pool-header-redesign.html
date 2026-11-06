@@ -6,7 +6,7 @@
 <title>账号池区块：重新设计预览</title>
 <style>
 /* ============================================================================
-   沿用插件真实设计令牌（--dsw-alias-*）与类名前缀 dsm-workbuddy-*，所以这份预览
+   本预览沿用插件的设计令牌（--dsw-alias-*）与类名前缀 dsm-workbuddy-*，
    用于比较账号池头部布局。本页保留历史设计稿，实际功能以插件为准。
    ========================================================================== */
 :root{
@@ -47,7 +47,7 @@ body{
 .bad{color:var(--dsw-alias-state-error-primary)}
 .good{color:var(--dsw-alias-state-success-primary)}
 
-/* ---------- 真实的插件样式（节选，与 src/client/styles.ts 一致） ---------- */
+/* ---------- 历史插件样式节选（本页保留设计时的取值） ---------- */
 .dsm-workbuddy-pool{display:flex;flex-direction:column;gap:12px}
 .dsm-workbuddy-pool-title{margin:0;font-size:15px;font-weight:600;line-height:22px}
 .dsm-workbuddy-pool-summary{margin:2px 0 0;font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary)}
@@ -96,12 +96,12 @@ body{
 
   <header>
     <h1 class="page-title">账号池区块 · 重新设计预览</h1>
-    <p class="page-sub">上半是现在的样子（照截图复现），下半是改后的形态。所有样式取自插件真实的 <code>dsm-workbuddy-*</code> 类与 <code>--dsw-alias-*</code> 令牌，可切换系统深色/浅色。</p>
+    <p class="page-sub">上半部分复现调整前的截图，下半部分展示当时提出的改版方案。样式参考设计时插件的 <code>dsm-workbuddy-*</code> 类与 <code>--dsw-alias-*</code> 令牌，可切换系统深色/浅色。</p>
   </header>
 
   <!-- ============================ 改前 ============================ -->
   <section class="panel">
-    <div class="panel-head"><h2>改前（现在的形态）</h2><span class="tag">对照截图还原</span></div>
+    <div class="panel-head"><h2>调整前的历史布局</h2><span class="tag">对照截图还原</span></div>
     <div class="panel-body dsm-workbuddy-pool">
       <div class="before-head">
         <div>
@@ -109,8 +109,8 @@ body{
           <p class="dsm-workbuddy-pool-summary">本区域 4 个账号 · 目标模型 deepseek-v4.1-flash</p>
         </div>
         <div class="before-current">
-          <span class="dsm-workbuddy-pool-current-badge">当前使用：13046625578</span>
-          <span class="dsm-workbuddy-pool-current-hint">此处显示下一次请求的首选账号。重试可能使用池内其他成员，手动账号选择单独保存。</span>
+          <span class="dsm-workbuddy-pool-current-badge">当前使用：示例账号 A</span>
+          <span class="dsm-workbuddy-pool-current-hint">此处显示当次状态查询选出的账号；真正发送请求时会重新选号。手动账号选择单独保存。</span>
         </div>
       </div>
       <div class="before-rescan"><button class="dsm-btn dsm-btn-outline marker">重新检测账号</button></div>
@@ -126,14 +126,14 @@ body{
 
   <!-- ============================ 改后 ============================ -->
   <section class="panel">
-    <div class="panel-head"><h2>改后</h2><span class="tag">头部只留标题与徽章 · 按钮两组按钮 · 来源并入设置行</span></div>
+    <div class="panel-head"><h2>改后</h2><span class="tag">头部保留标题与徽章，按钮分为两组，模型来源并入设置行</span></div>
     <div class="panel-body">
 
       <div class="dsm-workbuddy-pool" style="margin-top:12px">
         <!-- 头部：只有标题与徽章。副标题（账号数/目标模型）与那句说明都已删除。 -->
         <div style="display:flex;align-items:center;justify-content:space-between;gap:16px">
           <h3 class="dsm-workbuddy-pool-title">账号池</h3>
-          <span class="dsm-workbuddy-pool-current-badge">当前使用：13046625578</span>
+          <span class="dsm-workbuddy-pool-current-badge">当前使用：示例账号 A</span>
         </div>
 
         <!-- 设置区 -->
@@ -149,7 +149,7 @@ body{
         <p class="dsm-workbuddy-pool-note" style="margin-top:2px"><b>手动模式示例：</b>账号池关闭后，显示「使用哪个账号」设置。</p>
         <div class="dsm-workbuddy-pool-set" style="border-top:1px dashed var(--dsw-alias-border-l2);opacity:.95">
           <span class="dsm-workbuddy-pool-set-copy"><b>使用哪个账号</b><span>选择本区域发送请求所用的账号。</span></span>
-          <span class="dsm-workbuddy-pool-set-ctl"><select class="dsm-workbuddy-pool-select"><option>13046625578</option><option>18016009945</option></select></span>
+          <span class="dsm-workbuddy-pool-set-ctl"><select class="dsm-workbuddy-pool-select"><option>示例账号 A</option><option>示例账号 B</option></select></span>
         </div>
 
         <!-- 工具栏：两组按钮，左=对账号做的事，右=发现新账号 -->
@@ -169,28 +169,28 @@ body{
           <tbody>
             <tr class="dsm-workbuddy-pool-row-current">
               <td><input type="checkbox" checked /></td>
-              <td>13046625578<span class="dsm-workbuddy-pool-current-tag">当前使用</span></td>
+              <td>示例账号 A<span class="dsm-workbuddy-pool-current-tag">当前使用</span></td>
               <td>2,853</td><td>通过 · 12 分钟前</td><td>今日已签</td>
             </tr>
             <tr>
               <td><input type="checkbox" checked /></td>
-              <td>18016009945</td>
+              <td>示例账号 B</td>
               <td>1,204</td><td>未测试</td><td>未签到</td>
             </tr>
             <tr>
               <td><input type="checkbox" /></td>
-              <td>19802108866</td>
+              <td>示例账号 C</td>
               <td>510</td><td>限流 · 1 小时后重试</td><td>—</td>
             </tr>
             <tr>
               <td><input type="checkbox" /></td>
-              <td>13600001111</td>
+              <td>示例账号 D</td>
               <td>0</td><td>未测试</td><td>—</td>
             </tr>
           </tbody>
         </table>
 
-        <!-- 保存行：上一轮刚统一的形态 -->
+        <!-- 保存行：该设计稿采用的布局 -->
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid var(--dsw-alias-border-l2);padding-top:12px">
           <a class="dsm-workbuddy-usage-cheer" href="#">鼓励一下<span class="dsm-workbuddy-usage-cheer-star">★</span></a>
           <div style="display:flex;gap:8px">

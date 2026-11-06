@@ -11,48 +11,15 @@ import type { RecoveredToolCall, RecoveryGate } from './dsml-recovery.ts'
 import type { ShimLogger } from './shim.ts'
 
 /**
- * Rewrites the upstream SSE stream, converting markup the model wrote into the
- * text back into a real `delta.tool_calls` — and, when a whole turn produced
- * nothing but markup, holding the bytes long enough to retry ONCE.
+ * Inspect SSE content using DsmlStreamBuffer and emit supported recovered calls.
+ * With a recovery gate, content frames may be held until prose or a call can be
+ * emitted. If only refused markup remains, the caller can discard the held
+ * attempt before retrying. Buffering and parsing can add latency.
  *
- * ============================================================================
- * Why this class exists rather than a `.pipe()`
- * ============================================================================
- *
- * Recovering a call means inspecting `delta.content` before the client sees it,
- * which the old `body.pipe(res)` could not do. The parsing rules live in
- * `src/dsml-recovery.ts`; everything here is about the STREAM's obligations:
- *
- *   1. FRAME ORDER IS NEVER CHANGED. Frames are forwarded in arrival order.
- *      The only frame this class invents is the trailing one that carries a
- *      block still unfinished at end-of-stream.
- *
- *   2. HOLDS ARE TEMPORARY AND PAY FOR THEMSELVES. Nothing is held unless the
- *      answer so far consists only of markup: the moment real prose or a real
- *      call appears, everything held is flushed in order and the stream returns
- *      to plain pass-through. An ordinary answer therefore pays no latency at
- *      all, and no byte is ever discarded while a retry is still possible.
- *
- *   3. A RETRY MUST NOT SPLICE TWO ANSWERS TOGETHER. That constraint is why the
- *      hold exists: because no content frame has been written yet, the caller
- *      can discard this attempt and re-send the same body. The existing
- *      failover loop makes the same promise for failures BEFORE the stream
- *      starts (see its comment in `chatCompletions`); this extends it to the
- *      one case that can only be recognised after the fact.
- *
- *   4. NOTHING IS INVENTED WHEN THE UPSTREAM ALREADY SPEAKS STRUCTURED CALLS.
- *      Once a native `delta.tool_calls` appears, recovery switches off for the
- *      rest of the response — two live call channels for one answer is worse
- *      than either one alone.
- *
- *   5. EVERY FRAME LEAVES SELF-CONTAINED. An SSE event ends at a blank line,
- *      and a frame written without its terminator merges into the NEXT event
- *      the client decodes — whose `data:` lines are then joined and parsed as
- *      one document (issue #53). Every write therefore goes through
- *      {@link emitFrame}, which completes the terminator; `push()` cuts frames
- *      that already carry it, and the one source of unterminated bytes — the
- *      half-frame left in `carry` when the upstream dies — is normalized in
- *      {@link consume}.
+ * Native calls disable further call recovery while supported protocol blocks
+ * continue through scrub mode. Notices, recovered calls and tail content can
+ * create frames; tail content is inserted before held finish frames. SSE
+ * terminators are completed by emitFrame. Malformed payloads are not repaired.
  */
 export class RecoveryStream {
   creditAccount: string | undefined
@@ -273,19 +240,11 @@ export class RecoveryStream {
   private usageReported = false
 
   /**
-   * Read the upstream's token counts out of one parsed chunk and report them.
-   *
-   * FIRES AT MOST ONCE per stream, and only when there is a real number to
-   * report. Two reasons, both load-bearing:
-   *
-   *   - a streamed answer's `usage` arrives on its final frame, but a failover
-   *     retry starts a NEW `RecoveryStream`, so a second call here would be a
-   *     second measurement for the same line;
-   *   - a chunk with no `usage` (which is every chunk but the last) must not be
-   *     reported as zero — an absent measurement and a measurement of zero are
-   *     different facts, and the #59 comparison turns entirely on that
-   *     difference.
-   */
+ * Read usage from a parsed chunk and report at most once per RecoveryStream.
+ * The first usable measurement wins; later usage updates are ignored. A retry
+ * can create another stream and report again, so callers must associate each
+ * observation with the appropriate request. Missing usage is not reported as zero.
+ */
   private noteUsage(chunk: Record<string, unknown>): void {
     if (this.usageReported || this.onUsage === undefined) return
     const usage = usageOfChunk(chunk)

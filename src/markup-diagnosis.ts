@@ -1,6 +1,6 @@
 /**
  * Diagnosis for a WorkBuddy upstream defect this project first hit in
- * production and can neither prevent nor fix: the model sometimes writes its
+ * production: the model sometimes writes its
  * tool call into the assistant TEXT (`delta.content`) using its own transcript
  * markup instead of returning a structured `delta.tool_calls`, and the gateway
  * does not convert it. DeepSeek Harness then has nothing to route — the markup
@@ -45,7 +45,7 @@ import { FULLWIDTH_BAR as BAR, MARKUP_RE as RE, MARKUP_TOKEN as TOKEN } from './
  * is written with. The two look nearly identical in most fonts, which is why
  * every regex here is built from this constant instead of a literal — a hand-
  * typed `|` would silently never match, and a check that never matches looks
- * exactly like a clean bill of health.
+ * exactly like a clean scan.
  *
  * Defined in the recovery module and re-exported, because both halves must
  * agree on the spelling: a detector that accepts one form while the converter
@@ -228,8 +228,8 @@ export function markupMatches(text: string): { at: number, text: string }[] {
  *
  * Returns `null` when absent, so callers test one value instead of a count.
  * The excerpt is deliberately raw — including any damaged brackets or unclosed
- * quoting — because the damage IS the evidence: a well-formed call would have
- * been routed, so what a reader needs to see is how it was malformed.
+ * quoting — because the damage IS the evidence: even valid-looking markup in text is not a structured tool call. The excerpt
+ * lets a reader inspect its actual form.
  */
 export function findMarkup(text: string, radius = 160): MarkupHit | null {
   const hits = markupMatches(text)
@@ -259,7 +259,6 @@ export function findMarkup(text: string, radius = 160): MarkupHit | null {
  *     on `invoke name=` alone missed it; the parameter grammar is the same block
  *     seen from a different angle.
  *
-/**
  * The cost of that second shape is that prose *describing* a parameter clause
  * could count as an emission, which is the overcounting this module's mention
  * rule exists to prevent — so quoting in inline backticks is handled there too.

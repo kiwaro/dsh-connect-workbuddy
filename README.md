@@ -39,7 +39,7 @@ WorkBuddy 对第三方客户端请求设有限制。使用本插件可能导致�
 
 更早版本的三级处理对同一 body 曾全部返回 400，记录见 [#164](https://github.com/dingminhua/dsh-connect-workbuddy/issues/164)。
 
-当前版本的错误排查还包含消息正文。
+排查当前版本的渠道校验错误时，还需检查被拒请求的消息正文。
 
 <a id="受支持的宿主范围"></a>
 
@@ -134,7 +134,7 @@ dsh: plugin command failed; diagnostics: …/operation-xxxx/pnpm.log
 [ERR_PNPM_IGNORED_BUILDS] Ignored build scripts: dsh-purge@file:../../vendor/dsh-purge
 ```
 
-该示例中的 @file:… 表示目录依赖。<DSH Home>/profiles/<profile>/../../vendor/dsh-purge 解析到 <DSH Home>/vendor/dsh-purge。该示例中的 file 路径相对于 profile 目录，解析到 `<DSH Home>/vendor/dsh-purge`。
+该示例中的 @file:… 表示目录依赖。路径相对于 profile 目录，`<DSH Home>/profiles/<profile>/../../vendor/dsh-purge` 解析到 `<DSH Home>/vendor/dsh-purge`。
 
 先检查该包的安装说明及 postinstall 指向的文件是否存在。
 
@@ -241,7 +241,7 @@ macOS 检查记录见 [验证报告](docs/MAC-VERIFY-PR188-REPORT.md)，检查�
 
 <img src="docs/assets/dsh-connect-workbuddy-composer-credits.png" width="360" alt="输入框积分面板：账号余额、状态、等宽切换按钮与使用中标记，账号名已打码" />
 
-**图 1：输入框积分面板。** 左列识别账号和状态，中列是余额，右列用于手动切换；“使用中”按钮指向当前账号。刷新会测试账号，具体请求费用见模型测试说明。
+**图 1：输入框积分面板。** 左列识别账号和状态，中列是余额，右列用于手动切换；“使用中”按钮指向当前账号。刷新读取账号余额；账号测试会另外发送模型请求，具体费用见模型测试说明。
 
 <a id="4-账号池"></a>
 <a id="账号池"></a>
@@ -304,7 +304,7 @@ macOS 检查记录见 [验证报告](docs/MAC-VERIFY-PR188-REPORT.md)，检查�
 
 ### 3.5 自动换号
 
-开启账号池后，每次请求使用排序最靠前的可用成员。“当前使用”显示本次自动选择的结果。账号限流或积分耗尽时，插件按顺序尝试其他可用成员；凭据失效及连接失败也按换号条件处理，全部失败后报告错误和尝试的账号数量。
+开启账号池后，每次请求使用排序最靠前的可用成员。“当前使用”显示状态查询时选出的账号；发送请求时会重新选号。账号限流或积分耗尽时，插件按顺序尝试其他可用成员；凭据失效及连接失败也按换号条件处理，全部失败后报告错误和尝试的账号数量。
 
 请求参数错误、渠道校验失败及模型繁忙按对应错误处理。响应开始传输后发生中断时，插件直接报告失败，避免将重复回答拼接到已输出的内容中。
 
@@ -427,7 +427,7 @@ issue #214 曾记录刷新后 `glm-5.3` 倍率为 0.69，卡片继续显示 0.79
 
 每个模型行可设置默认推理强度，用于请求未指定档位的情况，包括新会话、压缩摘要和会话命名，见 issue #179。
 
-选项来自模型声明。历史目录中，`deepseek` 与 `glm-5.3` 为 `low/high/max`，`glm-5.2` 为 `high/xhigh`，`space-bunny` 有五档。选择器的第一项显示实际默认值：优先取上游声明，缺少声明时取该模型的中档。
+选项来自模型声明。历史目录中，`deepseek` 与 `glm-5.3` 为 `low/high/max`，`glm-5.2` 为 `high/xhigh`，`space-bunny` 有五档。选择器的第一项显示实际默认值：优先取上游声明；缺少声明时，将可用档位按固定顺序排列，取索引 Math.floor(档位数 / 2)，偶数档时取中间偏高的一档。
 
 <a id="图片输入"></a>
 
@@ -659,7 +659,7 @@ dsh plugin --profile desktop exec dsh-connect-workbuddy doctor   # 第一行就�
 | 进程心跳的时间戳来源 | PowerShell `Get-Process` 的 `StartTime`（POSIX 无 `ps -lstart` 等价物） | `ps -o lstart=` | `ps -o lstart=` |
 | 子进程的窗口 | DSH 为图形界面程序，启动子进程时使用 `windowsHide` 隐藏控制台窗口 | 该选项仅 Windows 生效 | 该选项仅 Windows 生效 |
 | 设置写入的瞬时占用 | 杀毒软件、OneDrive 或编辑器占用 `cordis.patch.yml` 时，rename 覆盖可能失败；`@deepseek-ai/dsh-atomic-write` 在 `win32` 上重试 | POSIX rename 直接替换文件，该代码路径按 POSIX 规则执行 | 同 macOS |
-| 凭据库（vault）的文件权限 | **`mode: 0o600` 不生效**，权限由继承的 DACL 决定 → 写入前后用 `icacls` 限制为所有者、SYSTEM 和 Administrators 可读。`doctor` 会回读并报告 `protected` / `exposed` / `unverified` | 由 `mode 0600` 生效 | 由 `mode 0600` 生效 |
+| 凭据库（vault）的文件权限 | **`mode: 0o600` 不生效**，权限由继承的 DACL 决定 → 写入前后用 `icacls` 去除继承权限并为所有者、SYSTEM 和 Administrators 设置授权；其他显式授权可能保留。`doctor` 检查主体并报告 `protected` / `exposed` / `unverified` | 由 `mode 0600` 生效 | 由 `mode 0600` 生效 |
 | CI 覆盖 | `windows-latest` 跑完整套件 | 开发者本机（macOS） | `ubuntu-latest` 跑完整套件 |
 
 <a id="windows-的路径与权限"></a>
@@ -669,7 +669,7 @@ dsh plugin --profile desktop exec dsh-connect-workbuddy doctor   # 第一行就�
 1. 配置文件 `cordis.patch.yml` 被杀毒软件、OneDrive 或编辑器占用时，覆盖替换可能失败。插件写入后重新读取并校验，成功后显示结果；失败时保留原选择。关闭占用程序后重试。
 2. 历史 Windows 11 检查已确认 `%LOCALAPPDATA%\CodeBuddyExtension\Data\Public\auth` 和 `%LOCALAPPDATA%\Programs\WorkBuddy\WorkBuddy.exe`，加密凭据 keyId 与登记向量一致。其他候选路径由平台规则及测试覆盖，使用自定义路径时可设 `WORKBUDDY_AUTH_FILE`、`WORKBUDDY_APP_EXECUTABLE`。
 3. 5.6.0 起的加密凭据需要对应桌面 App 提供解密数据，macOS 同样适用。自定义安装示例为 `E:\WorkBuddy\WorkBuddy.exe`。
-4. 凭据库 `<DSH home>/workbuddy-vault/<region>/<accountId>.json` 保存明文 `accessToken` 和 `refreshToken`。5.16.0 起，Windows 写入前后通过 icacls 限制为所有者、SYSTEM 和 Administrators，doctor 的 Credential vault ACL 回读检查；POSIX 使用 mode 0600。
+4. 凭据库 `<DSH home>/workbuddy-vault/<region>/<accountId>.json` 保存明文 `accessToken` 和 `refreshToken`。5.16.0 起，Windows 写入前后通过 icacls 去除继承权限，并为所有者、SYSTEM 和 Administrators 设置授权；已有的其他显式授权可能保留。doctor 的 Credential vault ACL 检查主体，不能代替完整权限审核。POSIX 使用 mode 0600。
 
 管理员、SYSTEM 或持有用户令牌的程序仍具备读取能力，需要磁盘加密时可将 DSH home 放在 BitLocker 或 FileVault 卷中，见 issue #183。
 
@@ -778,11 +778,11 @@ CLI 工具的 execute 返回前，插件通过 `conversation.composer.dock` 显�
 
 组件在有任务时显示，读取当前会话的 sessionId 过滤结果。该扩展位置使用 `scope: 'session'`。DSH 未提供 sessionId，或任务的 agent.id 缺失而记录为空字符串时，组件保留对应任务，便于诊断旧版 DSH。
 
-进度代表 CLI 进程任务，所有模型提供方均可显示。每 5 秒请求一次进度数据，以 1 秒的页面计时更新耗时。多个页面共用缓存及执行中的请求。
+进度代表 CLI 进程任务，所有模型提供方均可显示。每 5 秒请求一次进度数据，以 1 秒的页面计时更新耗时。同一页面内的组件实例共用模块缓存和执行中的请求；不同浏览器页面分别轮询。
 
 `startedAt` 使用 DSH 时钟，客户端以新响应中的 `serverTime` 校正浏览器偏移；读取缓存时保留已有偏移。工具次数按 NDJSON 的 tool_use 帧近似统计，phase 为 starting、running、finishing，lastTool 为最近工具名称，仅用于进度。
 
-serverTime 无效时忽略该文档；连续三个周期（15s）读取失败后清空进度。同一会话多个任务显示最新一个及 +N 数量，目录放在悬停提示中。修改客户端组件后需构建 lib/client.js 并重启 DSH。
+serverTime 无效时忽略该文档；连续三次读取失败后清空进度；5 秒轮询间隔加上每次请求耗时，不能保证恰好 15 秒清空。同一会话多个任务显示最新一个及 +N 数量，目录放在悬停提示中。修改客户端组件后需构建 lib/client.js 并重启 DSH。
 
 <a id="权限默认只读"></a>
 
@@ -952,9 +952,9 @@ DSH 使用的库为 @earendil-works/pi-ai。其 transform-messages.js:87–90 �
 
 pi-ai 的 isSameModel 同时比较 provider、api 和 model id，见 transform-messages.js:68。不同身份的 thinking 在历史转换中可能成为普通 text（:88–96），随后计入正文；原 reasoning_content 使用单独字段。
 
-issue #59 的历史同区增量记录显示 reasoning 未计费，工具结果以 455.5 tok/1k 占全部计费量的 97.7%。跨区前两个路由 workbuddy、workbuddy-global 使相同模型被视为不同身份，另一侧 thinking 转入正文后，同一历史在国际版为 1.374M、国内版为 708K，相差 1.94×，反向换区为 0.696×。
+issue #59 的历史同区增量记录显示，reasoning 未计入该样本的输入 token；工具结果按 455.5 tok/1k 估算，占样本输入计数的 97.7%。这些计数不能直接证明积分实扣。跨区前两个路由 workbuddy、workbuddy-global 使相同模型被视为不同身份，另一侧 thinking 转入正文后，同一历史在国际版为 1.374M、国内版为 708K，相差 1.94×，反向换区为 0.696×。
 
-历史计数跳变为 ±30%~94%，取决于被转换 thinking 的字符数。同区域切模型也会触发 model id 差异；叠加 DSH 压缩阈值 `min(0.8×窗口, 窗口−128000−65536)` 后，可能出现 `11115 prompt is too long`。
+历史样本的计数跳变为 ±30%~94%，与被转换的 thinking、分词方式及其余请求内容有关。同区域切模型也会触发 model id 差异；叠加 DSH 压缩阈值 `min(0.8×窗口, 窗口−128000−65536)` 后，可能出现 `11115 prompt is too long`。
 
 4.9.0 起，src/adapter.ts 的 WORKBUDDY_MODEL_IDENTITY 将两区模型身份统一为 workbuddy，路由、目录及凭据继续分开。4.9.0/4.9.1 曾只处理 getModel(provider,id)，遗漏 streamSimple 中 requireProvider 的查表，国际版返回 Unknown provider: workbuddy，见 issue #75。
 
@@ -1006,7 +1006,7 @@ DSH PiAiAdapter（每个 provider 一套）
   -> DSH 执行工具并回传结果
 ```
 
-两个区域分别维护凭据 store、模型 catalog、shim 和 adapter。凭据域名为 `workbuddy.ai` 或 `codebuddy.ai` 时归入国际版，其他归入国内版。国际版桌面端与 CLI 分别使用这两个品牌域名，凭据按域名匹配相应网关。
+两个区域分别维护凭据 store、模型 catalog、shim 和 adapter。凭据域名为 `workbuddy.ai` 或 `codebuddy.ai` 时归入国际版，已识别的国内版域名归入国内版；未知域名不作为国内版凭据接受。国际版桌面端与 CLI 分别使用这两个品牌域名，凭据按域名匹配相应网关。
 
 目录读取使用桌面 App 的 `/v3/config` 及客户端身份 `WorkBuddy/<app> WorkBuddy/<app> CLI/<cli>`，对应桌面端 `buildVlmGatewayHeaders`。该接口按客户端通道返回配置：CLI 通道缺少 `modelPromotions` 和 `modelTiers`，活动信息需以 App 身份读取。聊天和模型测试继续使用 CLI 身份。
 
@@ -1018,7 +1018,7 @@ DSH PiAiAdapter（每个 provider 一套）
 
 新版桌面端的 `accessToken`、`refreshToken` 和账号 `nickname` 可使用 `{"$wbEncrypted":1,"envelope":"…"}` 格式的 AES-256-GCM 加密数据。字段密钥由桌面 App 构建提供。插件需要解密时，通过 `ELECTRON_RUN_AS_NODE` 调用已安装 App 的 `electron_browser_workbuddy_storage.loggerGet()`，读取数据并派生密钥。
 
-密钥仅缓存在进程内存中。旧版 Windows 及仍使用字符串凭据的 macOS 文件按原流程读取。账号昵称解密失败时可能显示 uin 数字；`account.phoneNumber` 字段保持未读取。App 安装在其他位置时，通过 `WORKBUDDY_APP_EXECUTABLE` 指定可执行文件。
+密钥仅缓存在进程内存中。旧版 Windows 及仍使用字符串凭据的 macOS 文件按原流程读取。账号缺少可用显示名称时显示未命名占位；`account.phoneNumber` 字段保持未读取。App 安装在其他位置时，通过 `WORKBUDDY_APP_EXECUTABLE` 指定可执行文件。
 
 
 <a id="7-开发"></a>
@@ -1126,7 +1126,7 @@ README 顶部徽章使用 Shields 和 dshfind 链接。市场截图由仓库中�
 
 市场 icon 在注册表条目中可选，指向 GitHub 托管的 png、jpg、jpeg 或 webp。本项目使用 icons/dsh-connect-workbuddy-128.png，缺少 icon 时使用作者头像。SVG 及其他图床按注册表要求处理；此字段归注册表管理。
 
-DSH 插件卡片标题与简介来自 `locale/<lang>.json` 的 meta.title、meta.description。locale/en.json 用于发现语言文件，exports 需包含 `"./locale/*.json"`；缺少时跳过对应读取。英文默认值来自 package.json.description。
+DSH 插件卡片标题与简介来自 `locale/<lang>.json` 的 meta.title、meta.description。locale/en.json 用于发现语言文件，exports 需包含 `"./locale/*.json"`；缺少时跳过对应读取。语言资源缺失时回退到包描述；本仓库 package.json.description 使用中文，英文简介由 locale/en.json 提供。
 
 修改这类说明时，同时核对 locale/en.json、locale/zh.json、package.json.description，以及条目 YAML 的 description.en 和 description.zh。测试见 [locale-meta.spec.ts](tests/locale-meta.spec.ts)。
 

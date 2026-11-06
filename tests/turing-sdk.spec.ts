@@ -378,7 +378,7 @@ describe('probe', () => {
       //
       // 必须在**同一个句柄**上切开关：新建一个 `enabled: false` 的实例再断言它没有
       // token 是空的（它的缓存本来就是空的），那样连"current 忘了检查开关"都测不
-      // 出来——第一版就是这么写的，恢复缺陷的代码副本存活。
+      // 出来——第一版就是这么写的，变异副本存活。
       let on = true
       const sdk = createTuringSdk({ dir: sdkDir, worker, now: () => clock, get enabled() { return on } })
       expect(await sdk.tokens.current()).toBe('v3:real-token-value')

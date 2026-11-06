@@ -15,13 +15,13 @@
 | 1 | 开始和结束标签配对后才提交 | 找到与开标签匹配的闭标签才产出调用；否则继续等，流结束仍缺少匹配的结束标签 → 回滚成正文 | 状态变化规则自身 | `DsmlStreamBuffer.add()` / `flush()` |
 | 2 | 名字必须在声明里 | 解析出的 `invoke name="X"` 必须 ∈ 本次请求的 `tools[].function.name`；`tool_choice` 是函数名时只允许那一个 | `prepared` 请求体 | `parseToolCalls(text, { declaredNames, toolChoice })` |
 | 3 | 无声明工具就完全不做 | 请求没有 `tools`（或 `tool_choice: none`，此时 `normalizeToolChoice` 已删掉 `tools`）→ 根本不创建 buffer，响应原样转发 | 同上 | `src/shim.ts` 响应路径入口 |
-| 4 | 任何可疑都回滚 | 必填参数缺失 / 名字不符 / 缺少匹配的结束标签 / JSON 解析失败 / 帧不可解析 → 整个块作为正文吐出，不改写 | 解析器 + 请求体 `required` | `parseToolCalls()` 返回空 → 调用方走正文分支 |
+| 4 | 校验失败时回退正文 | 必填参数缺失 / 名字不符 / 缺少匹配的结束标签 / JSON 解析失败 / 帧不可解析 → 整个块作为正文吐出，不改写 | 解析器 + 请求体 `required` | `parseToolCalls()` 返回空 → 调用方走正文分支 |
 
 declaredTools 从准备完成的请求体读取。解析结果统一为 {id, name, arguments: string}，随后由流处理层组装协议帧。
 
 ## 3. 流处理与重发
 
-RecoveryStream 保留原有帧顺序。角色、usage 和其他控制信息按原顺序转发；等待中的正文缓存在 DsmlStreamBuffer。结束帧和 [DONE] 到达前，先输出缓冲内容，再输出终结信息。
+RecoveryStream 按处理分支转发角色、usage 和其他字段，可能插入合成帧；等待中的正文缓存在 DsmlStreamBuffer。结束时先处理待输出内容，再发送相应终结信息，因此不能概括为所有原始帧始终保持原位置。
 
 重发需要同时满足三个条件：整轮缺少正文；尚未交付正文或工具调用；残留内容完全由协议标记构成。满足条件时最多重发一次。第二次仍满足失败条件时返回原文。windowOpened 与 windowClosed 分别记录扣留窗口的起止，避免部分标记导致重发判断失准。
 
@@ -50,7 +50,7 @@ RecoveryStream 保留原有帧顺序。角色、usage 和其他控制信息按�
 
 参考实现中重复定义的 findInvokeBlocks、返回结构不一致和缺少声明工具校验等问题，在移植时修正。TypeScript 纯模块约 940 行，参考 Python 模块约 983 行。
 
-src/dsml-recovery.ts 负责定位标记、匹配完整块和校验参数；src/shim.ts 负责转发 SSE、提交恢复调用以及限制重发次数。
+src/dsml-recovery.ts 负责定位标记、匹配完整块和校验参数；src/shim.ts 与 src/shim-recovery-stream.ts 负责 SSE 转发、恢复调用提交和重发限制。
 
 ## 5. 测试矩阵
 
@@ -76,7 +76,7 @@ src/dsml-recovery.ts 负责定位标记、匹配完整块和校验参数；src/s
 | 用例 | 期望 |
 |---|---|
 | 上游把标记写进 `delta.content`，请求声明了工具 | 客户端看到的 SSE 里该帧变成 `delta.tool_calls`，`finish_reason = "tool_calls"`，正文无标记 |
-| 同一响应上游也发了原生 `delta.tool_calls` | 原生调用原样转发，DSML 恢复全程禁用，这一限制持续到当前响应结束 |
+| 同一响应上游也发了原生 `delta.tool_calls` | 原生调用出现后停止继续生成恢复调用，并清理残留标记；已经交付的内容无法撤回 |
 | 请求没有 `tools` | 标记原样转发（检查 3） |
 | `tool_choice: "none"` | `normalizeToolChoice` 已删 `tools` → 原样转发；断言它确实走的是检查 3 而不是检查 2 |
 | 帧被 TCP 切分（一次 `write` 半个 `data:` 行） | 输出帧完整且顺序不变 |
@@ -99,7 +99,7 @@ src/dsml-recovery.ts 负责定位标记、匹配完整块和校验参数；src/s
 
 早期 gate 3 测试与 gate 2 的条件重叠。补充用例将输入分成两段，检查第一段是否立即转发，从而单独检验流处理条件。
 
-| 恢复缺陷的修改 | 结果 |
+| 变异 | 结果 |
 |---|---|
 | 去掉检查 2（不校验声明工具名） | 3 项失败 |
 | 去掉检查 3（空声明也照做） | 1 项失败（首版不变红，见下） |
@@ -118,7 +118,7 @@ stripLoneClosers 使用 openerSeen 判断响应中是否出现过带 marker 的�
 
 原生调用后的清理通过 standDown 完成。相关测试检查正文是否完整、标记是否清理，并确认上游请求只有一次。
 
-| 恢复缺陷的修改 | 结果 |
+| 变异 | 结果 |
 |---|---|
 | 删掉 `['calls', 'tool_calls']` | 5 项失败（含 `parseToolCalls` 与流式路径） |
 | 去掉 `openerSeen \|= hasMarkedOpener(...)` | 1 项失败（伪造名 opener 的 verbatim 契约） |

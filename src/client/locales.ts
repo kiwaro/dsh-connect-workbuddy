@@ -20,19 +20,13 @@ export const en = {
   'row.tabCn': 'Domestic',
   'row.tabGlobal': 'Global',
   'row.tabHint': 'Each tab is a separate provider (workbuddy / workbuddy-global) with its own account, credits, and models. Both sides are live at once: different sessions can pick from either side, and changes on one tab never touch the other.',
-  // The free (×0) models are NOT unlimited: the upstream rate-limits them by
-  // single-request volume (6004, measured ~25k tokens through / ~30k refused)
-  // and by model-side load (14003). Neither is a cumulative per-window token
-  // quota the plugin can read — there is no field for it — so this line states
-  // the LIMITATION without naming a mechanism the plugin cannot verify.
-  // Stated separately from `tabHint` and in bold because the misreading it
-  // prevents is expensive: a user who believes ×0 means unlimited reads a 6004
-  // as "the plugin is broken" instead of "this request is too big / too busy".
-  'row.tabFreeQuotaWarn': 'Free models are not unlimited — the upstream limits them by request size and load.',
+  // A zero catalog multiplier does not imply unlimited requests. Historical
+  // size and load refusals do not establish a universal quota mechanism.
+  'row.tabFreeQuotaWarn': 'Free models can still encounter upstream request limits or busy responses.',
   'row.tabSwitchHint': 'Uncheck to switch this provider off. Its models disappear from the DSH model picker; your account, credits, and model settings are kept and return when you check it again.',
   'row.tabSwitchAria': 'Offer the {region} provider to DSH',
   'row.tabOffNotice': 'This provider is switched off: none of its models are offered to DSH. Your account, credits, and model settings are kept — check the box above the tab to bring it back.',
-  'row.signedOutHint': 'Sign in once in the WorkBuddy desktop app; this plugin follows that sign-in automatically.',
+  'row.signedOutHint': "Sign in from this card, import an account, or sign in to the WorkBuddy desktop app and detect accounts again.",
   'row.signedOutWrongRegion': 'Your WorkBuddy sign-in was found, but it belongs to the other region tab. Switch tabs above to use it — there is nothing to sign in again.',
   'row.signedOutEncrypted': 'Your WorkBuddy sign-in is present, but its token fields are encrypted and the plugin could not read the key. Install the WorkBuddy desktop app, or set WORKBUDDY_APP_EXECUTABLE to its executable — signing in again will not change this.',
   'row.searchedTitle': 'Paths checked',
@@ -70,9 +64,9 @@ export const en = {
   'row.poolErrFailed': 'The batch failed on the host side: {message}',
   'row.poolErrHttp': 'The batch was refused (HTTP {status}). Check the plugin is up to date and try again.',
   'row.poolErrRouteMissing': 'The batch endpoint did not answer (HTTP {status}, no body) — the DSH Host is probably still running older plugin code, so this route is not registered. Quit DSH completely and start it again, then retry.',
-  'row.poolErrNoMembers': 'No account is checked into this pool — the batch had nothing to run. Check at least one account and save.',
+  'row.poolErrNoMembers': "No accounts are selected for this pool. Select accounts below and save.",
   'row.poolErrNoLiveMembers': 'Every account checked into this pool has lost its local sign-in, so the batch had nothing to run. Sign in again in the WorkBuddy desktop app, or save to drop them.',
-  'row.poolErrNoFreeModel': 'This region has no zero-multiplier model to test with. Refresh the model catalog, or pick a target model yourself.',
+  'row.poolErrNoFreeModel': "No free model is available in this region. Refresh the catalog or select a test model manually before retrying.",
   'row.poolErrNoCheckin': 'This region has no daily check-in — the action is not offered here.',
   'row.poolErrStaleModel': 'The target model is no longer offered by this region. Pick another, or switch back to automatic.',
   'row.creditsError': 'Credit query unavailable: {message}',
@@ -170,15 +164,15 @@ export const en = {
   'row.modelsTestEnabled': 'Test enabled models',
   'row.modelsTestAll': 'Test all models',
   'row.modelsTesting': 'Testing {done}/{total}…',
-  'row.modelsTestEnabledHint': 'Tests every model you have ENABLED, one request each — each probe sends a real-volume request, so this spends real credit (about 0.01 per model at the default 25000-token size). Rows show their verdict as it lands. Stops early if the credential is rejected.',
-  'row.modelsTestAllHint': 'Tests EVERY model in this region\'s catalog, including the ones you have NOT enabled — so it costs noticeably more than "test enabled models". Same per-probe cost, same early stop on a rejected credential.',
+  'row.modelsTestEnabledHint': "Tests each enabled model once. Cost depends on the model rate and input size, which defaults to 25,000 tokens. Results appear as requests finish. Testing stops if the credential is rejected.",
+  'row.modelsTestAllHint': "Tests every model in this region, including disabled models. Each request is billed at that model's rate and input size. Testing stops if the credential is rejected.",
   'row.tpsSweepEnabled': 'Measure speed (enabled)',
   'row.tpsSweepAll': 'Measure speed (all)',
-  'row.tpsSweepEnabledHint': 'Measures OUTPUT SPEED for every model you have ENABLED: three runs each, taking the median. Unlike the availability probes above, this sends a tiny prompt and asks for 256 output tokens back, so it costs far less per model (measured 0.01–0.15 credit against 0.72), because this gateway prices by input. Speed matters because DSH dispatches models as parallel sub-agents, so a slow model costs wall-clock time across the whole run.',
+  'row.tpsSweepEnabledHint': "Measures each enabled model three times and reports the median output speed. Each request allows up to 256 output tokens and is billed at the model's rate.",
   'row.tpsTesting': 'Measuring {done}/{total}…',
   'row.tpsMeasure': 'Speed',
   'row.tpsMeasuring': 'Measuring…',
-  'row.tpsHint': 'Measure this model\'s output speed: three short requests, median taken. Uses about 256 output tokens per run and costs far less than an availability probe (measured 0.01–0.15 credit). The result is shown with the time it was taken, because speed changes with load and an old number is worse than none.',
+  'row.tpsHint': "Measures output speed with three requests and reports the median. Each request allows up to 256 output tokens and is billed at the model's rate. The result includes its measurement time.",
   'row.tpsValue': '{tps} tok/s',
   'row.tpsValueTtft': '{tps} tok/s · first token {ttft}s',
   'row.tpsPartial': '{tps} tok/s ({samples} runs)',
@@ -188,21 +182,21 @@ export const en = {
   'row.tpsCredit': 'cost {credit} credit',
   'row.tpsMeasuredAt': 'measured {at}',
   'row.modelsTestDone': 'Done: {available} of {total} available',
-  'row.modelsTestAuth': 'Stopped: the credential was rejected, so every remaining model would answer the same way. Sign in again, then re-run.',
+  'row.modelsTestAuth': "Testing stopped because the credential was rejected. Sign in again before retrying.",
   'row.probe': 'Test',
   'row.probing': 'Testing…',
-  'row.probeHint': 'Send a real-volume request (~25k input tokens) to this model and report whether it answers right now. The upstream rate limit fires on request SIZE — measured: about 20k tokens pass, about 30k are refused — so a small request can look fine while every long-conversation request is refused. This is why every test costs real credits (about 0.7) and runs one model at a time.',
+  'row.probeHint': "Sends about 25,000 input tokens to check whether the model responds. Cost depends on the model rate and input size. A successful short request does not guarantee that a longer request will be accepted.",
   'row.probeOk': '✓ Usable',
   'row.probeOkMs': '✓ Usable ({ms})',
   'row.probeRateLimitedUnknown': '✗ Rate limited · the upstream gave no time for when it frees up',
-  'row.probeRateLimitedAt': '✗ Rate limited · usable again after {at}',
-  'row.probeModelBusyUnknown': '✗ This model is loaded right now · not your account — another account will not help; wait about a minute or switch models',
+  'row.probeRateLimitedAt': "✗ Rate limited. Retry after {at}.",
+  'row.probeModelBusyUnknown': "✗ Model busy. Retry in about two minutes or select another model.",
   'row.probeModelBusyAt': '✗ This model is loaded right now · not your account; retry after {at}, or switch models',
   'row.probeOutOfCreditUnknown': '✗ Not enough credits · the upstream gave no time for when it frees up',
   'row.probeOutOfCreditAt': '✗ Not enough credits · quota refreshes {at}',
-  'row.probeCredentialRejected': '✗ WorkBuddy refused this account\'s token — sign in again or pick another account',
-  'row.probePolicyRejected': '✗ WorkBuddy\'s server refused this request under its content policy — re-signing in won\'t help; try the desktop app or another region/account',
-  'row.probeChannelRejected': '✗ The gateway refused the PROMPT itself, not this account — the opening of a system message matched its third-party-agent filter, so another account or region answers the same way',
+  'row.probeCredentialRejected': "✗ Sign-in rejected. Sign in again or select another account.",
+  'row.probePolicyRejected': "✗ The server rejected the request under its policy. Check the cause in the WorkBuddy desktop app.",
+  'row.probeChannelRejected': "✗ The request triggered the gateway's client check. Inspect third-party client identifiers in system or assistant messages.",
   // Short form for the composer panel's one-line mark (issue #108); see the
   // Chinese entry for why the long label cannot live there.
   'row.probeChannelRejectedShort': '✗ Gateway refused the prompt',
@@ -276,7 +270,7 @@ export const en = {
   // false in aggregate, and the user goes looking for a bad account — the exact
   // hunt issue #56 reported.
   'row.poolModelWideBusy': 'Every member is blocked on the same model — this is the model, not your accounts.',
-  'row.poolModelWideBusyHint': 'Switching accounts cannot help: the limit follows the model, so a different account hits the same wall. Wait about a minute, or switch to a less busy model in this session.',
+  'row.poolModelWideBusyHint': 'The response indicates a model-level limit. Retry after the local two-minute wait or choose a less busy model; the wait does not guarantee recovery.',
   // "Selected", not "all": the batch walks the CHECKED members only. The old
   // label said "all accounts" while the disable gate was "nothing checked", so
   // the button named a set it would never touch — unchecked rows are right there
@@ -296,10 +290,10 @@ export const en = {
   'row.poolTargetCurrentFree': 'Current: {model} (auto-picked free model).',
   'row.poolTargetNone': 'This region has no zero-multiplier model yet.',
   'row.poolTargetStale': 'The target model you saved is no longer offered: {model}',
-  'row.poolTargetStaleHint': 'The region\'s catalog changed and no longer lists this model, so testing is off rather than running against a model the upstream may not accept. Pick another target, or switch back to automatic.',
+  'row.poolTargetStaleHint': 'The saved model has left this region\'s catalog. Choose another model or automatic selection before a manual test. Scheduled tests may use another zero-rate catalog model.',
   'row.poolTargetStaleClear': 'Switch back to automatic',
   'row.poolTargetStaleOption': '{model} (no longer offered)',
-  'row.poolTargetNoneHint': 'The domestic catalog only reveals its multipliers after a model refresh. Rather than quietly spending credits on a paid model, testing stays off until one appears — refresh the models, or pick a target model yourself.',
+  'row.poolTargetNoneHint': "Automatic selection uses free models only. Refresh the catalog or select a test model manually. Paid models spend the tested account's credits.",
   'row.poolColumnAccount': 'Account',
   'row.poolColumnCredits': 'Credits',
   'row.poolColumnProbe': 'Status',
@@ -329,10 +323,9 @@ export const en = {
   'row.poolExcludedAccountRestricted': 'Account restricted upstream',
   'row.poolReserved': 'Reserved',
   'row.poolExcludedUnusable': 'Unusable',
-  'row.poolRetryAt': 'Back after {at}',
-  // Relative form of a stated recovery time. Always shown NEXT TO the absolute
-  // instant, never instead of it: the instant is the upstream's own answer and
-  // stays authoritative, while these save the reader the subtraction.
+  'row.poolRetryAt': 'Retry after {at}',
+  // Approximate wait until the recorded retry time, which may be supplied
+  // by upstream or calculated locally. It does not promise recovery.
   'row.remainingImminent': 'any moment now',
   'row.remainingMinutes': 'in about {count} min',
   'row.remainingHours': 'in about {count} h',
@@ -340,10 +333,10 @@ export const en = {
   // The same duration WITH its verb (`recoversInText`). On an account row the
   // bare "in about 2 h" states how long but not what happens then, which is the
   // one thing the row exists to answer.
-  'row.recoversImminent': 'recovering any moment now',
-  'row.recoversMinutes': 'recovers in about {count} min',
-  'row.recoversHours': 'recovers in about {count} h',
-  'row.recoversDays': 'recovers in about {count} d',
+  'row.recoversImminent': 'retry available shortly',
+  'row.recoversMinutes': 'retry in about {count} min',
+  'row.recoversHours': 'retry in about {count} h',
+  'row.recoversDays': 'retry in about {count} d',
   // How stale a measurement is, and which writer produced it. Two sites write
   // the same account's record and overwrite each other, so without these the
   // table cannot explain a change the user just watched happen.
@@ -368,8 +361,8 @@ export const en = {
   'row.poolManualAccountLabel': 'Account in use',
   'row.poolManualAccountNone': 'No account in effect',
   'row.poolTargetLabel': 'Test model (whole pool)',
-  'row.poolTargetHint': 'One model for every account here — the test measures each row with it. Auto picks a zero-multiplier model from this region\'s catalog, preferring the largest context window; a manual choice wins.',
-  'row.poolTargetAutoOption': 'Auto — pick a free model',
+  'row.poolTargetHint': "Batch tests use this model. Auto selects this region's free model with the largest context window. Selecting a paid model spends credits from every account tested.",
+  'row.poolTargetAutoOption': "Auto-select a free model",
   'row.poolProbeSizeLabel': 'Test request size',
   'row.poolProbeSizeHint': 'How much text a test sends. The upstream refuses a request once it grows past roughly 20K–30K tokens, so a test smaller than your real conversations answers "usable" for an account that would refuse them. Bigger tests are more truthful but cost more credit each.',
   'row.poolProbeSizeDefault': 'Default (25K)',
@@ -428,7 +421,7 @@ export const en = {
   'row.poolOrderBadgeNote': 'The badge shows the position you SAVED, not the live ranking. An account can read "No. 2" while being benched for a rate limit — the number is your saved preference, and the pool skips accounts it cannot bill right now.',
   'row.poolOrderRulesToggle': 'Show the full ordering rule',
   'row.poolNoneSelected': 'No account is checked into this pool.',
-  'row.poolNoneSelectedHint': 'Check at least one account to enable check-in and test.',
+  'row.poolNoneSelectedHint': "Select at least one account and save before checking in or testing.",
   'row.poolGhostMembers': '{count} pool member(s) are no longer signed in on this machine, so they are not counted and not used: {names}. Remove any you no longer need below.',
   'row.poolGhostRemove': 'Remove {account} from this pool',
   'row.poolGhostRemoveNamed': 'Remove {account} from this pool. This account is no longer signed in on this machine.',
@@ -500,7 +493,7 @@ export const en = {
   // with actions the user performs while nothing is broken (verify the link,
   // look at the value), whereas Diagnostics is read-only by contract.
   'row.panelSdk': 'SDK',
-  'sdk.hint': 'The real device token this machine signs through the installed WorkBuddy desktop SDK. Every account sends this one value in the Real tier; the Virtual tier never sends it (the token is still kept warm so this page always shows the current one).',
+  'sdk.hint': 'Shows device credentials obtained through the installed WorkBuddy desktop SDK. Real-device mode uses this credential for the configured accounts. Acquisition depends on the SDK master switch.',
   'sdk.loading': 'Asking the SDK…',
   'sdk.unavailable': 'This Host build has no SDK route — real device parameters are not available here. The Virtual tier still works.',
   'sdk.state': 'Connection',
@@ -512,7 +505,7 @@ export const en = {
   'sdk.statusError': 'The SDK could not be loaded',
   'sdk.statusDisabled': 'Turned off in settings',
   'sdk.masterLabel': 'Use the real-device SDK',
-  'sdk.masterHint': 'On: discover the installed desktop SDK, fetch its device token in a background child process and keep it fresh every 10 minutes. Off: none of that happens — no discovery, no child process, no prewarming — so the Real tier has no token to send. The Virtual tier is unaffected (its ids come from the local salt), so turning this off is safe if you only want virtual devices.',
+  'sdk.masterHint': "Obtains device credentials through the WorkBuddy desktop app and refreshes them about every 10 minutes. Reload the plugin or restart DSH after changing this switch so acquisition uses the new setting.",
   'sdk.bundle': 'SDK',
   'sdk.runtime': 'Runtime',
   'sdk.fetched': 'Last fetched',
@@ -541,18 +534,14 @@ export const en = {
   'sdk.dirClear': 'Clear',
   'sdk.dirHint': 'Point this at the desktop app\'s native/turing-sdk folder, not the folder holding WorkBuddy.exe. Saving re-probes immediately; a wrong path turns the state above into \"not found\" with that path shown, never a silent fall back to discovery. WORKBUDDY_TURING_SDK_DIR still wins.',
   'sdk.fallbackLabel': 'Fall back to the virtual device when no real one is available',
-  'sdk.fallbackHint': 'On: when the SDK is unavailable (no desktop app, wrong directory, no token) the plugin sends the salt-derived virtual device pair instead, and the tier shown changes to “Virtual” with it — it never claims to be real. Off: no device header is sent at all, which is what the Real tier did before this switch.',
-  // The image tool is the ONE capability where the model spends on its own
-  // (no per-call approval in the host). Opt-in for that reason, so the copy says
-  // what it costs instead of only naming it — and it names BOTH gateways, since
-  // a picture costs ~5.71 credits on CN and ~0.03 internationally (measured
-  // 2026-10-25; the media catalog carries no price, the settled usage.credit
-  // does). The tool reports the actual charge either way.
+  'sdk.fallbackHint': "When desktop device credentials are unavailable, enable this option to use virtual device identifiers. When disabled, requests omit device identifiers.",
+  // Image generation is an optional spending capability. Historical sample
+  // charges do not set current prices; reported usage is not a reconciled bill.
   'row.upstreamHint': 'These change what the gateway sees, not which provider serves the call. All of them are sampled when the plugin mounts, so reload the plugin (or restart DSH) after changing one.',
   'row.usageIdentityLabel': 'Make the usage page record these calls like the official client',
-  'row.usageIdentityHint': 'Adds the X-IDE-* headers (which fill the 使用端 column, otherwise blank) and sends conversation ids as 32-hex UUIDv7. Display alignment only: the User-Agent and the request body never change. Off by default because the evidence comes from a reporter, not from this plugin.',
+  'row.usageIdentityHint': 'Uses 32-hex UUIDv7 conversation ids and adds X-Request-ID. X-IDE-* headers are controlled separately by the wire profile. Off by default; this setting does not change the User-Agent or request body.',
   'row.keepPromptLastLabel': 'Record what you actually typed, not the injected context',
-  'row.keepPromptLastHint': 'Moves the harness-injected runtime context above your real prompt, so the usage page stops showing "Time sampled…" as your question. Message count and text are preserved. Off by default because it changes the message order the upstream counts.',
+  'row.keepPromptLastHint': 'Moves recognized runtime context above the real prompt and removes the prompt’s leading message marker for the usage-page record. Other message text is retained. Off by default because ordering and marker removal can affect the request.',
   'row.sessionTitleLabel': 'Send session titles to the lightweight model',
   'row.sessionTitleHint': 'The host fires one title request per new session and bills it at the main model rate. This re-points that one request at a hidden lightweight model. The request still happens either way. Off by default.',
   'row.sessionTitleModel': 'Target model:',
@@ -647,7 +636,7 @@ export const en = {
   // brackets differently is not at the mercy of a CSS `content` rule.
   'quotaNotice.fallbackHead': 'The quota for this request is exhausted',
   'quotaNotice.supplement': ' (some models also have a daily limit that is unrelated to your credits)',
-  'row.creditPositionHint': 'Where the credit readout sits. "composer toolbar" is the default (the row with the model picker). Choose "below the input box" — the row carrying the round / step / token statistics — if another plugin occupies the composer toolbar and the readout does not appear.',
+  'row.creditPositionHint': "The default position is on the model picker row. If another connector occupies the same position, the readout loaded later moves left automatically. Choose below the input box to show it beside the round, step and token statistics.",
   'row.showCreditsGlobalHint': 'Show the international (WB AI) credit balance in the composer toolbar, but only while this session uses a WB AI model. Click it for per-account balances and a one-click test of the checked accounts (the test spends real credits). The readout refreshes by itself every 5 minutes; the per-account table every 60 seconds while it is open.',
   'composer.pointsCn': 'WorkBuddy - CN',
   'composer.pointsGlobal': 'WB AI',
@@ -680,7 +669,7 @@ export const en = {
   // long label.
   'composer.refresh': 'Refresh',
   'composer.refreshing': 'Refreshing…',
-  'composer.refreshHint': 'Refresh every account status in this region — probes each account once, one at a time (spends a small amount of credits, takes up to a minute)',
+  'composer.refreshHint': "Tests the selected pool members one at a time. Cost depends on the selected model and test input size.",
   // NOT `composer.refreshFailed` (below): that one is the credits read. Two
   // lines both saying "refresh failed" would leave the reader unable to tell
   // which refresh broke.
@@ -734,11 +723,11 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   // 「时间段内累计 token 定额」——上游没有这个字段——所以这句只说限制存在，不声称
   // 插件无法验证的机制。与 `tabHint` 分开、且加粗显示，因为它要防的误读代价很高：
   // 以为 ×0 = 无限用的人，会把 6004 读成「插件坏了」而不是「这个请求太大/太忙」。
-  'row.tabFreeQuotaWarn': "免费模型也受单次请求大小和服务负载限制。",
+  'row.tabFreeQuotaWarn': "免费模型也可能遇到上游请求限制或服务繁忙。",
   'row.tabSwitchHint': "关闭此开关后，插件会从模型列表中隐藏该区域的模型，并保留账号和设置。再次打开开关即可恢复。",
   'row.tabSwitchAria': "启用{region}模型",
   'row.tabOffNotice': "该区域已关闭，账号和设置已保留。勾选上方开关可恢复模型。",
-  'row.signedOutHint': "请先登录 WorkBuddy 桌面端。登录完成后，插件会读取该账号。",
+  'row.signedOutHint': "请在此页面登录或导入账号，也可登录 WorkBuddy 桌面端后点击「重新检测账号」。",
   'row.signedOutWrongRegion': "检测到另一个区域的登录账号，请切换到对应区域。",
   'row.signedOutEncrypted': "登录凭据已加密，读取密钥失败。请安装 WorkBuddy 桌面端，或通过环境变量 WORKBUDDY_APP_EXECUTABLE 指定程序路径。",
   'row.searchedTitle': '已检查的路径',
@@ -765,20 +754,20 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   'row.requestFailedHint': "刷新失败，暂时显示上次加载的数据。错误：{message}",
   'row.usageErrorHint': "读取账号状态失败，正在自动重试。错误：{message}",
   'row.usageRetry': '重试',
-  'row.poolErrUnavailable': "账号池接口不可用。请重启应用；问题持续时，请重新安装插件。",
+  'row.poolErrUnavailable': "账号池接口不可用，请重启 DSH；问题持续时请重新安装插件。",
   'row.poolErrFailed': "批量操作失败：{message}",
   'row.poolErrHttp': "批量操作失败，HTTP {status}。请更新插件后重试。",
   'row.poolErrRouteMissing': "账号池接口未加载，HTTP {status}。请完全退出 DSH 后重新打开。",
   'row.poolErrNoMembers': "请先在账号池中勾选账号并保存，再点击签到或测试按钮。",
   'row.poolErrNoLiveMembers': "插件无法读取所选账号的有效登录凭据。请重新登录这些账号，或将它们移出账号池后保存。",
-  'row.poolErrNoFreeModel': "当前区域没有可用的免费模型。请刷新模型目录，或手动指定测试模型。",
+  'row.poolErrNoFreeModel': "当前区域没有可用的免费模型，请刷新目录，或手动选择测试模型后再试。",
   'row.poolErrNoCheckin': "当前区域暂不提供每日签到。",
   'row.poolErrStaleModel': "目标模型已从当前区域目录移除。请重新选择，或切回自动选择。",
   'row.creditsError': '积分查询失败：{message}',
   'row.refresh': '刷新',
   'row.refreshing': '正在刷新…',
   'row.accountUnnamed': '未命名账号',
-  'row.accountsHint': "插件从 WorkBuddy 桌面端和凭据文件中读取账号，在此选择要使用的账号。",
+  'row.accountsHint': "插件列出桌面端、插件登录和导入的账号，请在此选择要使用的账号。",
   'row.accountsRescan': '重新检测账号',
   'row.accountsScanning': '正在检测…',
   // 首屏加载中的提示（issue #77）。它取代的正是「未登录」那段说明——
@@ -808,7 +797,7 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   'row.diagNoFailures': '没有报错。',
   'row.diagPromoUnreadable': "{count} 条活动时段解析失败，已隐藏促销标记",
   'row.cardCrashed': "设置页面加载失败。",
-  'row.cardCrashedHint': "请刷新设置页。反馈问题时请附上错误信息。",
+  'row.cardCrashedHint': "设置页加载失败时请先刷新；若仍有问题，请在反馈中附上错误信息。",
   'row.modelsTitle': '模型',
   'row.modelsSummary': '已启用 {count} 个',
   // 折叠态显示在标题行。保存/放弃按钮在折叠区里面，没有这个提示，用户会把
@@ -872,8 +861,8 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   'row.probeOk': '✓ 可用',
   'row.probeOkMs': '✓ 可用（{ms}）',
   'row.probeRateLimitedUnknown': '✗ 被限流 · 上游未给出何时恢复',
-  'row.probeRateLimitedAt': '✗ 被限流 · {at} 之后可再用',
-  'row.probeModelBusyUnknown': "✗ 模型繁忙，请约 1 分钟后重试或切换模型",
+  'row.probeRateLimitedAt': '✗ 被限流 · 可在 {at} 后重试',
+  'row.probeModelBusyUnknown': "✗ 模型繁忙，请约 2 分钟后重试或切换模型",
   'row.probeModelBusyAt': "✗ 模型繁忙，可在 {at} 后重试或切换模型",
   'row.probeOutOfCreditUnknown': '✗ 积分不足 · 上游未给出何时恢复',
   'row.probeOutOfCreditAt': '✗ 积分不足 · 积分包 {at} 刷新',
@@ -884,7 +873,7 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   // renderer, so markdown emphasis would reach the screen as literal
   // asterisks. Every sibling probe label in this file is plain text for the
   // same reason. (The `**` style IS used elsewhere — but only in strings that
-  // go into a `title=` tooltip, where the host renders markdown.)
+  // go to other rendering paths; a native title attribute displays plain text.)
   'row.probeChannelRejected': "✗ 请求内容触发网关渠道校验。请检查 system 或 assistant 消息中的第三方客户端标识。",
   // THE SHORT FORM of the same verdict, for the composer panel's one-line mark
   // (issue #108). The full label above is an EXPLANATION — 88 characters in
@@ -906,8 +895,8 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   'row.oauthTitle': '扫码添加账号',
   'row.oauthStart': '扫码登录',
   'row.oauthStarting': '正在打开…',
-  // 弹窗内点击后自动在浏览器打开授权页（手势内占位窗口导航）；复制/重开按钮是
-  // 浏览器阻止自动打开时，显示手动打开链接。
+  // 点击后通过预先打开的窗口导航到授权页。浏览器阻止自动打开时，
+  // 用户可复制链接或点击按钮重新打开登录页。
   'row.oauthOpenHint': "请打开登录页并完成授权，账号随后会自动加入列表。",
   'row.oauthOpened': "登录页已打开，等待授权…",
   'row.oauthWaiting': '正在等待登录完成…（{seconds} 秒）',
@@ -949,13 +938,13 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   // ---- 账号池 ----
   'row.poolTitle': '账号池',
   'row.poolNoCandidate': '账号池里目前没有可用的账号。',
-  'row.poolNoCandidateHint': "账号可能处于限流冷却、积分耗尽、凭据被拒绝或连接失败状态。临时故障按服务端恢复时间重试；服务端未指定时，默认等待 30 分钟。凭据被拒绝时需重新登录。",
+  'row.poolNoCandidateHint': "账号可能处于限流冷却、积分耗尽、凭据被拒绝或连接失败状态。临时故障按服务端指定时间重试；服务端未指定时，默认等待 30 分钟。等待结束不代表上游已经恢复。凭据被拒绝时需重新登录。",
   // 「所有成员都撞在同一个模型上」的池级结论（issue #64）。与上面那条刻意分开：
   // 那条说的是**账号**不行，这条说的是**账号没问题、模型才是那堵墙**。没有它，
   // 卡片上每行「模型繁忙」加起来就成了一个整体上错误的结论，用户会去找一个不存
   // 在的坏账号 —— 正是 issue #56 报告的那场搜寻。
   'row.poolModelWideBusy': "所有账号请求的模型均繁忙。",
-  'row.poolModelWideBusyHint': "请约 1 分钟后重试，或切换到负载较低的模型。",
+  'row.poolModelWideBusyHint': "请约 2 分钟后重试，或切换到负载较低的模型。",
   // 「勾选的」而不是「所有」：这两个按钮只走勾选进池的成员，而表格里
   // 未勾选的行就摆在旁边 —— 「所有账号」会被读成「我登录过的每一个账号」，
   // 与禁用条件（一个都没勾就置灰）和成员区那句「只有勾选的账号参与轮换、
@@ -974,10 +963,10 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   'row.poolTargetCurrentFree': "测试模型：{model}（自动选择）",
   'row.poolTargetNone': '本区域暂时没有倍率为 0 的免费模型。',
   'row.poolTargetStale': '你保存的目标模型已不在目录中：{model}',
-  'row.poolTargetStaleHint': "测试模型已从目录移除，插件已暂停测试。请选择其他模型，或切回自动选择。",
+  'row.poolTargetStaleHint': "已保存的测试模型已从目录移除，手动测试暂不可用。请选择其他模型，或切回自动选择。定时测试会在目录中另有零费率模型时使用该模型。",
   'row.poolTargetStaleClear': '切回自动',
   'row.poolTargetStaleOption': '{model}（已下架）',
-  'row.poolTargetNoneHint': "请刷新模型目录，再选择测试模型。自动模式只选择免费模型；手动选择收费模型时，测试会消耗被测账号的积分。",
+  'row.poolTargetNoneHint': "自动模式仅选择免费模型，请刷新目录后重试，或手动选择测试模型；选择收费模型时会消耗被测账号积分。",
   'row.poolColumnAccount': '账号',
   'row.poolColumnCredits': '积分',
   'row.poolColumnProbe': '状态',
@@ -1007,20 +996,20 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   'row.poolExcludedAccountRestricted': '账号被上游限制使用',
   'row.poolReserved': '备用待启用',
   'row.poolExcludedUnusable': '不可用',
-  'row.poolRetryAt': '{at} 之后可再用',
-  // 上游给出的恢复时间的「相对说法」。总是与绝对时刻**并列**显示，而不是取代它：
+  'row.poolRetryAt': '{at} 后可重试',
+  // 允许重试时间的相对表述。总是与绝对时刻**并列**显示，而不是取代它：
   // 绝对时刻是上游的原话、始终权威，这几个键只是替读者省掉一次心算。
-  'row.remainingImminent': '即将恢复',
+  'row.remainingImminent': '即将可重试',
   'row.remainingMinutes': '约 {count} 分钟后',
   'row.remainingHours': '约 {count} 小时后',
   'row.remainingDays': '约 {count} 天后',
   // 带动词的同一时长（`recoversInText`）：账号行上单独一句「约 2 小时后」只说了
   // 时长，没说那一刻会发生什么 —— 读起来既可能是「限流解除」也可能是别的。
   // 这一行整行的职责就是回答「这个账号现在能不能用」，所以动词不能省。
-  'row.recoversImminent': '即将恢复',
-  'row.recoversMinutes': '约 {count} 分钟后恢复',
-  'row.recoversHours': '约 {count} 小时后恢复',
-  'row.recoversDays': '约 {count} 天后恢复',
+  'row.recoversImminent': '即将可重试',
+  'row.recoversMinutes': '约 {count} 分钟后可重试',
+  'row.recoversHours': '约 {count} 小时后可重试',
+  'row.recoversDays': '约 {count} 天后可重试',
   // 记录有多旧、以及是谁写的。两个写入方会互相覆盖同一个账号的记录，
   // 没有这两项就无法解释用户亲眼看到的变化（测出 ok，过后变成被限流）。
   'row.poolProbeJustNow': '刚刚',
@@ -1052,7 +1041,7 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   'row.poolSaved': '保存',
   'row.poolSaving': '保存中…',
   'row.poolSaveFailed': '保存失败：{message}',
-  'row.poolSavedStaleRefresh': "设置已保存，面板刷新失败。请稍后刷新查看。",
+  'row.poolSavedStaleRefresh': "设置已保存，但面板刷新失败，请稍后刷新查看。",
   'row.poolDiscard': '放弃修改',
   'row.poolDirty': '● 有未保存的修改',
   // 自动签到（issue #191）。默认关，且标题写的是「它会做什么」而不是功能名。
@@ -1086,7 +1075,7 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   // 排序规则说明。顺序必须与 rankPool 的比较器完全一致（见 src/account-pool.ts）。
   'row.poolOrderRulesTitle': "账号选择顺序",
   'row.poolOrderRulesIntro': "插件按以下顺序比较账号。前一条件相同时，再比较下一条件。",
-  'row.poolOrderRuleUsable': "1. 可用状态：插件优先选择可用账号。限流和临时调用故障可在等待恢复后再次使用；凭据被拒绝时，需要重新登录并测试。",
+  'row.poolOrderRuleUsable': "1. 可用状态：插件优先选择可用账号。限流和临时调用故障可在等待期结束后再次尝试；凭据被拒绝时，需要重新登录并测试。",
   'row.poolOrderRuleExpiring': "2. 临期积分：有 3 天内到期积分的账号优先，此项优先于手动排序。",
   'row.poolOrderRuleManual': "3. 手动顺序：按 ↑ / ↓ 设置的位置排序，未手动排序的账号列在其后。",
   'row.poolOrderRuleNearestExpiry': "4. 到期时间：都有临期积分时，先到期的账号优先。",
@@ -1098,7 +1087,7 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   'row.poolOrderBadgeNote': "序号表示已保存的手动位置。实际使用顺序还会考虑账号可用状态和临期积分。",
   'row.poolOrderRulesToggle': '查看完整排序规则',
   'row.poolNoneSelected': '还没有勾选任何账号。',
-  'row.poolNoneSelectedHint': '勾选至少一个账号，才能签到与测试。',
+  'row.poolNoneSelectedHint': "请勾选至少一个账号并保存，再执行签到或测试。",
   'row.poolGhostMembers': "插件无法读取 {count} 个成员的有效登录凭据，已暂停使用这些账号：{names}。请重新登录，或在下方移除账号。",
   'row.poolGhostRemove': '把 {account} 移出本池',
   'row.poolGhostRemoveNamed': "将 {account} 移出账号池：插件无法读取该账号的有效登录凭据。",
@@ -1108,7 +1097,7 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   'row.poolCurrentHeader': '当前使用：{account}',
   'row.poolNotMember': "未加入",
   'row.poolNotMemberHint': "加入账号池后可参与轮换、批量签到和测试。",
-  'row.poolServingOutside': "当前使用「{account}」。加入账号池后，该账号才会参与轮换、批量签到和测试。",
+  'row.poolServingOutside': "当前使用的「{account}」尚未加入账号池，加入并保存后才会参与轮换、批量签到和测试。",
   'row.poolUnsavedMembers': "成员选择已修改，保存后生效",
   // 手动优先级排序：排序徽标与 ↑/↓ 移动按钮。徽标不可点（只描述当前顺序），箭头负责调整。
   'row.poolRankLabel': '第 {rank} 位',
@@ -1124,9 +1113,9 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   'row.poolRowRemove': '删除',
   'row.poolRowRemoveHint': "从插件列表隐藏该账号，桌面端保持登录。需要恢复显示时，点击「重新检测账号」。",
   'row.poolRowRemoveAria': "从插件列表删除 {accountName}",
-  'row.poolRowRemoved': "{accountName}：已隐藏。点击「重新检测账号」可恢复。",
+  'row.poolRowRemoved': "{accountName} 已从插件列表隐藏，点击「重新检测账号」可恢复。",
   'row.poolRowRemoving': '正在删除账号…',
-  'row.poolRowRemoveDesktopOnly': "{accountName}：已隐藏，桌面端登录状态已保留。点击「重新检测账号」可恢复。",
+  'row.poolRowRemoveDesktopOnly': "{accountName} 已从插件列表隐藏，桌面端仍保持登录；点击「重新检测账号」可恢复显示。",
   // 设备头档位与逐账号齿轮。中文这几句的要点与英文一致：**「真实值」= 所有账号
   // 共用这台机器真实的设备**，所以齿轮关掉——一台真机不可能有两个 id。只写"不可
   // 编辑"而不写原因，用户会当成控件坏了。
@@ -1160,7 +1149,7 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   'row.panelSdk': 'SDK',
   'sdk.hint': "此页面显示插件从 WorkBuddy 桌面端获取的设备凭据。选择桌面端设备模式后，插件在请求中使用该凭据。",
   'sdk.loading': "正在读取设备凭据…",
-  'sdk.unavailable': "设备凭据接口不可用，请更新插件并重启应用。",
+  'sdk.unavailable': "设备凭据接口不可用，请更新插件并重启 DSH。",
   'sdk.state': '连接状态',
   'sdk.statusReady': '正常',
   'sdk.statusStale': "最近获取失败，暂用上次凭据",
@@ -1170,7 +1159,7 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   'sdk.statusError': 'SDK 加载失败',
   'sdk.statusDisabled': '设置中已关闭',
   'sdk.masterLabel': "获取本机设备凭据",
-  'sdk.masterHint': "开启后，插件从 WorkBuddy 桌面端获取设备凭据，每 10 分钟更新一次。关闭后，插件停止获取。",
+  'sdk.masterHint': "插件从 WorkBuddy 桌面端获取设备凭据，并按约 10 分钟周期更新。修改此开关后，请重载插件或重启 DSH，让获取任务按新设置运行。",
   'sdk.bundle': 'SDK',
   'sdk.runtime': '运行时',
   'sdk.fetched': '最近取到',
@@ -1202,13 +1191,13 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   'sdk.dirHint': "填写 WorkBuddy 安装目录中的 native/turing-sdk 路径，再保存。插件会重新检测该目录。设置了环境变量 WORKBUDDY_TURING_SDK_DIR 时，插件优先使用环境变量中的路径。",
   'sdk.fallbackLabel': "获取失败时使用虚拟设备",
   'sdk.fallbackHint': "获取桌面端设备凭据失败时，开启此选项可让插件改用虚拟设备标识。关闭此选项时，插件发送请求时省略设备标识。",
-  // 生图工具是本插件里唯一「由模型自己决定花钱」的能力（DSH 没有逐次确认的
-  // 机制），所以默认关闭，文案也必须把单价说出来，而不是只给它一个名字。
+  // 生图工具允许模型发起计费请求，因此默认关闭，提示中说明测得的参考费用。
+  // 插件另有视频等计费能力，不能把生图描述成唯一可自主计费的工具。
   // 单价按区分：国内区约 5.71、国际区约 0.03 积分/张（2026-10-25 实测；目录
   // 里没有价格，只有结算时的 usage.credit），工具本身回报的是实扣值。
   'row.upstreamHint': "这些设置用于调整请求标识和消息顺序，保存后需重载插件或重启 DSH。",
   'row.usageIdentityLabel': "在用量页显示客户端标识",
-  'row.usageIdentityHint': "在请求中添加 X-IDE-* 请求头和 32 位十六进制会话标识，供用量页显示客户端来源。默认关闭。",
+  'row.usageIdentityHint': "将会话标识改为 32 位十六进制格式，并添加 X-Request-ID。X-IDE-* 请求头由请求标识档位单独控制。默认关闭。",
   'row.keepPromptLastLabel': "在用量页显示用户提问",
   'row.keepPromptLastHint': "开启后，插件将运行上下文移到用户提问之前，并移除该提问开头的会话消息标记，使提问出现在用量页。默认关闭。",
   'row.sessionTitleLabel': '会话标题请求改用轻量模型',
@@ -1293,7 +1282,7 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   // 来下政策判断。
   'quotaNotice.fallbackHead': '当前请求的额度已用尽',
   'quotaNotice.supplement': "（部分模型还设有独立的每日额度）",
-  'row.creditPositionHint': "默认与模型选择同一行。若显示位置与其他插件冲突，可改为「输入框下方」，与轮次、步数和 token 统计同一行。",
+  'row.creditPositionHint': "默认与模型选择同一行显示；遇到其他连接器占用排序位置时，后加载的读数自动向左排列。也可选择「输入框下方」，与轮次、步数和 token 统计同一行显示。",
   'row.showCreditsGlobalHint': "显示当前会话使用的国际版账号余额。点击查看账号明细或测试所选账号，测试会消耗积分。余额每 5 分钟刷新，面板打开时明细每 60 秒刷新。",
   'composer.pointsCn': 'WorkBuddy - CN',
   'composer.pointsGlobal': 'WB AI',
@@ -1322,7 +1311,7 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   // 控件更糟。
   'composer.refresh': '刷新',
   'composer.refreshing': '正在刷新…',
-  'composer.refreshHint': "插件会测试当前区域的所有账号，再更新账号状态。测试按模型费率扣除积分，整个过程最长约 1 分钟。",
+  'composer.refreshHint': "插件逐个测试当前区域账号池中已勾选并保存的账号，再更新账号状态。测试按模型费率消耗积分；总耗时随账号数量和服务端响应变化。",
   // 不复用下面的 `composer.refreshFailed`：那条是积分读取。两行都写「刷新失败」
   // 会让读者分不清是哪一次刷新坏了。
   'composer.refreshAccountsFailed': '账号状态刷新失败',

@@ -3,14 +3,14 @@
  * `text-to-image` 模型）暴露成一个 DSH agent 工具。
  *
  * 为什么手写 ToolDefinition 而不 import `@deepseek-ai/dsh-tools` 的 `defineTool`：
- * DSH `Tools.register` 只校验两件事——`output.render` 是函数、`output.schema` 是
- * 受支持的 JSON Schema；`schemaOf()` 把 `parameters` **原样**传给给模型。也就是说
+ * DSH `Tools.register` 校验 `output.render` 是函数、`output.schema` 是
+ * 受支持的 JSON Schema；`schemaOf()` 把 `parameters` 原样传给模型。也就是说
  * raw JSON Schema 完全够用，而 `defineTool` 额外提供的只有「按 spec 编译 schema +
  * 代校验参数」这一层包装。手写换来的是：零新 peer 依赖、无需处理动态 import 失败后的兼容分支、
- * 不会碰到 tests/host-peers.spec.ts 对 `lib/bin.js` 可达图的断言（那里禁止除
- * `node:` 外的任何裸说明符）。
+ * 符合 tests/host-peers.spec.ts 对 `lib/bin.js` 运行时依赖的要求：
+ * 包名导入仅允许 Node.js 内置模块的 `node:` 标识。
  *
- * 代价是参数校验要自己做——见 {@link createImageTool} 的 execute。
+ * 参数由工具自行校验，见 {@link createImageTool} 的 execute。
  *
  * @module dsh-connect-workbuddy/image-tool
  */
@@ -187,15 +187,9 @@ const BILLABLE_FAILURE_CODES: ReadonlySet<string> = new Set([
 ])
 
 /**
- * 是否该进冷却——由「这一次到底有没有把生图请求发出去」决定，而不是由异常
- * 的类型反推。
- *
- * 早先的写法是「不是 WorkBuddyImageError 就算花过钱」，方向正好错了两头：
- * 读目录（`fetchMediaModels` 的那次只读 GET）失败抛的是 upstream.ts 的
- * `envelopeError`/网络错误，一分钱没花却把工具冷却 30 秒；而参数写错这类真正
- * 免费的失败又因为带着 `INVALID_ARGS` 才被放行——判据和事实不在一根轴上。
- *
- * 现在由调用点显式置位：请求发出去了才置 `sent`，冷却只看它。
+ * 根据调用点记录的 sent 标志判断是否进入冷却。读取目录或本地参数校验失败
+ * 不算生成尝试；生成请求发出后的失败按错误分类处理，避免立即重复请求。
+ * sent 表示请求已发送，不能证明服务端实际扣费。
  */
 function isBillableFailure(error: unknown, sent: boolean): boolean {
   if (!sent) return false
@@ -207,7 +201,7 @@ function isBillableFailure(error: unknown, sent: boolean): boolean {
 /** 生成图片的临时目录（issue #174）——清理由 {@link pruneTempDir} 负责。 */
 const TEMP_IMAGE_DIR = join(tmpdir(), 'workbuddy-image-gen')
 
-/** 把 b64 图片落成一个临时文件，返回绝对路径。 */
+/** 将 Base64 图片写入临时文件，返回文件的绝对路径。 */
 async function writeTempImage(b64: string, model: string): Promise<string> {
   await mkdir(TEMP_IMAGE_DIR, { recursive: true })
   const stamp = new Date().toISOString().replace(/[:.]/g, '-')
@@ -252,7 +246,7 @@ function assertInputImageBytes(byteLength: number, source: string): void {
  * 把任意形态的输入图规整成上游唯一接受的形态：`data:<mime>;base64,<b64>`。
  *
  * 官方 CLI 的 `processImageInput` 收 data URL、http(s)、裸 base64、本地路径四
- * 种；这里只是把前三种归一，**不做**缩放、裁剪、格式转换——用户给什么就传什么，
+ * 种；这里将这四种输入归一为 data URL，**不做**缩放、裁剪、格式转换——用户给什么就传什么，
  * 免得悄悄改了输入图。
  */
 async function resolveImageInput(value: string, signal?: AbortSignal): Promise<string> {
@@ -468,8 +462,8 @@ export function createImageTool(deps: ImageToolDeps): ImageToolDefinition {
         ? AbortSignal.timeout(IMAGE_TOOL_TIMEOUT_MS)
         : AbortSignal.any([exec.signal, AbortSignal.timeout(IMAGE_TOOL_TIMEOUT_MS)])
 
-      // 这一次到底有没有把生图请求发出去。冷却的唯一判据——见
-      // `isBillableFailure` 的注释：读目录的失败一分钱没花，不该冷却。
+      // 这一次到底有没有把生图请求发出去。冷却的前置条件，具体错误分类见
+      // `isBillableFailure` 的注释：读取目录时尚未发送生成请求，不进入生成冷却。
       let sent = false
       try {
         const models = await listModels(credential, signal)

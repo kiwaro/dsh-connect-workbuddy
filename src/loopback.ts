@@ -27,8 +27,7 @@
  *   the harness may configure to bind a concrete non-loopback address. It uses
  *   `hostMatchesListener` / `originIsLoopback(origin, localAddress)`, i.e. "is
  *   this addressed to / coming from the interface the connection landed on".
- * - `src/shim.ts` binds `listen(0, '127.0.0.1')` itself, so no LAN request can
- *   ever reach it. It uses the stricter `hostIsLoopback`, which is not a
+ * - `src/shim.ts` binds `listen(0, '127.0.0.1')` itself, so direct LAN connections do not reach it; a local proxy can still forward traffic. It uses the stricter `hostIsLoopback`, which is not a
  *   different notion of "local" but the same one narrowed to the only case that
  *   can occur.
  *
@@ -222,11 +221,9 @@ export function hostMatchesListener(
  * loopback — the harness trusts the bind literal on any port either way.
  *
  * The comparison is over the HOSTNAME only. `localAddress` carries no port, and
- * the route's own port is what a same-origin page must already be using, so a
- * port comparison here would add nothing: a page on the same host but another
- * port is not a threat this gate is meant to stop (it would need code already
- * running on this machine), and treating it as one would break legitimate
- * setups behind a proxy that terminates on a different port than it forwards to.
+ * the route's own port is what a same-origin page targets. This check deliberately accepts different ports on the same
+ * recognized hostname, which is broader than browser same-origin policy. It
+ * also supports a proxy that forwards from a different port.
  * That intentional limit is recorded rather than silently assumed.
  */
 export function originIsLoopback(
@@ -241,7 +238,7 @@ export function originIsLoopback(
     const { hostname } = new URL(origin)
     if (isLocalHostname(hostname)) return true
     // Same comparison the Host path makes: a present Origin naming the interface
-    // this connection arrived on is a genuine same-origin request.
+    // this connection arrived on passes this hostname-based policy.
     return hostMatchesListener(hostname, localAddress)
   } catch {
     return false

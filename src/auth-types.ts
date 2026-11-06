@@ -39,8 +39,8 @@ export interface WorkBuddyCredential {
   /**
    * Epoch ms the upstream last issued this token (`auth.lastRefreshTime`).
    *
-   * This is the ONLY trustworthy freshness signal. `expiresAtMs` cannot be
-   * used for ranking: when the upstream revokes a token it leaves the stored
+   * The ranking prefers this recorded issuance time over expiry. Neither
+   * timestamp proves continued upstream acceptance: when the upstream revokes a token it leaves the stored
    * `expiresAt` untouched, so a long-dead backup can claim a LATER expiry than
    * the live sign-in (observed on a real machine — a 2026-07-08 backup claimed
    * 2027-07-06 while the live file expired 2026-11-14, and only the live file
@@ -96,19 +96,11 @@ export interface WorkBuddyAuthStatus {
 export const ENCRYPTED_CREDENTIAL_CODE = 'WORKBUDDY_ENCRYPTED_CREDENTIAL'
 
 /**
- * The user IS signed in, but the credential file cannot be read.
- *
- * This exists because "signed out" and "signed in with an unreadable credential"
- * resolve to the same observable state — zero accounts — and were therefore
- * reported with the same message. That message told a correctly signed-in user
- * to sign in again, which cannot possibly help: from WorkBuddy 5.6.x the desktop
- * app encrypts its token fields, and reading them requires asking the installed
- * app for its key. If that app cannot be located, the fix is to point the plugin
- * at it (`WORKBUDDY_APP_EXECUTABLE`), never to sign in again.
- *
- * No token material is carried: only the paths and the environment variable.
- */
-export class WorkBuddyEncryptedCredentialError extends Error {
+ * A credential-shaped file was found but could not be decrypted. This does not
+ * establish whether its stored session is still accepted upstream. The error
+ * points to the app executable override used to obtain the decryption key.
+ * Only paths and the environment-variable name are carried here.
+ */export class WorkBuddyEncryptedCredentialError extends Error {
   readonly code = ENCRYPTED_CREDENTIAL_CODE
   /** Files that hold an encrypted credential, for the user to recognize. */
   readonly paths: readonly string[]

@@ -1,5 +1,9 @@
 # Issue #59: replay and provider options
 
+> 2026-11-06 复核：下文保留 2026-10-18 至 19 日的调查过程、测量值和后续更正。源码可以说明历史推理内容如何转换为文本；报告者的请求计数及密度估算只能支持该样本中的 token 统计解释，不能单独证明实际积分扣费，也不能把已测文本密度视为所有文本的硬下限。本机未重做跨区受控实验，原文中的“定案”“已证伪”“safe”应按此范围理解。
+> 方案状态以末尾 #75 更正为准；前文 O1 的单行修改建议已经撤回。文中的发布和发 issue 建议是历史提案，不代表本次执行了发布或对外发送。
+
+
 Scope: historical investigation of pi-ai 1.1.0 replay behaviour and possible provider changes. Proposed options and implemented behaviour are distinguished in each section.
 
 **Author:** options (decision analyst) · **Task:** task-2 · **Date:** 2026-10-18
@@ -12,7 +16,7 @@ Scope: historical investigation of pi-ai 1.1.0 replay behaviour and possible pro
 **Primary: O1 — make pi-ai see one model identity across both regions by stamping `model.provider` with a shared value, while the two DSH routes/profiles stay per-region.** This is the only plugin-side option that *removes* the counting jump rather than papering over it, and the evidence shows it is safe with one narrow, testable caveat.
 
 **Fallbacks, in order of preference:**
-1. **O4** — keep 4.8.0 `context-rescue` as the liveness mitigation **and** document the mechanism now. Ship this in parallel with any bigger change; it is the zero-risk floor.
+1. **O4** — keep 4.8.0 `context-rescue` as the liveness mitigation **and** document the mechanism now. Ship this in parallel with any bigger change; it retains the existing mitigation while the proposed change is tested.
 2. **O5** — take the fix upstream: pi-ai's issue tracker is real (`github.com/earendil-works/pi/issues`). File a provider-equivalence request. Long cycle, outside the plugin's release cadence, so it is a soapbox, not a ship.
 3. **O3** — *not feasible* (provenance is destroyed before the shim sees the body). Do not invest here.
 4. **O2** — *wrong direction*: forcing thinking to text makes OWN-region thinking billed too. This is a regression, not a fix. Do not ship.
@@ -87,7 +91,7 @@ The only way to intervene before flattening would be to **wrap/replace `openAICo
 
 **Verdict:** not doable at the wire layer because provenance is destroyed before the plugin can see it. This option is closed.
 
-### O4 — Do nothing in code; document + keep 4.8.0 rescue  ✅ FALLBACK (zero-risk floor)
+### O4 — Do nothing in code; document + keep 4.8.0 rescue  ✅ FALLBACK (existing mitigation)
 
 Keep `src/context-rescue.ts` (4.8.0 chunked fold on confirmed overflow) as the liveness fix. Nothing else changes.
 
@@ -119,7 +123,7 @@ Keep `src/context-rescue.ts` (4.8.0 chunked fold on confirmed overflow) as the l
 
 ## 4. What we should tell the issue reporter
 
-> The "切个区，余额掉一半" symptom is now fully explained and it is **not** double-billing or a leak — the same body bytes are simply **re-bucketed**. WorkBuddy registers two region routes (`workbuddy` CN, `workbuddy-global` intl) for the **same** model `deepseek-v4.1-flash`. pi-ai decides whether prior thinking stays in the (unbilled) `reasoning/*reasoning_content*` bucket by strict provider-id equality; switch regions and the history's thinking is re-labelled from "reasoning" to "plain text", which the gateway counts. That is your ±30–94% jump, and it is direction-dependent on which region dominates the history. 4.8.0's context-rescue already prevents the consequent overflow deadlock. The proper fix is to make pi-ai see one model identity across both routes (O1) — in the plugin's queue — and we've also filed it upstream. If you cannot wait, keep region switches off history-heavy sessions and expect a one-off number jump when you do.
+> The "切个区，余额掉一半" symptom is now fully explained and it is **not** double-billing or a leak — the same body bytes are simply **re-bucketed**. WorkBuddy registers two region routes (`workbuddy` CN, `workbuddy-global` intl) for the **same** model `deepseek-v4.1-flash`. pi-ai decides whether prior thinking stays in the (unbilled) `reasoning/*reasoning_content*` bucket by strict provider-id equality; switch regions and the history's thinking is re-labelled from "reasoning" to "plain text", which the gateway counts. That is your ±30–94% jump, and it is direction-dependent on which region dominates the history. 4.8.0's context-rescue already prevents the consequent overflow deadlock. The proper fix is to make pi-ai see one model identity across both routes (O1) — in the plugin's queue — and the later status is recorded below. If you cannot wait, keep region switches off history-heavy sessions and expect a one-off number jump when you do.
 
 ---
 
@@ -133,7 +137,7 @@ Keep `src/context-rescue.ts` (4.8.0 chunked fold on confirmed overflow) as the l
 | **O4** | No | Yes (docs + existing rescue) | Tiny | None | Gateways shown billing reasoning == text (refuted by body-report) |
 | **O5** | Yes (upstream) | No | Small (file issue) | Long cycle, plugin cannot pick host version | A published 1.x that ships provider-equivalence (not observed) |
 
-**Conclusion for the maintainer:** primary = **O1** (ship as the real fix, gate on a cross-region wire test); ship **O4** documentation immediately as the zero-risk floor and the reporter-facing answer; file **O5** upstream; skip **O2** and **O3**.
+**Conclusion for the maintainer:** primary = **O1** (ship as the real fix, gate on a cross-region wire test); ship **O4** documentation immediately as the existing mitigation and the reporter-facing answer; file **O5** upstream; skip **O2** and **O3**.
 
 ---
 

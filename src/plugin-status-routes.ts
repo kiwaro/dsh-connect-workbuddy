@@ -332,18 +332,12 @@ export function installPluginStatusRoutes(webCtx: Parameters<typeof registerWork
      */
     creditPosition: region => dependencies.creditPositionOf(dependencies.current(), region),
     /**
-     * One minimal request per named model, through the region's own credential.
-     *
-     * Resolved here rather than in the route so the browser half never touches a
-     * token: the route passes only model ids and receives only outcomes.
-     *
-     * `quotaRefreshAtMs` is the region's nearest monthly refresh point, read from
-     * the SAME credit answer the card displays. It is the only cooldown this
-     * service ever states — an exhausted monthly resource that resets at a known
-     * time — so it is what makes "when can I use this again" answerable for an
-     * out-of-credit result. Every other limited outcome has no time anywhere, and
-     * the probe reports exactly that instead of inventing one.
-     */
+ * Probe each named model through this region's resolved credential.
+ * The browser sends model ids and receives outcomes on this route; credential
+ * export/import uses a separate route. Input size defaults to the probe default.
+ * Known quota refresh times supplement Retry-After and reset messages. Model
+ * congestion may use the local waiting period defined in probe.ts.
+ */
     async probeModels(region, modelIds, options) {
       let credential
       try {

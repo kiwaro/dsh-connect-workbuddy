@@ -458,11 +458,11 @@ describe('describeVideoFailure: 提交阶段 4xx', () => {
     msg: 'Create video failed with error: unsupported video duration: 1 seconds, supported range: 4-15 seconds',
   })
 
-  it('400 归为 REJECTED 并明说没有建任务、没有扣积分', () => {
+  it('400 归为 REJECTED 并说明未取得任务标识', () => {
     const error = describeVideoFailure(400, durationBody, 'submit')
     expect(error.code).toBe('REJECTED')
-    expect(error.message).toContain('没有创建任务')
-    expect(error.message).toContain('没有扣积分')
+    expect(error.message).toContain('未取得任务标识')
+    expect(error.message).not.toContain('没有扣积分')
     expect(error.message).toContain('调整参数后重试')
   })
 

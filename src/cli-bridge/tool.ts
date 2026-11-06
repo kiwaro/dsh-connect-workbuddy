@@ -9,17 +9,14 @@
  * account restricted upstream (code 11140) is restricted here too. See the
  * module comment in `./runner.ts` for the long version.
  *
- * THE PRICE, stated plainly: a bridged turn is a SEPARATE agent. It does not see
- * this session's conversation, so it re-explores the workspace from scratch. That
- * is fine for "review this module" and wrong for "continue what we were doing" —
- * which is why the tool takes a self-contained `message`.
+ * Each call runs a separate CLI process. Automatic or explicit session
+ * continuation can restore the CLI's earlier conversation, but the DSH session
+ * transcript is not copied into it. Supply a self-contained message.
  *
- * THE DIRECTORY RULE IS THE IMPORTANT PART OF THIS FILE. A bridged turn spawns
- * an agent that can edit files, and the directory it runs in is that agent's
- * whole world. So the directory is never taken on faith: it must exist, be a
- * directory, and resolve to somewhere this plugin is allowed to point a
- * file-editing agent at. A model that asks for `C:\Users\...\.ssh` gets a
- * refusal that says why, not a turn.
+ * The working-directory check restricts where the process starts. It does not
+ * sandbox filesystem access: actual access also depends on CLI permissions and
+ * the operating-system account. A fresh scratch directory avoids sharing the
+ * initial workspace between unattended calls, without confining their tools.
  *
  * @module dsh-connect-workbuddy/cli-bridge/tool
  */
@@ -319,8 +316,8 @@ export function sessionDirCandidates(
 /**
  * Why `path` cannot be a turn's working directory, or `''` when it can.
  *
- * The three checks the ladder has always applied (exists / is a directory /
- * readable), stated once so the projection→header fallback in
+ * The three checks the ladder has always applied (exists / can be stat-ed /
+ * is a directory), stated once so the projection→header fallback in
  * {@link resolveWorkingDir} re-runs exactly the same gate instead of a weaker
  * private copy.
  */
@@ -350,8 +347,8 @@ function dirRejection(path: string): string {
  * asking for `/` or `~/.ssh`: those exist and are directories, so existence
  * alone would happily accept them.
  *
- * A scratch turn is exempt by construction: it is a fresh empty temp directory
- * the bridge just created, so there is nothing in it to leak.
+ * A scratch turn uses a newly created temp directory instead of this root
+ * check. Neither branch confines later tool access to the starting directory.
  */
 export function resolveWorkingDir(
   args: Record<string, unknown>,
@@ -398,7 +395,7 @@ export function resolveWorkingDir(
         '缺少工作目录，请选择一种方式指定：' +
         '① 传 working_dir 指定一个已存在的绝对路径目录；② 在插件配置里设 cliBridge.workingDir；' +
         '③ 通用问答可传 allow_unattended: true，在临时目录执行' +
-        '，文件读写限于该临时目录。',
+        '。临时目录只指定执行位置，文件访问权限由 CLI 和操作系统控制。',
     }
   }
 
@@ -498,7 +495,7 @@ const OUTPUT_SCHEMA = {
       description: '输入 token 中命中缓存的数量',
     },
     credential_region: { type: 'string', description: '本次实际用的凭据区域（cn / global / env）' },
-    working_dir: { type: 'string', description: '本次实际工作目录，读写限于该目录；请求被提前拒绝时为空' },
+    working_dir: { type: 'string', description: '本次实际工作目录；该路径不构成文件访问隔离，请求被提前拒绝时为空' },
     unattended: {
       type: 'boolean',
       description: '本次是否按 allow_unattended 参数在临时目录执行',

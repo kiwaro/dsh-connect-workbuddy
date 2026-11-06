@@ -611,8 +611,9 @@ export function AccountPool(props: AccountPoolProps): ReturnType<typeof h> | nul
       const refreshed = await onSaved?.()
       if (refreshed === false && mounted.current) setStaleNotice(t('row.poolSavedStaleRefresh'))
     } catch (error: unknown) {
-      // Only a failed settings write reaches here. The draft is the only copy
-      // of the user's edits, so it must be kept for a retry.
+      // A settings write or the onSaved callback can throw here. A write
+      // failure leaves the draft intact; discard has already run if the
+      // callback throws after a successful write.
       if (mounted.current) {
         const reason = error instanceof Error ? error.message : t('row.requestFailed')
         // A contention refusal needs the remedy appended: the raw message names
@@ -815,7 +816,7 @@ export function AccountPool(props: AccountPoolProps): ReturnType<typeof h> | nul
             reason: body?.reason,
             error: body?.error,
             // See the row call sites: a non-JSON body means the route itself is
-            // missing, not that the Host refused the method (issue #86).
+            // possibly missing or intercepted; the body alone does not prove which.
             bodyUnreadable: body === undefined,
           }))
         }
@@ -912,8 +913,8 @@ export function AccountPool(props: AccountPoolProps): ReturnType<typeof h> | nul
           status: response.status,
           reason: body?.reason,
           error: body?.error,
-          // No JSON at all means the request never reached a plugin handler: every
-          // route here answers in JSON, its own 405 included (issue #86).
+          // These handlers normally return JSON, including for 405. A non-JSON
+          // response may come from routing, middleware or an interrupted response.
           bodyUnreadable: body === undefined,
         }))
       }
@@ -992,8 +993,8 @@ export function AccountPool(props: AccountPoolProps): ReturnType<typeof h> | nul
           status: response.status,
           reason: body?.reason,
           error: body?.error,
-          // No JSON at all means the request never reached a plugin handler: every
-          // route here answers in JSON, its own 405 included (issue #86).
+          // These handlers normally return JSON, including for 405. A non-JSON
+          // response may come from routing, middleware or an interrupted response.
           bodyUnreadable: body === undefined,
         }))
       }
@@ -1053,8 +1054,8 @@ export function AccountPool(props: AccountPoolProps): ReturnType<typeof h> | nul
           status: response.status,
           reason: body?.reason,
           error: body?.error,
-          // No JSON at all means the request never reached a plugin handler: every
-          // route here answers in JSON, its own 405 included (issue #86).
+          // These handlers normally return JSON, including for 405. A non-JSON
+          // response may come from routing, middleware or an interrupted response.
           bodyUnreadable: body === undefined,
         }))
       }
@@ -1112,7 +1113,7 @@ export function AccountPool(props: AccountPoolProps): ReturnType<typeof h> | nul
     : null
 
   /**
-   * The account the next request will start from.
+   * The account marked current in the latest Host snapshot.
    *
    * Read from the Host's `current` flag rather than re-derived here: the Host
    * owns the selection, and a browser-side guess is how the card would start
@@ -1257,13 +1258,9 @@ export function AccountPool(props: AccountPoolProps): ReturnType<typeof h> | nul
           hint: t('row.veilHintList'),
         })
       : null,
-    // Saving gets the same veil as every other write in this section.
-    //
-    // `saving` already spans the whole operation and not merely the write: it
-    // is set before `writePoolPreferences` and cleared in the `finally`, after
-    // `onSaved()` has awaited the re-read (see `save`). So the veil comes down
-    // exactly when the panel shows the stored values — which is the same rule
-    // the removal veil follows, and the reason this needs no extra state.
+    // Show the saving veil while the settings write is pending. The save
+    // callback clears saving before refreshing usage; rows may still show
+    // the previous snapshot briefly after this veil closes.
     saving
       ? h(BusyOverlay, {
           visible: true,
@@ -1524,10 +1521,8 @@ export function AccountPool(props: AccountPoolProps): ReturnType<typeof h> | nul
               : pool.targetModelSource === 'stale' ? t('row.poolTargetStale', { model: pool.staleTargetModelId ?? '' }) : undefined,
             onClick: () => { void runAction('test') },
           }, busy === 'test' ? t('row.poolTesting') : t('row.poolTestAll')),
-          // The Host answers a batch only when it is done, so there is no per-row
-          // progress to report. The line therefore states the one thing that IS
-          // true while it runs — accounts are being handled one at a time — instead
-          // of naming an account that may not be the one in flight.
+          // Keep a batch-level hint visible while the request runs. Test
+          // results also arrive per account through the NDJSON activity log.
           busy !== undefined
             ? h('span', { className: 'dsm-workbuddy-pool-hint' }, t('row.poolBusyHint'))
             // Why both buttons are dead, right where the user is looking. This
@@ -1828,7 +1823,7 @@ function renderAccountRow(input: {
   poolModelId: string
   /** Run a single-account test against THIS account's target model. */
   onTest: () => void
-    /** Forget this account's plugin-stored credential. */
+    /** Dismiss the account and remove its plugin-stored credential when present. */
   onRemove: () => void
   /**
    * Claim one campaign on THIS account. Rendered per claimable benefit, so the
@@ -2027,9 +2022,8 @@ function renderAccountRow(input: {
       //
       // Each entry carries its OWN claim button, because the button is the unit
       // of consent: one click spends one account's entitlement and nothing else.
-      // A row-wide or pool-wide "claim all" is deliberately absent — the pool can
-      // hold a dozen accounts, and a single click that silently spends all of
-      // them is not a decision this card may make for the user.
+      // These buttons claim one campaign for one account. The separate batch
+      // check-in action operates on saved pool members.
       account.enterprise === true || account.benefits === undefined || account.benefits.length === 0
         ? null
         : h('span', { className: 'dsm-workbuddy-pool-benefits' },
@@ -2140,9 +2134,8 @@ function renderAccountRow(input: {
       : null,
     // Per-row actions, RIGHT side of the row: test this one account, and forget
     // this account's plugin-stored credential. The test reuses the batch's
-    // probe (one measurement, one vocabulary); the removal deletes ONLY the
-    // vault entry — a desktop sign-in reappears on the next rescan, which the
-    // log message states instead of a silent no-op.
+    // probe. Removal dismisses the account and deletes its vault entry when
+    // present; a desktop sign-in is not logged out by this operation.
     h('span', { className: 'dsm-workbuddy-pool-row-actions' },
       // 设备参数入口。放在「测试」左边：它改的是"这个账号以什么身份出现"，
       // 与"它现在能不能用"是同一层的问题，两个按钮挨着才读得通。
@@ -2299,8 +2292,8 @@ function renderSettings(input: {
       // The probe size, as its own row under the model picker.
       //
       // Directly beneath the model because the two together define what a test
-      // actually sends, and the choice only makes sense against the measured
-      // 20k~30k rate-limit threshold the hint describes — a user cannot judge
+      // actually sends, and the choice only makes sense against historical
+      // probe observations, which do not establish a universal rate-limit threshold — a user cannot judge
       // "30K" without being told what it is compared against.
       h('div', { className: 'dsm-workbuddy-pool-set' },
         h('span', { className: 'dsm-workbuddy-pool-set-copy' },
@@ -2429,36 +2422,7 @@ function renderLog(input: {
   )
 }
 
-/**
- * Sort accounts by the manual priority order, without losing stability.
- *
- * Helpers/rows are rendered in this order so a click on ↑/↓ reorders the row
- * immediately (client-side), before any save + host round-trip. Ids in `orderIds`
- * that are not actually members are skipped; members not listed fall back to the
- * END in their original relative order.
- *
- * The sort is STABLE: two ids with the same priority rank keep their original
- * array order. A `rank` lookup returns `orderIds.length` as the sentinel for
- * "not ordered", which is larger than any real rank, so unlisted members sort
- * after every listed one. An EMPTY `orderIds` short-circuits: the input order is
- * already the answer, and we avoid building the rank map / comparator for the
- * common (never-sorted) case.
- *
- * TWO subtleties that a naive rank comparator gets wrong, both of which would
- * make the table visibly wrong:
- *
- * - DUPLICATE ids keep the FIRST occurrence's rank (`if (!rank.has(id))`).
- *   Overwriting instead would let a stray duplicate silently push the account
- *   it names to the duplicate's later position, so the row would drift away
- *   from the badge that claims to describe it.
- * - The sort key is the PAIR (rank, original index), not rank alone. Ranks are
- *   unique per id, but the `Infinity` fallback is shared by every unlisted
- *   account, and `Array.prototype.sort` is NOT guaranteed stable across engines
- *   for arbitrary inputs; relying on it would let the unlisted tail reshuffle
- *   between renders. Breaking the tie on the original index makes the result a
- *   pure function of the input, which is what stops the table from jittering
- *   when the same snapshot arrives twice.
- */
+
 /**
  * The ordering rules, in EXACTLY the comparator's priority order.
  *

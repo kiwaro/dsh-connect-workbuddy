@@ -1,5 +1,7 @@
 # Account-pool verification: round 3
 
+Later correction: E-fix-log §13.2 corrects the fresh/stale polarity used when interpreting M19. The original test outputs remain historical evidence.
+
 Historical scope: this report checks the ten round-3 fixes against the frozen snapshot. Findings describe that revision; later resolutions are recorded in [E-fix-log.md](E-fix-log.md).
 
 > Verifier: `round3-verify` (shared task `task-6`), independent of the Lead who wrote the fixes.
@@ -55,7 +57,7 @@ Full `check` (typecheck + test + build) exits 0 in the copy. Individually: `npx 
 | 10 | D6 five copies collapsed into `effectiveMembersOf` | **CONFIRMED** / **guard REFUTED** | Exhaustive survey: 5/5 delegate, no leftover copy; but a **comment** satisfies the guard |
 
 Tally: **5 fully confirmed** (2, 4, 5, 6, 10-as-refactor) — the refactor in 10 is real even though its guard is not;
-**3 partially confirmed** (1, 3) ; **2 whose code is right but whose advertised guard I defeated** (7, 8);
+**2 partially confirmed** (1, 3) ; **2 whose code is right but whose advertised guard I defeated** (7, 8);
 **1 partially refuted** (9). No claim was left unverified.
 
 ## 3. Per-claim evidence
@@ -323,19 +325,18 @@ message. No test covers it — `M-A8-committed-true` is green.
 
 The call is `effectiveMembersOf(accounts.map(a => a.accountId), new Set(preferences.memberAccountIds))`,
 i.e. **roster first, saved-set second**, the reverse of the declared `effectiveMembersOf(saved, listedIds)`
-(`src/account-pool.ts`, used correctly at `src/index.ts:899`). It happens to be correct because the
-operation is commutative, but the site returns **roster order** where `index.ts:899` returns **saved
+(`src/account-pool.ts`, used correctly at `src/index.ts:899`). The two calls select the same set of members; output order is determined by the first argument. This site returns **roster order** where `index.ts:899` returns **saved
 order**. The roster at that point (`src/web-status.ts:637`) is the whole displayed account table, so the
 *membership* answers agree today; `sameIds` and `announcedBatchCount` are order-insensitive. It is a
 latent trap for any future caller that assumes saved order.
 
-### N3 (INFO) — the delegation at `src/index.ts:1132` is behaviourally a no-op
+### N3 (INFO): limits of the delegation guard at `src/index.ts:1132`
 
 `const live = new Set(effectiveMembersOf(saved, new Set(accounts.map(a => a.id))))` followed by
-`return accounts.filter(account => live.has(account.id))` produces `accounts ∩ saved` whichever way
-`live` is computed, because the outer `filter` iterates `accounts`. The D6 refactor is still right to
-delegate, but this site contributes no behaviour the text guard can distinguish — so "five paths" is
-really four paths plus one cosmetic.
+`return accounts.filter(account => live.has(account.id))` depends on the contents of `live`. An empty
+`live` produces an empty result. The earlier claim that this delegation was behaviourally a no-op
+was incorrect. A surviving mutant demonstrates a gap in the tested assertions, not independence
+from the helper. E-fix-log §12.5 records the later call-site and guard changes.
 
 ### N4 (LOW) — the D5 "generalised" guard is scoped to four callback names
 

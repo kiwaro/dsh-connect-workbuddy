@@ -305,7 +305,7 @@ export function OAuthSignIn({ t, region, onAdded }: OAuthSignInProps): ReactElem
   /**
    * Fetch the authorization URL AND open the browser in one gesture chain.
    * The placeholder window is opened synchronously — inside the click's user
-   * activation, before any await — so popup blocking cannot intervene; the
+   * activation, before any await, to improve the chance the popup is allowed; the
    * URL is navigated once the Host answers. A blocked placeholder (null)
    * degrades to the manual link inside the dialog, losing nothing but the
    * convenience.

@@ -98,7 +98,7 @@ const LIVE_OWNED_FIELDS = ['reasoning', 'creditMultiplier', 'supportsImages'] as
  * The `canDisableThinking` in the LIVE block is the upstream's DECLARATION,
  * and the user's effective choice is stamped over it by `withEffectiveOff`
  * afterwards. So the overlay restores the declaration, and the user's tick
- * still wins.
+ * still applies unless the refusal table vetoes it.
  *
  * `promos` IS LIVE-OWNED TOO, AND IS REPLACED UNCONDITIONALLY. It cannot use
  * the loop above, because that loop only writes a field the live entry HAS —
@@ -235,16 +235,10 @@ export function repairedCatalog(
 }
 
 /**
- * Whether a saved directory is byte-for-byte the STATIC fallback table.
- *
- * That table is what a cold start used to seed `lastCatalog` with (issue
- * #114's root cause). Such a directory is not a user's selection — it is the
- * plugin's own placeholder that came back as if the user had chosen it. So
- * it is recognised here and treated as "never configured", which lets the
- * live roster take over and lets the directory heal.
- *
- * The comparison is by id list and capability content, not by object
- * identity: the seeded copy is a plain copy of the fallback table.
+ * Heuristic for recognizing an unconfigured fallback snapshot.
+ * The ordered ids must match the static fallback and every entry must lack
+ * reasoning and creditMultiplier. Names, context windows and other fields are
+ * not compared, so this does not establish byte-for-byte equality or provenance.
  */
 export function isUnconfiguredFallbackSnapshot(
   saved: readonly WorkBuddyModelInfo[],
@@ -312,7 +306,8 @@ export function resolveRoster(
   if (options.keepLoadLevel === true) return merged
   // The key is DELETED, not set to `undefined`: an explicit `undefined`
   // property survives `structuredClone` and the settings write path's strict
-  // JSON codec rejects the whole save with "found a function at ...". The
+  // JSON codec can reject the save. A function-related error names a
+    // different non-JSON value; it is not evidence of an undefined field. The
   // same rule is why `toPersistedWorkBuddyModel` strips its card-only fields
   // BY KEY rather than assigning `undefined` (see `src/status-paths.ts`).
   return merged.map(model => {

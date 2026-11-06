@@ -1,80 +1,24 @@
 /**
- * Body-composition report: WHAT was sent upstream, in counts (issue #59).
+ * Record request composition counts for local comparison (issue #59).
  *
- * WHY THIS EXISTS. Issue #59's reporter measured the SAME conversation charged
- * ~708K tokens by the CN gateway and ~1.374M by the international one (1.94×),
- * which turns a region switch into an instant `code 11115 prompt is too long`.
- * Two worlds explain that, and they have opposite owners:
+ * The report counts message blocks, characters and bytes without recording
+ * message text, account names or tokens. It is collected before the upstream
+ * responds, so it remains useful when a request is rejected for lack of credits.
  *
- *   - the gateways count identical bytes differently (upstream's business); or
- *   - the two requests did not carry the same messages (ours to fix).
+ * The paired 4.6.7 capture measured body sizes of 3,628,068 and 3,626,374 bytes.
+ * Similar total sizes alone do not prove identical content. Its text/reasoning
+ * breakdown, combined with the bundled pi-ai 1.1.0 replay code, showed how a
+ * provider or model switch can move surviving thinking into visible text.
+ * pi-ai keeps raw reasoning only when provider, API and model identities match;
+ * otherwise it can convert surviving thinking to a text block.
  *
- * Neither world, it turned out — the answer was a third one, and this report is
- * what produced it. A paired capture in one session (4.6.7) measured
- * `bodyBytes` 3,628,068 vs 3,626,374, a ratio of 0.9995: both requests carried
- * the same bytes. What differed was the BUCKET each byte was counted in — CN
- * text 741,687 vs GL 184,821, CN reasoning 72,270 vs GL 627,994, with a
- * complementary residual of 0.3%. The gateways did not miscount; the same
- * history was labelled differently on the two sides.
+ * That conversion helps explain the observed input-token differences. These
+ * local counts do not establish how either gateway bills a request, nor prove
+ * that an upstream counter is correct. See the corrected evidence and limits
+ * in docs/ISSUE59_DIAGNOSIS.md before drawing a billing conclusion.
  *
- * The labelling is pi-ai's replay — which assistant messages it lets survive as
- * thinking at all. `transform-messages.js:68` (1.1.0, the version the host
- * bundles) computes
- *
- *     isSameModel = assistantMsg.provider === model.provider
- *                && assistantMsg.api      === model.api
- *                && assistantMsg.model    === model.id;
- *
- * and for a message that fails it, `:88–96` returns the surviving thinking as
- * `{ type: "text", text: block.thinking }` — downgraded, not dropped — while
- * `:76` drops redacted thinking and `:103` strips tool-call `thoughtSignature`.
- * `buildParams` runs that transform at `openai-completions.js:896`, before
- * anything is assembled, so a thinking block only stays a thinking block when
- * its message was recorded under the same provider AND the same model id as the
- * request now in flight. Survivors leave as the raw field: `:1002–1008` writes
- * `assistantMsg[signature] = <thinking>`, `signature` being the field name the
- * stream used, recorded per block at `:399–416` (`reasoning_content` for this
- * vendor, uniformly — 790 replay records in one real session held that value
- * and no other). Non-survivors are text by the time `:964–971` collects
- * `assistantText`, so they land in `assistantMsg.content` instead. This plugin
- * sets only `compat.supportsReasoningEffort` (`src/adapter.ts:200`), which
- * leaves `requiresThinkingAsText` at its `false` default (`:1270`), so the raw
- * field route is the live one rather than the fold-into-content route at `:983`.
- *
- * Two provider ids for one model is therefore two identities for one model, and
- * a region switch flips the sign for the entire other side at once: everything
- * that side ever thought is replayed as content instead of as a reasoning field,
- * and the gateways count content. That is the 1.94× above; the same formula read
- * in the other direction is the 0.696× the reverse switch produces (text
- * 642,800 vs 447,306 across the same bytes). The model-id leg of `isSameModel`
- * matters for the same reason — switching models inside ONE region has the same
- * effect — which is why the symptom belongs in `README`'s 已知限制, where users
- * meet it, and not only here.
- *
- * The retraction trail, because this header has misled twice. The first version
- * claimed historical `reasoning` never reaches the wire, because
- * `requiresThinkingAsText` is unset and the `reasoning_details` route needs a
- * signature the parser never writes. Both halves are wrong: the unset flag is
- * precisely what routes thinking out as a raw field. The second version — the
- * one this paragraph replaces — claimed the difference was the field NAME,
- * signature-driven, citing 0.85.1's `:428`/`:1006` and concluding that a gateway
- * saying `reasoning` replays as `reasoning`. That cannot be right either: both
- * gateways say `reasoning_content`, so a name-keyed story predicts NO difference
- * between them, and the host ships 1.1.0, not 0.85.1. What differs is survival,
- * not naming. The file keeps both dead ends on purpose — each one shaped what
- * this report measures, and the third version only settled the question because
- * the report could show bytes equal while buckets were not.
- *
- * This module exists to settle exactly that, and it can do it WITHOUT either
- * region having credit: the body is assembled locally, before the upstream ever
- * gets a chance to answer `14018 Credits exhausted`. Capture one composition per
- * region in the same session and diff them.
- *
- * It records COUNTS ONLY — never a byte of message text, no account name, no
- * token. That is a hard rule, not a default: the point is to compare shape
- * (`messages.length`, per-block type, CJK vs non-CJK characters, total bytes),
- * and every one of those is answerable arithmetically. `tests/issue59-body-report.spec.ts`
- * asserts the report cannot leak a fixture's text.
+ * tests/issue59-body-report.spec.ts checks that fixture text does not appear in
+ * the report. Keep future fields limited to counts and non-content metadata.
  */
 
 import { appendFile, mkdir, open, rename, rm, stat } from 'node:fs/promises'
@@ -105,7 +49,7 @@ export interface WorkBuddyBodyBlockReport {
   type: string
   /** Characters (code points), so a CJK character counts once. */
   chars: number
-  /** Of {@link chars}, how many are CJK — they bill ~3× an ASCII character. */
+  /** Of chars, how many match the CJK_RANGES character classes. */
   cjkChars: number
 }
 
@@ -132,7 +76,7 @@ export interface WorkBuddyBodyReport {
    *
    * This is the other half of the #59 comparison, and it is the half that was
    * missing. `bodyBytes`/`chars` say what we SENT; `promptTokens` says what the
-   * gateway CHARGED for it. With only the sent side, a difference between two
+   * gateway reported for it; it is not a verified bill. With only the sent side, a difference between two
    * captures is ambiguous — "the gateway counted the same bytes differently" and
    * "the two bodies were not the same" have the same shape.
    *
@@ -164,13 +108,9 @@ export interface WorkBuddyBodyReport {
 }
 
 /**
- * Character ranges that tokenize (and therefore bill) like CJK.
- *
- * Deliberately generous: the caller's question is "how much of this is the ~3×
- * kind", and the measured spread is 0.669 vs 0.224 tokens/char, so a character
- * class that is borderline costs far less than mis-attributing a whole bucket.
- * Ranges follow Unicode blocks, plus the compatibility forms and the two
- * extension planes where rare Han characters live.
+ * Unicode ranges used for a rough CJK composition count. These are character
+ * classes, not tokenizer measurements or billing rates. Historical samples had
+ * different tokens-per-character ratios; that ratio is not fixed across inputs.
  */
 const CJK_RANGES: readonly (readonly [number, number])[] = [
   [0x2e80, 0x2eff], // radicals
@@ -184,7 +124,7 @@ const CJK_RANGES: readonly (readonly [number, number])[] = [
   [0x20000, 0x2fa1f], // extensions B–F
 ]
 
-/** Whether one code point bills like CJK. */
+/** Whether one code point falls in the report's CJK ranges. */
 function isCjkCodePoint(code: number): boolean {
   return CJK_RANGES.some(([low, high]) => code >= low && code <= high)
 }
@@ -195,7 +135,7 @@ export function countChars(text: string): { chars: number, cjkChars: number } {
   let cjkChars = 0
   // `for…of` iterates code points, so a character outside the BMP counts once
   // rather than as its two surrogate halves — the difference matters for the
-  // emoji and rare-Han cases that would otherwise inflate the ASCII bucket.
+  // emoji and rare-Han cases that would otherwise inflate the non-CJK bucket.
   for (const character of text) {
     chars += 1
     const code = character.codePointAt(0)
@@ -347,9 +287,8 @@ function tokenCount(value: unknown): number | undefined {
 /**
  * Read the token counts out of one already-parsed SSE chunk.
  *
- * Returns undefined when the chunk carries no `usage` — which is every chunk but
- * the last one on a streamed answer, so this is called for each frame and must
- * stay cheap and total. The cache-hit count is looked for under BOTH spellings
+ * Returns undefined when the chunk carries no `usage` — which may include early or
+ * incomplete frames. This is called for each frame and must stay cheap. The cache-hit count is looked for under BOTH spellings
  * observed on the two gateways (`prompt_tokens_details.cached_tokens`, OpenAI's,
  * and `prompt_cache_hit_tokens`, which the domestic gateway also emits); taking
  * the first one present keeps the report comparable across regions instead of
@@ -414,7 +353,7 @@ export const BODY_REPORT_MAX_BYTES = 32 * 1024 * 1024
  * The old implementation read the WHOLE file, split it, rewrote the WHOLE file —
  * so every streamed answer cost ~3× the file size in heap (the string, the line
  * array, the re-joined string), which is what OOMed the host at ~500 MB. The
- * usage callback fires seconds after its own append, so its line is always
+ * usage callback fires seconds after its own append, so its line is usually
  * near the tail; a bounded tail read makes the cost O(window) instead of
  * O(file). A line older than the window is simply left un-annotated — the
  * annotation is best-effort by design (see the header of {@link attachUsage}).
@@ -458,13 +397,13 @@ export async function appendBodyReport(directory: string, report: WorkBuddyBodyR
  * Record one outgoing body, if the report is enabled, and return a handle that
  * can carry the upstream's `usage` back onto the SAME line.
  *
- * NEVER THROWS and never awaits long: this is called on the request path, and a
- * chat request must not fail (or stall) because a diagnostic could not write a
- * file. A failure is reported through `onError` so the caller can log it.
+ * Awaits the append, so filesystem and lock latency can delay the request.
+ * Catches report errors and invokes onError when provided; a throwing onError
+ * callback can still propagate its own error.
  *
  * The returned function exists because the two halves of the #59 comparison are
  * only available at different times: what we SENT is known before the request
- * leaves, what the gateway CHARGED only after the stream ends. Writing a second
+ * leaves, what usage the gateway reported only after it arrives. Writing a second
  * line for the usage would be worse than useless — the reporter diffs "the last
  * line of cn.jsonl against the last line of global.jsonl", and a trailing
  * usage-only line would silently become the one being compared.
@@ -504,8 +443,8 @@ export async function recordBodyReport(
  * `r+`, the last {@link USAGE_ATTACH_TAIL_BYTES} are read, the window is split
  * into lines, the target line is replaced, and the new window is written back
  * at the SAME offset with the file truncated to the new end. Nothing before the
- * window is ever read or written, so a 500 MB file costs one megabyte of heap
- * here instead of three copies of itself.
+ * window is ever read or written, so memory use depends on the tail window and its decoded copies
+ * rather than on the whole file.
  *
  * Two consequences of the bounded window, both deliberate:
  *

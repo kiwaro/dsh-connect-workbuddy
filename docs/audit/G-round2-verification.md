@@ -17,7 +17,7 @@ moving tree.
 | `tests/pool-e2e.spec.ts` | `05362323c6e403302de08d81e9d5c0ce9bae26442317a0e939b6b0a900db72b0` |
 | `tests/pool-state.spec.ts` | `b5579c933f650ca40427656eba0803cbf29fb26c9af9d3f3504815195598d929` |
 
-**Method** — falsification, not confirmation. A test that passes on the fixed tree proves nothing,
+**Method** — falsification, not confirmation. A passing test alone does not show that it detects a regression,
 so for every claimed fix a mutant was built in a throw-away copy of the frozen snapshot
 (`/tmp/r2ver/mut`), the mutation was hash-checked to have actually applied
 (`NO-OP-PATCH` otherwise), and the new tests had to FAIL on it. Two independent oracles:
@@ -36,7 +36,7 @@ Nothing in the repository was modified by this verification; the only repo write
 
 | # | Claim under test | Verdict | Discriminating evidence |
 | --- | --- | --- | --- |
-| 1 | `pool-state.ts` helpers are on the component's **live render path** (highest suspicion) | **CONFIRMED** | M7–M10 (helper internals) and M8a (call-site swap) each kill render tests; all five helpers have a call site in `AccountPool.tsx`; no inline duplicate of their rules remains |
+| 1 | `pool-state.ts` helpers are on the component's **live render path** (highest suspicion) | **CONFIRMED** | M7–M10 (helper internals) and M8a (call-site swap) each kill render tests; all six helpers have a call site in `AccountPool.tsx`; no inline duplicate of their rules remains |
 | 2 | H-5 check-in button gated on `effectiveMembers.length === 0` | **CONFIRMED** | M2 → `expected false to be true` in *disables BOTH batch buttons and shows why, on the live render path* |
 | 3 | H-5 test button gated the same way | **CONFIRMED** | M1 → same test, same assertion |
 | 4 | Route guard `effective ?? saved` → 409 `no-members` / `no-live-members` | **CONFIRMED** | H2 (guard disabled) → `expected 200 to be 409` ×2; H3 (dep returns raw saved) → ghost case `expected 200 to be 409`; H1 (reason collapsed) → `AssertionError: expected 'no-members' to be 'no-live-members'` |
@@ -108,7 +108,7 @@ actually sees, and each one is load-bearing:
 | `draftBaseFor` | `:449` inside the `setDraft` updater in `editDraft` | M10 |
 | `announcedBatchCount` | `:512-515` → the batch log line `:516-521` | M3 |
 
-`grep` over the component for the five rule names finds no second, inline copy of these rules, so
+`grep` over the component for the six rule names finds no second, inline copy of these rules, so
 there is no path where the card keeps its own logic while only the tests use the helpers.
 
 ---
@@ -136,7 +136,7 @@ AssertionError: expected 'row.poolTitlerow.poolSummary|count=2|…' to contain '
 Tests  1 failed | 13 passed (14)
 ```
 
-and the pristine tree stays `Tests 14 passed (14)`. The matrix now has **no surviving mutant**.
+and the pristine tree stays `Tests 14 passed (14)`. The target rendering matrix now has **no surviving mutant**. This does not include the separate H5 repository-test gap discussed below.
 
 Two consequences worth recording:
 

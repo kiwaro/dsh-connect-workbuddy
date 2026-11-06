@@ -129,7 +129,7 @@ export function formatShortClock(value: number): string {
  *  - any other outcome        → the bare outcome ("连不上上游")
  *
  * That third case is deliberate: "未提供恢复时间" beside a credential rejection
- * would imply waiting helps, when the only fix is signing in again.
+ * would imply waiting helps, when credentials must first be checked or refreshed.
  */
 export function availabilityLine(
   t: Translate,
@@ -160,8 +160,8 @@ export function availabilityLine(
       // appended it and the panel did not — the same drift this module exists to
       // stop, one layer down. Assembling a sentence at a call site guarantees the
       // call sites will disagree eventually. The relative part is empty once the
-      // moment has passed (`remainingText` returns ''), which is exactly when the
-      // account is back and the absolute time is the honest thing to show.
+      // moment has passed (`remainingText` returns ''), which means the local wait has elapsed. It does not prove that the
+      // upstream account has recovered; another request is needed to test it.
       const left = remainingText(t, probe.retryAtMs, nowMs)
       const at = t('row.poolRetryAt', { at: formatShortClock(probe.retryAtMs) })
       return `${outcomeText(t, probe.outcome)} · ${at}${left === '' ? '' : ` · ${left}`}`
@@ -293,7 +293,7 @@ export function stateColor(account: AccountStateInput): string {
  * `{ done: true }` — or `{ reason, error }` when the batch itself broke. Only the
  * row shape is recognized here; the rest is the caller's business.
  *
- * Every field is validated rather than trusted. This parses a wire the panel did
+ * Required fields and recognized optional fields are narrowed before rendering. This parses a wire the panel did
  * not write, and a half-shaped row reaching the component's state would render
  * as a measurement nobody took — worse than ignoring the line, because the
  * subsequent re-read is what would have quietly corrected it.

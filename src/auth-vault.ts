@@ -300,7 +300,7 @@ export function isFresher(
     if (candidateRefresh !== incumbentRefresh) return candidateRefresh > incumbentRefresh
   } else if (candidateRefresh !== undefined) {
     // A file that records its issuance time outranks one that does not; the
-    // field is always present in desktop documents, so this only decides
+    // field was present in observed desktop documents, so this also handles
     // against synthetic or truncated input.
     return true
   } else if (incumbentRefresh !== undefined) {
@@ -341,29 +341,11 @@ export function parseOwnDocument(text: string, filePath: string): WorkBuddyCrede
 }
 
 /**
- * Whether a freshly scanned credential should REPLACE a vault entry of the
- * same account.
- *
- * The vault is a CACHE of credentials the machine already holds, not a
- * competing source. Two clocks decide, compared like against like:
- *
- * - The scan's clock is the DESKTOP document's `lastRefreshTime` (the
- *   upstream's own issuance time) — and the live file ranks above every
- *   backup regardless of time, per {@link fileRank}.
- * - The vault entry's clock is `refreshedAtMs`, the local write time of the
- *   plugin refresh (or OAuth login) that produced it. A wall clock is not
- *   comparable to an issuance time, so the two are NOT mixed: the entry is
- *   replaced only when the scan's read is the live sign-in AND either the
- *   entry predates the scan read's issuance, or the entry was written before
- *   the plugin refreshed into it — approximated by requiring the live file's
- *   issuance to be NEWER than the entry's write time.
- *
- * The rule's purpose is breaking the refresh loop: without it, a scan keeps
- * reinstating the (older, soon-to-expire) desktop token over the refreshed
- * vault copy, so every restart re-refreshes every account. With it, the
- * desktop token wins only while it is genuinely newer than what the plugin
- * last wrote — after that the refreshed copy is the operative credential,
- * exactly like the pre-vault per-region copies behaved.
+ * Decide whether a live desktop candidate replaces a vault entry. Backups never
+ * replace it here. A missing vault write time allows replacement; a missing
+ * desktop issuance time falls back to comparing expiry. Otherwise the recorded
+ * issuance must exceed the local vault write time. This cross-clock heuristic
+ * reduces stale desktop restores, but clock skew can affect the comparison.
  */
 export function shouldReplaceVaultEntry(
   candidate: WorkBuddyCredential,

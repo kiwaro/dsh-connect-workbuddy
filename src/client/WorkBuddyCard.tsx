@@ -4,51 +4,18 @@ import { type WorkBuddyCardInjected, type WorkBuddyCardProps, imageCheckboxHint,
 export { tpsResultView } from './workbuddy-card-view.tsx'
 export type { WorkBuddyCardProps, WorkBuddyCardInjected } from './workbuddy-card-view.tsx'
 /**
- * WorkBuddy credits & models card contributed to Harness Plugin configuration.
+ * WorkBuddy 积分和模型设置卡片。
  *
- * 参考：dingminhua/dsh-connect-trae（MIT，Copyright (c) 2026 LaoDing）
- *   — 卡片的整体结构（折叠外壳 / 账号状态行 / 账号下拉 / 积分区 / 模型表 /
- *     操作按钮行）、模块加载时添加一次 `<style>` 的写法、
- *     草稿态（draftModels/draftEnabledIds）与 dirty 标记的保存流程、
- *     60 秒轮询与 AbortController 清理，均来自该项目的 TraeUsageCard。
- *   折叠卡片外壳与 `settings.plugin.item` 界面扩展位置形态来自
- *   dingminhua/dsh-subagent-default-model（MIT）。
- * 改动：
- *   2. 折叠箭头改用纯 CSS caret（理由见 styles.ts）：两版 DSH 的图标命名族
- *      不同，静态导入必挂一边。此前沿用的 `IconChevronDownOutline14` 已
- *      随该改动移除，故不再计入上方参考项。
- *   3. 积分区改为「合计 + 按套餐名聚合的进度条」，因为实测单个账号下
- *      同名套餐可达 19 个，逐条渲染会淹没卡片（原项目按上游条目直出）；
- *   4. 模型行补上 WorkBuddy 上游给出的积分倍率、多模态与推理档位；
- *   5. 移除与 WorkBuddy 上游无关的 1M 变体勾选；
- *   6. 双 provider 化后卡片顶部为「国内版 / 国际版」tab 栏 —— 每个 tab
- *      是一个独立供应商（workbuddy / workbuddy-global），账号、积分、
- *      模型目录与草稿完全按区域隔离，切 tab 不丢另一侧未保存的草稿。
+ * 参考：dingminhua/dsh-connect-trae（MIT，Copyright (c) 2026 LaoDing）的
+ * 折叠卡片、账号状态与选择、积分区、模型草稿保存、轮询及清理流程。
+ * 折叠外壳和 settings.plugin.item 注册方式参考
+ * dingminhua/dsh-subagent-default-model（MIT）。
  *
- * @module dsh-connect-workbuddy/client/WorkBuddyCard
- */
-
-/**
- * WorkBuddy credits & models card contributed to Harness Plugin configuration.
- *
- * 参考：dingminhua/dsh-connect-trae（MIT，Copyright (c) 2026 LaoDing）
- *   — 卡片的整体结构（折叠外壳 / 账号状态行 / 账号下拉 / 积分区 / 模型表 /
- *     操作按钮行）、模块加载时添加一次 `<style>` 的写法、
- *     草稿态（draftModels/draftEnabledIds）与 dirty 标记的保存流程、
- *     60 秒轮询与 AbortController 清理，均来自该项目的 TraeUsageCard。
- *   折叠卡片外壳与 `settings.plugin.item` 界面扩展位置形态来自
- *   dingminhua/dsh-subagent-default-model（MIT）。
- * 改动：
- *   2. 折叠箭头改用纯 CSS caret（理由见 styles.ts）：两版 DSH 的图标命名族
- *      不同，静态导入必挂一边。此前沿用的 `IconChevronDownOutline14` 已
- *      随该改动移除，故不再计入上方参考项。
- *   3. 积分区改为「合计 + 按套餐名聚合的进度条」，因为实测单个账号下
- *      同名套餐可达 19 个，逐条渲染会淹没卡片（原项目按上游条目直出）；
- *   4. 模型行补上 WorkBuddy 上游给出的积分倍率、多模态与推理档位；
- *   5. 移除与 WorkBuddy 上游无关的 1M 变体勾选；
- *   6. 双 provider 化后卡片顶部为「国内版 / 国际版」tab 栏 —— 每个 tab
- *      是一个独立供应商（workbuddy / workbuddy-global），账号、积分、
- *      模型目录与草稿完全按区域隔离，切 tab 不丢另一侧未保存的草稿。
+ * 本插件的主要调整：
+ * 1. 使用 CSS 绘制折叠箭头，避免依赖不同 DSH 版本的图标名称。
+ * 2. 按套餐名聚合积分，避免同名套餐过多时重复列出进度条。
+ * 3. 展示 WorkBuddy 模型的积分倍率、图片输入能力和推理档位。
+ * 4. 国内区与国际区分别保存账号、目录及草稿，切换区域保留未保存的修改。
  *
  * @module dsh-connect-workbuddy/client/WorkBuddyCard
  */
@@ -64,10 +31,6 @@ import { DeviceSdkPanel } from './DeviceSdkPanel.tsx'
 
 import { OAuthSignIn } from './OAuthSignIn.tsx'
 import { AccountTransfer } from './AccountTransfer.tsx'
-// `createLatestWins` is the same tested latest-wins factory the Host uses for
-// rotation, imported rather than re-implemented: the rule has one definition
-// and one set of tests.
-
 // Issue #215: the budget tier the radios light up must be the tier the backend
 // derives, so it comes from the backend's own function rather than a second
 // copy of the rule in the browser.
@@ -1358,6 +1321,18 @@ function WorkBuddyCardBody(props: WorkBuddyCardProps) {
             </div>
           </CardBodyBoundary>
   )
+
+  if (surface === 'section') {
+    return (
+      <div className="dsm-workbuddy-section">
+        <div className="dsm-workbuddy-section-head">
+          <h2 className="dsm-workbuddy-section-title">{title}</h2>
+          <p className="dsm-workbuddy-section-desc">{t('row.desc')}</p>
+        </div>
+        {cardBody}
+      </div>
+    )
+  }
 
   if (pageSurface) {
     return (

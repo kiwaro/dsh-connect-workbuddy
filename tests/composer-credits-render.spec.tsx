@@ -243,7 +243,7 @@ describe('ComposerCredits panel', () => {
     expect(save, 'account write').toBeDefined()
     // The save endpoint takes `{ field, value: { [region]: slot } }`.
     expect(save.value.cn).toBe('a-2')
-    expect(panelText()).toContain('[dsh-connect-workbuddy] composer.switchedNotice|account=A Two')
+    expect(panelText()).not.toContain('[dsh-connect-workbuddy]')
   })
 
   it('marks a rate-limited account in the table', async () => {

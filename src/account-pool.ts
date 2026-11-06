@@ -393,63 +393,14 @@ function retryDue(
 }
 
 /**
- * Rank a pool's members best-first.
- *
- * The rule, in priority order — this is the whole feature:
- *
- * 1. **Usability.** Only accounts that can be billed right now are candidates;
- *    they always outrank every excluded one.
- * 2. **Expiring credits first, soonest first.** Points about to expire are
- *    worth exactly zero after they do, so spending them before they lapse is
- *    strictly better than saving them.
- * 3. **User's manual order.** When the user has hand-ordered the pool (see
- *    `orderAccountIds`), that order breaks ties among accounts that are equal
- *    on the keys above AND below. It is the one place the user's own preference
- *    influences "who serves next": the manual picker on the card drags these
- *    ids into place, and the ranking honors the result.
- *    WHY EXPIRY STILL OUTRANKS THE MANUAL ORDER: this rule sits strictly BELOW
- *    the at-risk flag (rule #2), so an account with ANY expiring credits always
- *    beats the manual order even when the user dragged it to the bottom. That
- *    is deliberate (issue #70): a manual order that is unsaved, stale, or
- *    sloppily edited must never cause credits to lapse unspent — expiring
- *    credits are real money about to vanish, while the manual order is just a
- *    preference that might be wrong. This is not a bug, and a test pins it.
- * 4. **Largest expiring amount.** Between two accounts that both have expiring
- *    points, the one with more at risk goes first.
- * 5. **Credits, highest first.** Among accounts with nothing expiring, spend the
- *    one with the most, so a nearly-drained account is conserved.
- * 6. **Freshest credential.** Tie-break so a stale token never wins a draw.
- * 7. **Account id.** Final tie-break, making the order TOTAL: two accounts
- *    equal on every ranking key would otherwise keep the caller's array order,
- *    so the same pool could rotate differently between two runs.
- *
- * WHY EXPIRY OUTRANKS SIZE (issue #70). These used to be strict lexicographic
- * keys: total, THEN expiry. Since totals are almost never exactly equal, the
- * expiry rule was unreachable — a live report had an account with 196 points
- * lapsing that day ranked LAST, behind two accounts that expire weeks later,
- * simply because it held ~1,200 fewer points overall. It was never selected, so
- * the 196 points always lapsed. A "use it or lose it" rule that another rule
- * completely shadows is not a tie-break, it is dead code.
- *
- * WHY SPENDING THE SMALL EXPIRING ACCOUNT IS STILL RIGHT. Ordering by expiry
- * does mean an account with 1 point lapsing outranks one holding 50,000. That
- * looks wrong and is not: credits are fungible, so using the rich account
- * instead does not preserve the 1 point — it spends the 1 point's chance and
- * loses it. Using the expiring account spends a point that was going to be lost
- * anyway, and the rich account is still there for the next request. The only
- * real cost is a failover round-trip if the expiring account cannot cover a
- * whole request, which the exclusion/failover path already absorbs. Ordering by
- * total instead loses the expiring points with certainty.
- *
- * Excluded accounts are still RETURNED (sorted after the candidates) so the
- * card can explain why each is out; they differ from candidates by
- * `excludedBy` being set on them, never by being silently dropped.
- *
- * Pure and total: the same input always yields the same order, and it never
- * throws on missing data (an account with no credits is ranked as 0, not
- * crashed on).
- */
-export function rankPool(
+ * Rank members by local eligibility, then whether credits expire soon, manual
+ * order, nearest expiry, expiring amount, balance score, credential expiry, and id.
+ * Manual order applies after the at-risk flag but before the exact expiry time.
+ * Excluded rows are retained after eligible rows so the card can explain them.
+ * Missing balances score zero. Equal inputs and clock produce the same order.
+ * These preferences do not guarantee request success, lowest cost, or that all
+ * expiring credits will be consumed before their deadline.
+ */export function rankPool(
   members: readonly WorkBuddyPoolMember[],
   nowMs: number,
   orderAccountIds?: readonly string[],
@@ -558,7 +509,7 @@ export function effectiveMembersOf(
  * The account to bill, or undefined when the pool has no usable member.
  *
  * A thin selector over {@link rankPool} so the winner is decided in exactly one
- * place: every caller that needs "who serves now" gets the same answer.
+ * place: callers with the same inputs and clock get the same answer.
  */
 export function pickAccount(
   members: readonly WorkBuddyPoolMember[],

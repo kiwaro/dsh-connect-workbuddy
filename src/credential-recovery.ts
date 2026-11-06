@@ -5,8 +5,8 @@
  * telling them apart is the whole point of this module:
  *
  *   - the SELECTED account is stale while another local sign-in is healthy →
- *     switching accounts fixes it, and signing in again changes nothing;
- *   - no local sign-in is accepted anymore → signing in again is the fix.
+ *     switching accounts may restore service without changing the saved credential;
+ *   - no other local account exists → suggest signing in again.
  *
  * Observed on a real machine: a revoked July backup stayed selected while the
  * app's current sign-in was perfectly usable. The card's old, unconditional
@@ -28,11 +28,11 @@ import type { WorkBuddyRegion } from './upstream.ts'
 export interface WorkBuddyCredentialRecovery {
   /**
    * Another local account answered the upstream during this recovery, so
-   * switching to it is a fix that has been verified — not a guess.
+   * its authenticated read succeeded. This does not guarantee a later chat succeeds.
    */
   usableAccount?: { accountId: string; accountName: string }
   /**
-   * Whether signing in again is the only remaining fix: no other local account
+   * Whether to suggest signing in again when no other local account
    * exists at all, so there is nothing to switch to.
    */
   reloginRequired: boolean
@@ -73,9 +73,8 @@ const DEFAULT_PROBE_TTL_MS = 60_000
  *
  * The cache key includes the credential's own `lastRefreshAtMs`, so a fresh
  * sign-in (which rewrites the file's issuance time) invalidates a stale verdict
- * automatically — a rejection recorded before the user signed in again cannot
- * keep labelling the account unusable afterwards, and no explicit invalidation
- * is needed.
+ * when that timestamp changes. Missing or unchanged issuance timestamps can
+ * leave a prior verdict cached until its TTL expires.
  */
 export function createAccountUsabilityProbe(
   options: WorkBuddyUsabilityProbeOptions,
@@ -99,7 +98,7 @@ export function createAccountUsabilityProbe(
 
     let usable = false
     try {
-      // The check-in status route is the cheapest authenticated read that
+      // The check-in status route is an authenticated read that
       // exercises the same billing gateway and header set as the credit query,
       // so "it answers" is real evidence about the credential, not about a
       // different endpoint that may be routed elsewhere.
@@ -138,8 +137,8 @@ export async function resolveCredentialRecovery(options: {
   }
   const others = accounts.filter(account => account.id !== options.rejectedAccountId)
   if (others.length === 0) {
-    // Nothing to switch to: signing in again is the only path, and saying so is
-    // accurate rather than a guess.
+    // No other account is listed, so the UI suggests signing in again.
+    // That suggestion does not exclude configuration or network causes.
     return { reloginRequired: true }
   }
   for (const account of others) {

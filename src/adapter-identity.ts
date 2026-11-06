@@ -16,53 +16,15 @@ export const WORKBUDDY_PROVIDERS: Readonly<Record<WorkBuddyRegion, string>> = {
 }
 
 /**
- * Model identity BOTH regions stamp on their models — the fix for issue #59.
+ * Shared pi-ai model identity for both regional adapters. Each adapter also
+ * registers this identity as a key so pi-ai can resolve model.provider within
+ * that region. The selectable route ids and their shim destinations stay separate.
  *
- * pi-ai keeps a historical thinking block as `thinking` only when the message
- * that carried it names the SAME provider, api and model id as the request in
- * flight (`transform-messages.js:68`); every other block is downgraded to plain
- * `text` (`:88–96`) — downgraded, not dropped, which is why no byte count ever
- * explained the 1.94× regional jump. The two gateways are two provider STRINGS
- * for ONE model, so a transcript recorded in one region was replayed as text in
- * the other, and issue #59's reporter measured exactly that: 708K → 1.374M on
- * byte-identical history, and a compression request that could then never fit
- * the window it was computed for.
- *
- * The stamp is NOT inert, and reading it as inert is what broke issue #75.
- * `provider` is the KEY pi-ai dispatches on: `requireProvider` resolves
- * `this.providers.get(model.provider)` and throws
- * `Unknown provider: ${model.provider}` when it is absent (`models.js:410–416`
- * on the host's 1.1.0, `:351–357` on the 0.85.1 this repo resolves), and
- * `getAuth` resolves the same key, answering `Provider is not configured`
- * instead (`:334–341` and `:429`; `:275–280` and `:366` on 0.85.1). Both sit on
- * the LIVE chat path: `dsh-llm-pi-ai` streams through
- * `snapshot.models.streamSimple(model, …)` (`lib/index.js:1983`), which calls
- * `requireProvider` before a byte is sent (`models.js:454–459`). Each region
- * builds its OWN registry from its own adapter — `current()` registers
- * `profile.piProvider` per profile (`lib/index.js:1852–1862`) — so the
- * `workbuddy-global` region registered only `workbuddy-global` and could not
- * dispatch a model stamped `workbuddy`: every request failed with
- * `Unknown provider: workbuddy` before reaching the gateway.
- * {@link modelIdentityKeysOf} is the correction: the identity has to be a
- * registry key of its own in every region, or the stamp cannot be shared.
- *
- * Lookup by ROUTE is a separate question and stays intact: `getModel(provider,
- * id)` is `getModels(provider).find(...)` (`models.js:116–118`), i.e. it goes
- * through the map key, while the STAMPED field is whatever the provider put
- * there. So the route stays `workbuddy`/`workbuddy-global` (each with its own
- * shim, catalog and credential store) while every model it serves advertises
- * THIS id. The openai-completions api reads `model.provider` only for
- * provider-specific quirks (none of which match these ids) and as an
- * error-message label.
- *
- * Deliberately NOT the same string as the global route: a message is only
- * same-model when provider, api AND model id all match, so the shared id must
- * not be reachable as a route a user could pick — it names one model, not one
- * gateway. It IS reachable as a pi-ai registry key, which is the point: those
- * are internal and never surface as a route, because `registerAdapter` takes
- * the route list explicitly (`dsh-llm/lib/index.js:1842–1861`,
- * `prepareRoutes` `:1867–1885`) and this plugin passes exactly the two region
- * ids (`src/index.ts:2069–2086`).
+ * pi-ai compares provider, api and model id when replaying thinking. Sharing the
+ * provider identity addresses one comparison; transcript repair handles host
+ * fallback markers separately. Historical token-count differences do not prove
+ * identical request content or a difference in billing rules. See the corrected
+ * evidence and limits in docs/ISSUE59_DIAGNOSIS.md.
  */
 export const WORKBUDDY_MODEL_IDENTITY = 'workbuddy'
 

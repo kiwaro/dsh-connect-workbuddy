@@ -23,7 +23,7 @@ export { realTierAvailabilityFor } from './real-tier-availability.ts'
  *     `displayModels` 与 `configuredModels` 的区分、
  *     `registerModelDiscovery` 与 `discoverModels` 返回草稿目录的做法，
  *     均来自该项目。
- * 改动：账号选择严格绑定用户显式选择的账号（不按积分自动切换），
+ * 改动：关闭账号池时使用手动选择的账号；开启后按账号池规则自动选号，
  *   并移除与本项目上游无关的 1M 变体逻辑；双 provider 化后国内版与
  *   国际版各持一套 store/catalog/shim，区域由凭据域名隔离，
  *   设置卡片以 tab 区分两个供应商。
@@ -331,13 +331,13 @@ export function apply(ctx: Context, config: Config): void {
    */
   const deviceProfiles = createDeviceProfileLookup()
   /**
-   * 真实设备参数的取链（P3）。
+   * 真实设备参数的获取流程（P3）。
    *
    * **启动即预热**：`startAutoRefresh()` 立刻取一次，此后在 10 分钟 TTL 到期前自动
    * 换新。此前只有请求路径会调 `current()`，于是空闲进程的「SDK」分区永远停在
    * "已加载、没取过"——那与"SDK 坏了"在界面上长得一样，而这正是用户反馈的现象。
    *
-   * 代价是一次子进程 + 一次取数，之后每 10 分钟一次；`stopAutoRefresh()` 挂在
+   * 每次实际获取都会启动子进程。成功后在缓存到期前刷新，失败时按重试间隔再试；`stopAutoRefresh()` 挂在
    * `ctx.effect` 的清理上，插件卸载时定时器随之消失。
    *
    * `dirSource` 让卡片上填的目录**下一次观察就生效**（作者意见 #1）：句柄活到
@@ -386,7 +386,7 @@ export function apply(ctx: Context, config: Config): void {
       // 重读，所以这里只传配置，不在这里读盘。
       //
       // 配置为空时回落到 `WORKBUDDY_DEVICE_TOKEN_FILE`——同一个值、两个读者
-      // （插件读配置，`doctor` 只能读环境变量），因此不会出现两处不一致。
+      // （插件读配置，`doctor` 只能读环境变量），两种入口可共享该环境变量；插件配置非空时仍以配置为准。
       const token = unwrapVolatile(config.deviceToken)
       const configured = typeof token?.file === 'string' ? token.file.trim() : ''
       const file = configured !== '' ? configured : (process.env[WORKBUDDY_DEVICE_TOKEN_FILE_ENV] ?? '').trim()
@@ -416,9 +416,8 @@ export function apply(ctx: Context, config: Config): void {
   /**
    * Per-region, per-account check-in readings.
    *
-   * Invalidated by this plugin's own check-in batch (the only writer that can
-   * change the answer during a session), so the user sees their result
-   * immediately instead of waiting out the TTL.
+   * Invalidated by this plugin's check-in batch. Other clients or a day boundary
+   * can change upstream state while a cached reading remains reusable.
    */
   const checkinStateCache: Partial<
     Record<WorkBuddyRegion, Record<string, { checkedIn: boolean, atMs: number }>>
@@ -465,7 +464,7 @@ export function apply(ctx: Context, config: Config): void {
     /**
      * Where the next upstream `usage` should be written.
      *
-     * The body report is two-phase (send, then charge), and the two phases are
+     * The body report records the sent body, then the reported usage, and the two phases are
      * wired through different callbacks, so the seam between them has to live
      * somewhere. `noop` rather than `undefined` keeps the usage path free of a
      * presence check on the hot request path — and a request whose report was
@@ -502,11 +501,9 @@ export function apply(ctx: Context, config: Config): void {
       // shim deliberately does not know about regions.
       //
       // The returned handle carries the upstream's `usage` back onto the SAME
-      // line: the sent side is known before the request leaves, the charged side
-      // only after the stream ends. One pending handle per region is enough
-      // because a shim serves requests for one body at a time as far as this
-      // diagnostic is concerned, and keeping the newest is the right tie-break —
-      // a late measurement belongs to the most recently sent body.
+      // line. This shared handle keeps only the newest report in the region.
+      // Concurrent streams can replace it before an earlier usage arrives, so
+      // this wiring does not establish reliable per-request usage attribution.
       onRequestBody: body => {
         void recordBodyReport(region, body, { onError: error => ctx.logger.warn('dsh-connect-workbuddy: body report failed', error) })
           .then(attach => { pendingUsage = attach })
@@ -563,7 +560,7 @@ export function apply(ctx: Context, config: Config): void {
    *
    * The saved array alone cannot answer "does this model take images?", because
    * it has two writers with different meanings: the user ticking a box (a
-   * DECISION, to be kept forever) and a catalog refresh re-deriving the
+   * DECISION, retained until another settings write changes it) and a catalog refresh re-deriving the
    * vendor-verified defaults (a SNAPSHOT of the roster as it stood that day).
    * Stamping the snapshot marks every model the roster gained SINCE as
    * text-only, `workBuddyModelInput` then answers `['text']`, and the host
@@ -574,8 +571,8 @@ export function apply(ctx: Context, config: Config): void {
    * So the two sides are UNIONED, each contributing exactly what it can know:
    *
    *   - the SAVED array states every model the user has ticked. A tick is
-   *     honoured even where the vendor table disagrees (someone may know this
-   *     account refuses images for that model).
+   *     honoured even where the vendor table disagrees (someone may have verified image support
+   *     on this account).
    *   - the VENDOR TABLE states the models this build can vouch for, and is
    *     consulted only for ids the saved array says nothing about. That is what
    *     un-breaks a newcomer without touching a single decision already made.
@@ -725,22 +722,14 @@ export function apply(ctx: Context, config: Config): void {
     // `keepLoadLevel` is OFF: this is the card's DIRECTORY, and the load level
     // is a fact about this minute that is deliberately never persisted (see
     // `src/busy.ts`). The card reads the level from a separate map instead —
-    // `liveBusyLevels` — so two sources cannot disagree.
+    // `liveBusyLevels` — so the badge reads the live map instead of saved load data.
     return resolveRoster(state.lastCatalog ?? [], live, region)
   }
 
   /**
-   * The load levels of the LIVE roster, keyed by model id.
-   *
-   * A SEPARATE read on purpose. `displayModels()` prefers the SAVED
-   * `lastCatalog` (it is what the card edits), and a saved roster carries no
-   * load level — load is not persisted, see `src/busy.ts`. So the card cannot
-   * get the level from the model list it already has; it needs the live roster
-   * beside it.
-   *
-   * Returning a MAP (not a merged roster) keeps the two apart: the card's list
-   * stays the saved one the user edits, and the badge is a decoration that may
-   * be absent for a model the probe did not answer for.
+   * Live load levels keyed by model id. displayModels strips load metadata from
+   * the editable directory, so the card reads this separate map for badges.
+   * A missing entry means this roster supplied no load value for that model.
    */
   const liveBusyLevels = (region: WorkBuddyRegion): Record<string, WorkBuddyBusyLevel> => {
     const live = stacks[region]?.catalog?.current() ?? []
@@ -799,13 +788,11 @@ export function apply(ctx: Context, config: Config): void {
       return agents?.get(sessionId)
     },
     log: message => { ctx.logger.warn(`dsh-connect-workbuddy: ${message}`) },
-    // `session/event` 是 DSH 事件，本插件没有 `@deepseek-ai/dsh-session` 这条
-    // peer 依赖（也不该有，只为一条监听引入它不划算）。鸭子类型的 cast 只在这
-    // 一行，引擎本身因此可以在没有 DSH 包的测试里逐条验证。
+    // 通过结构类型声明订阅 session/event 所需的接口，避免为事件监听新增
+    // dsh-session 运行时依赖。引擎可在不加载 DSH 包的测试中独立验证。
     //
     // 返回值的真实类型是 `() => boolean`（「取消时它是否还在」），这里照实写：
-    // 声明成 `() => void` 也是可赋值的，但那条断言会骗过将来的一次重构，让
-    // 「退订失败」这个信息从类型上消失。
+    // 保留 boolean 返回值，便于调用方识别取消时监听器是否仍然存在。
     onSessionEvent: listener =>
       (ctx as unknown as {
         on(name: string, handler: (session: unknown, event: unknown) => void): () => boolean
@@ -887,7 +874,7 @@ export function apply(ctx: Context, config: Config): void {
       // error and reports it, instead of a log line nobody reads.
       if (options.strict === true) throw error
       // The read side already serves the live roster, so a failed automatic
-      // repair costs nothing but the profile's own tidiness. Log and move on.
+      // repair can leave a stale persisted directory for the next restart. Log and move on.
       ctx.logger.warn(
         `dsh-connect-workbuddy: could not repair the ${region} model directory against the live roster`,
         error,
@@ -1254,7 +1241,7 @@ export function apply(ctx: Context, config: Config): void {
   // （`hy-image-3.5`，同时带 `text-to-image` 与 `image-to-image`），国际区账号
   // 因此能真画图，而不是一个每次调用都报「没有生图模型」的按钮。两区单价不同
   // （国内区 5.71、国际区 0.03 积分/张），所以工具文案不再写死一张的价钱，
-  // 改为回报上游结算里真实的 `data.usage.credit`。
+  // 改为回报上游响应中的 `data.usage.credit`，该值未独立核对账单。
   //
   // `tools` 是 DSH 自己的服务（`class Tools extends Service`，服务名 `tools`），
   // 用 `ctx.inject` 等它出现再注册，而不是 apply 期间 `ctx.get()` 采样一次：
@@ -1281,8 +1268,8 @@ export function apply(ctx: Context, config: Config): void {
         //
         // 只挑**开着且显式打开**的区。给一个没被授权的区画图，等于绕过用户
         // 按区做出的选择（开关是逐区的，见 `imageToolRegionOf`）。`resolve()`
-        // 在未登录时会抛，这里折成「试下一个被授权的区」，最后落成 undefined，
-        // 让工具给出「没有可用账号」而不是一个原始异常。
+        // 未登录时 resolve() 会抛错，此处继续尝试下一个已授权区域。
+        // 所有区域均无可用账号时返回 undefined，由工具显示对应提示。
         resolveCredential: async () => {
           const live = current()
           for (const region of REGION_KEYS) {
@@ -1672,8 +1659,8 @@ export function apply(ctx: Context, config: Config): void {
     const members = await localPoolMembers(region)
     if (members.length === 0) return undefined
     const nowMs = Date.now()
-    // The SAME verdict the ranking uses, asked the same way, so this explanation
-    // cannot contradict the decision that produced the empty search.
+    // Uses the ranking exclusion rule again. State may have changed since the
+    // failed selection, so this explanation is a later observation.
     const excluded = members
       .map(member => ({ id: member.account.id, excludedBy: exclusionOf(member.probe, nowMs) }))
       .filter((entry): entry is { id: string, excludedBy: WorkBuddyPoolExclusion } => entry.excludedBy !== undefined)
@@ -1717,7 +1704,7 @@ export function apply(ctx: Context, config: Config): void {
    * The last CREDITS reading per region, so a request can rank by balance
    * without fetching one.
    *
-   * Credits are the ranking's second key, and they cost an upstream call per
+   * Balances contribute after eligibility, expiry and manual order, and need upstream reads per
    * member. A chat request must never pay that: it happens on the hot path, and
    * `fetchCredits` per member would turn one page of conversation into N extra
    * requests. So the request path uses whatever the pool last read (the card's
@@ -1812,7 +1799,8 @@ export function apply(ctx: Context, config: Config): void {
     // healthy account for POOL_UNKNOWN_COOLDOWN_MS (30 minutes), because a
     // transport failure carries no `retryAtMs` — the same defect that let one
     // probe timeout empty the pool. `status: 0` is this codebase's convention
-    // for "never landed" (see `probeChat` and `chatStream`).
+    // for "no HTTP response observed" (see probeChat and chatStream);
+    // it does not prove the server received no bytes.
     if (failure.status === 0) return
     // Only accounts this pool covers. Membership is the explicit "yes, spend
     // this account's credits" tick, and a measurement steers routing.
@@ -1971,8 +1959,8 @@ export function apply(ctx: Context, config: Config): void {
   /**
    * The model a per-row test would use right now: the SAME resolution the
    * batch route performs (`resolveTargetModel` over the region's displayed
-   * catalog and the saved preference — including a per-account override,
-   * issue #61), so a row test and a batch test never measure different models.
+   * catalog and the saved region preference). There is no per-account override.
+   * A settings change between requests can still select a different model.
    * Undefined mirrors the route's 409 states.
    */
   const regionTargetModel = (region: WorkBuddyRegion): string | undefined => {
@@ -2129,9 +2117,10 @@ export function apply(ctx: Context, config: Config): void {
    *
    * ## Why it is safe to run alongside a manual press
    *
-   * `checkinAllAccounts` reads status first and reports `already` WITHOUT a
-   * claim, so two overlapping runs cannot double-claim. The batch is also
-   * serial, so the worst case is one redundant status request per account.
+   * `checkinAllAccounts` reads status before claiming. That avoids a write when
+   * the read reports completion, but overlapping manual and automatic runs can
+   * both read incomplete state and attempt a claim. Serial order within one
+   * batch does not serialize different batches.
    */
   const autoCheckinTimers: Partial<Record<WorkBuddyRegion, ReturnType<typeof setTimeout>>> = {}
   /** In-memory mirror of the on-disk state, so a tick does not re-read the file. */
@@ -2218,9 +2207,8 @@ export function apply(ctx: Context, config: Config): void {
    * Arm or disarm every region to match the saved switches.
    *
    * Called once at `apply` and again on every settings change, so flipping the
-   * switch takes effect without a restart. Disarming CLEARS the timer rather
-   * than leaving it to notice: an off switch must stop the work immediately, not
-   * at the next tick.
+   * switch takes effect without a restart. Disarming clears the pending timer. A batch already in progress can
+   * continue until its current work completes; clearing a timer does not cancel I/O.
    */
   function syncAutoCheckin(): void {
     for (const region of autoCheckinRegions()) {
@@ -2284,7 +2272,8 @@ export function apply(ctx: Context, config: Config): void {
   })
 
   /**
-   * The one settings WRITE the card is allowed to make: the SDK master switch.
+   * Host-side writer for the SDK master switch. Other card settings have
+   * their own write paths.
    *
    * Resolved lazily (not captured at mount) because `settings` is an optional
    * service and the card may ask before that service is present — a captured

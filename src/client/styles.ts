@@ -91,19 +91,9 @@ export const WORKBUDDY_CARD_CSS = `
 .dsm-workbuddy-tab-switch{display:inline-flex;align-items:center;flex:none;margin-left:auto;padding-left:10px;border-left:1px solid var(--dsw-alias-border-l1,rgba(127,127,127,.24));cursor:pointer}
 .dsm-workbuddy-tab-switch input{margin:0;cursor:pointer;accent-color:var(--dsw-alias-brand-primary,#5686fe)}
 .dsm-workbuddy-tab-switch input:disabled{cursor:default}
-/* SECTION TABS: the card's own top-level split (accounts / models / diagnostics).
- *
- * Deliberately NOT the boxed cells above. Those are the REGION scope — a
- * two-way either/or, each side carrying its own on/off switch — while these are
- * panels of ONE document, the shape a reader already knows from the app's own
- * settings window. Two rows of boxes would read as one four-way choice.
- *
- * The hidden attribute on each panel is what does the work: an inactive panel
- * stays MOUNTED, so switching back does not refetch, a half-filled catalog draft
- * survives the trip, and the account pool keeps its log. It also takes the
- * inactive panel out of the accessibility tree, which is exactly what
- * role="tabpanel" wants — unlike display:none reached by a CSS class, it
- * cannot be overridden by a later rule. */
+/* 区域芯片选择国内版或国际版，内容分栏用于查看账号、模型、能力和诊断。
+ * 非活动分栏使用 hidden 隐藏，同时保持挂载以保留草稿和日志。
+ * .dsm-workbuddy-panel[hidden] 规则明确设置 display:none，避免布局规则覆盖。 */
 .dsm-workbuddy-panels{display:flex;align-items:stretch;gap:2px;margin:16px 0 0;border-bottom:1px solid var(--dsw-alias-border-l1,rgba(127,127,127,.24))}
 .dsm-workbuddy-panel-tab{appearance:none;font:inherit;cursor:pointer;border:0;background:transparent;padding:7px 11px;margin-bottom:-1px;border-bottom:2px solid transparent;color:var(--dsw-alias-label-tertiary,#999);font-size:13px;font-weight:600;line-height:20px;white-space:nowrap;transition:color .15s,border-color .15s}
 .dsm-workbuddy-panel-tab:hover:not(.dsm-workbuddy-panel-tab-active){color:var(--dsw-alias-label-primary,#e6e6e6)}
@@ -783,7 +773,7 @@ export const WORKBUDDY_CARD_CSS = `
  * edit real used to sit at its very bottom — off-screen at the moment the user
  * finished editing, and invisible entirely in a screenshot. Opaque, because
  * content scrolls under it. */
-.dsm-workbuddy-pool-save-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;border-top:1px solid var(--dsw-alias-border-l2,#36373b);padding-top:12px;position:sticky;bottom:0;z-index:2;padding-bottom:8px;background:var(--dsw-alias-bg-layer-3,#2a2c33)}
+.dsm-workbuddy-pool-save-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;border-top:1px solid var(--dsw-alias-border-l2,#36373b);padding-top:12px;position:static;padding-bottom:8px;background:var(--dsw-alias-bg-layer-3,#2a2c33)}
 .dsm-workbuddy-pool-save-buttons{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex:none}
 .dsm-workbuddy-pool-conflict{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:11px 13px;border-radius:10px;background:rgba(245,158,11,.08);border:1px solid var(--dsw-alias-state-warn-primary,#f59e0b)}
 .dsm-workbuddy-pool-pending{flex:none;align-self:center;font-size:12px;line-height:17px;color:var(--dsw-alias-state-warn-primary,#f59e0b)}
@@ -925,6 +915,10 @@ export const WORKBUDDY_CARD_CSS = `
 @keyframes dsm-workbuddy-veil-spin{to{transform:rotate(360deg)}}
 @keyframes dsm-workbuddy-veil-dash{0%{stroke-dasharray:12 150;stroke-dashoffset:0}50%{stroke-dasharray:24 150;stroke-dashoffset:-6}to{stroke-dasharray:12 150;stroke-dashoffset:0}}
 @media (prefers-reduced-motion: reduce){.dsm-workbuddy-veil-spinner{animation:none}.dsm-workbuddy-veil-spinner-arc{animation:none;stroke-dasharray:18 150;stroke-dashoffset:-3}}
+.dsm-workbuddy-section{display:flex;flex-direction:column;gap:14px;color:var(--dsw-alias-label-primary,#e6e6e6)}
+.dsm-workbuddy-section-head{display:grid;grid-template-columns:minmax(0,1fr);row-gap:2px;align-items:start}
+.dsm-workbuddy-section-title{margin:0;font-size:15px;font-weight:600;line-height:22px}
+.dsm-workbuddy-section-desc{margin:0;font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary,#999)}
 .dsm-workbuddy-page{box-sizing:border-box;height:100%;display:flex;flex-direction:column;align-items:center;gap:20px;padding:28px clamp(24px,4vw,48px) 48px;overflow:auto;color:var(--dsw-alias-label-primary,#e6e6e6)}
 .dsm-workbuddy-page>*{width:100%;max-width:860px}
 .dsm-workbuddy-page-head{display:flex;flex-direction:column;gap:6px}
@@ -1242,13 +1236,8 @@ export const WORKBUDDY_COMPOSER_CSS = `
 @media (prefers-reduced-motion:reduce){
   .dsm-workbuddy-composer-panel-settings{transition:none}
 }
-/* The panel is a TABLE: one row per account in the region, one figure (the
-   general balance) per row, and a row click switches accounts.
-
-   Rhythm is deliberate: the header sits on a hairline, the switch button owns
-   ALL horizontal padding (and pulls back by the same amount so its label lines
-   up with the header), and every row is the same height. A misaligned first
-   column is what makes a two-column popover read as broken. */
+/* 每个账号占一行，依次显示账号、积分和操作按钮。标题与数据列对齐；
+ * 通过操作列按钮切换账号，当前使用的账号显示禁用的状态按钮。 */
 .dsm-workbuddy-composer-panel-table{
   width:100%;border-collapse:collapse;
   font-size:12px;line-height:18px;
@@ -1261,7 +1250,8 @@ export const WORKBUDDY_COMPOSER_CSS = `
 .dsm-workbuddy-composer-panel-num{
   text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;
 }
-.dsm-workbuddy-composer-panel-table thead th.dsm-workbuddy-composer-panel-num{padding-right:0}
+.dsm-workbuddy-composer-panel-table thead th.dsm-workbuddy-composer-panel-num,
+.dsm-workbuddy-composer-panel-table tbody td.dsm-workbuddy-composer-panel-num{text-align:right;padding-left:0;padding-right:0;vertical-align:middle}
 .dsm-workbuddy-composer-panel-table tbody th{
   padding:0;font-weight:400;text-align:left;vertical-align:middle;
 }

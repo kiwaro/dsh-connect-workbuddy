@@ -1,33 +1,14 @@
 /**
- * Credit readout for the composer row (`conversation.input.right`, rendered
- * immediately before the model picker).
+ * WorkBuddy 账号积分读数及账号切换面板。
  *
- * 参考：dingminhua/dsh-connect-trae（MIT，Copyright (c) 2026 LaoDing）
- *   — 该项目的 `client/ComposerPoints.tsx`：读数形态（`<区域> · <余额>`）、
- *     点击弹出锚定面板、面板内是**账号表格**（点行即切换账号）、刷新按钮
- *     放在面板里而不是读数上、每账号读数**只在面板打开时抓**、5 分钟定时器、
- *     失败保留上次数值。本文件把「只有国内版」扩成「两个区域都支持」：那边
- *     的国际版是订阅制、没有可比数字，本插件的国际版有真实余额，所以按当前
- *     选中模型所属的区域显示，并在读数上标明是 WorkBuddy - CN 还是 WB AI。
+ * 参考 dingminhua/dsh-connect-trae 的 client/ComposerPoints.tsx。
+ * 原实现采用 MIT 许可，Copyright (c) 2026 LaoDing。
  *
- * Shows the selected region's general credit balance, but ONLY while the
- * session's selected model belongs to this plugin (the gate decides that).
- *
- * The row itself is a bare clickable readout — `WorkBuddy - CN · 1,072` — with NO
- * refresh control: the manual refresh lives in the panel, because the row is
- * shared with the shell's own permission/agent/model controls and every extra
- * control there costs space that is not ours. Clicking it opens an anchored
- * panel: a TABLE with one row per account in that region and its balance, where
- * a row click switches to it.
- *
- * Two deliberate choices in that panel:
- *
- *  - Per-account figures are fetched ONLY while the panel is open. The 5-minute
- *    readout must not multiply its upstream reads by the account count — a
- *    healthy balance should not pay for a table nobody is looking at.
- *  - A row whose balance could not be read shows `—`, never `0`. The endpoint
- *    omits the field in that case precisely so this component cannot render a
- *    wrong claim about the account.
+ * 读数的显示条件与区域由 ComposerCreditsGate 决定，只在选中 WorkBuddy 模型时
+ * 显示对应区域的积分；工具栏顺序通过 composer-order.ts 协调。
+ * 点击读数打开账号表格，操作列标明当前账号并提供切换按钮。
+ * 账号明细仅在面板打开时查询。定时刷新失败时保留上次数值；余额未知时显示
+ * 占位符，不将未知余额当作零。
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -124,7 +105,7 @@ export interface ComposerCreditsProps extends Partial<ComposerCreditsInjected> {
   /** Which region's credits to read when the provider is this plugin's. */
   region?: WorkBuddyWebRegion
   /**
-   * Settings scope from the configForms mirror. Present whenever a row click
+   * Settings scope from the configForms mirror. Present whenever an account switch
    * should switch accounts; without it the table still renders but the rows are
    * inert, because a panel that switches nothing must not pretend to.
    */
@@ -175,8 +156,8 @@ function creditsOf(usage: WorkBuddyWebUsage): number | undefined {
  *
  * Three filters, none of them optional:
  * 1. Not a signed-in document answers `[]` rather than throwing — a Host that
- *    predates the feature, or a degraded document, must cost the pill its
- *    credits readout, and it must not cost it a crash.
+ *    predates the feature, or a degraded document, must not crash the pill. Missing new-model
+ *    metadata alone must not discard an otherwise available credit reading.
  * 2. A non-string, or an id that is only whitespace, is dropped.
  * 3. Duplicates are dropped. The Host already dedupes, but the client must not
  *    trust a peer: a duplicated id would turn "2 新模型" into two rows naming
@@ -534,7 +515,6 @@ export function ComposerCredits(props: ComposerCreditsProps) {
    * write landed, and a refused write must report failure instead of showing a
    * marker on an account that was never selected.
    */
-  const [switchNotice, setSwitchNotice] = useState<string | undefined>(undefined)
 
   const switchTo = async (accountId: string): Promise<void> => {
     if (settingsScope === undefined || settingsScope.getSnapshot().writable !== true) return
@@ -544,12 +524,10 @@ export function ComposerCredits(props: ComposerCreditsProps) {
       ?? (usage?.status === 'signed-in' ? usage.accountId : undefined)
     if (accountId === currentId) return
     setSwitchingId(accountId)
-    setSwitchNotice(undefined)
     setFailed(false)
     try {
       await writeAccountSlot(settingsScope, activeRegion, accountId)
       const accountName = accountCredits?.find(account => account.id === accountId)?.accountName || t('row.accountUnnamed')
-      if (mounted.current) setSwitchNotice(t('composer.switchedNotice', { account: accountName }))
       await fetchUsage()
       // `true`: the row this user clicked must come back re-read. Skipping this
       // because a tick was in flight would leave the marker (and the balance)
@@ -563,28 +541,10 @@ export function ComposerCredits(props: ComposerCreditsProps) {
   }
 
   /**
-   * The header's REFRESH control: probe every account in this region.
-   *
-   * Named for the reader's outcome (this table, brought up to date) while the
-   * work underneath is a probe batch. The distinction is not cosmetic: "refresh"
-   * sounds like a free re-read of what the Host already knows, and what the Host
-   * already knows is exactly the stale measurement we are trying to replace. The
-   * hint says "probes each account" so the cost is not a surprise.
-   *
-   * THE ROW COLOURS ARE WHAT THIS PRODUCES. The dots and the "被限流 · 约 N 小时后"
-   * lines in the table are not read from the upstream on every poll — they are
-   * the last MEASUREMENT the Host persisted. Until something probes an account,
-   * there is nothing to report and every row looks usable. That is why this
-   * lives beside the settings control rather than in the pool card alone: this
-   * table is where the reader sees the state, so this is where the question "is
-   * this still true?" gets asked.
-   *
-   * The batch is SERIAL on the Host (one probe per account, with a gap), so it
-   * streams NDJSON and each row is folded in the moment it lands. Waiting for
-   * the whole stream would leave the row the user is watching wrong for as long
-   * as the SLOWEST account takes — the dead-looking panel the streamed shape
-   * exists to avoid. The re-read in `finally` then confirms the same facts from
-   * the Host's own store, so the fold is a shortcut, never the record.
+   * Test this region's selected, saved pool members and refresh their measurements.
+   * The Host runs the batch serially and streams results as NDJSON. Each result
+   * updates its row; the final read refreshes the panel from the stored state.
+   * A probe sends a model request, so its cost depends on the chosen model.
    */
   const testEveryAccount = useCallback(async (): Promise<void> => {
     if (activeRegion === undefined || testingRef.current) return
@@ -1048,7 +1008,6 @@ export function ComposerCredits(props: ComposerCreditsProps) {
                   </tbody>
                 </table>
               )}
-          {switchNotice === undefined ? null : <blockquote className="dsm-workbuddy-composer-switch-notice" role="status">[dsh-connect-workbuddy] {switchNotice}</blockquote>}
           <div className="dsm-workbuddy-composer-panel-foot">
             <span>
               {t('composer.lastRefresh')} {lastRefresh === undefined ? '—' : formatClock(lastRefresh)}

@@ -1,5 +1,5 @@
 /**
- * 真实设备参数：本机已安装的 WorkBuddy 桌面端自带 Turing Shield SDK 的取链（P3）。
+ * 真实设备参数：本机已安装的 WorkBuddy 桌面端自带 Turing Shield SDK 的获取流程（P3）。
  *
  * ## SDK 从哪来
  *
@@ -85,7 +85,7 @@ export const TURING_KEYCHAIN_STORAGE_ENV = 'WORKBUDDY_TURING_KEYCHAIN_STORAGE'
  * 进程，读不到插件配置。没有这条变量，排障时会出现"卡片上说关了、doctor 却在探测
  * 并报 ready"这种自相矛盾——而 `doctor` 的全部价值就是如实回答"现在到底怎样"。
  *
- * 取值与卡片同义：`0`/`false` = 关，其它/未设 = 开（默认开）。
+ * 仅 `1` 或 `true` 表示开启；其他值及未设置均为关闭。插件内仍以配置项为准，独立 doctor 进程需要单独设置环境变量。
  */
 export const TURING_SDK_ENABLED_ENV = 'WORKBUDDY_DEVICE_SDK_ENABLED'
 
@@ -98,11 +98,11 @@ const TURING_TOKEN_STALE_MS = 24 * 60 * 60 * 1000
 /** 子进程的总预算。SDK 在本机实测 ~110 ms；给到 20 s 是为了覆盖冷启动与 DNS 慢。 */
 const RUN_TIMEOUT_MS = 20_000
 
-/** `probe` 的缓存时长：SDK 在进程生命周期内不会变，但 DLL 可能被外部替换。 */
+/** `probe` 的缓存时长：检测结果短暂缓存；安装文件、目录设置或 DLL 仍可能在运行期间变化。 */
 const PROBE_CACHE_MS = 60_000
 
 /**
- * 取数失败后的重试前的等待时间。
+ * 取数失败后再次尝试前的等待时间。
  *
  * 这不是性能优化，是正确性：一次对话会并发打出十几条请求，如果每次失败都重试，
  * 一个 SDK 故障会变成"每轮十几个子进程 + 十几个 20 秒超时"。等待下一次重试期间直接返回上一枚
@@ -166,20 +166,17 @@ export function nextAutoRefreshDelayMs(input: {
     const remainMs = ttlMs - timing.leadMs - (nowMs - fetchedAtMs)
     return Math.max(remainMs, timing.minDelayMs)
   }
-  // 还没有 token：SDK 不在这台机器上就慢一点问——每 60 秒做一次没有结果的 probe
-  // 只是让日志变脏，而且 SDK 不会在运行期凭空出现。
+  // 还没有 token：SDK 不在这台机器上就慢一点问——频繁重复相同探测收益有限；较慢的复查仍能发现用户后来安装或修复的 SDK。
   return sdkState !== undefined && sdkState !== 'ready' ? timing.unavailableMs : timing.retryMs
 }
 
-/** 内置副本的目录名，按 `platform-arch` 分。目前只有 Windows。 */
 /** 展示用的主机的三元组，`win32-x64` 之类。SDK 目录**不再**按它拼——见下方发现逻辑。 */
 export function bundledSdkBundleId(platform: string = process.platform, arch: string = process.arch): string {
   return `${platform}-${arch}`
 }
 
 /**
- * 插件自带的 `native/turing-sdk` 根目录——现在里面**只有** `worker.cjs` 与这份
- * README，不再有 SDK 副本（原生模块与厂商 DLL 是桌面端的构建产物，不随插件分发）。
+ * 插件自带的 `native/turing-sdk` 根目录，包含 `worker.cjs` 和说明文档，不再有 SDK 副本（原生模块与厂商 DLL 是桌面端的构建产物，不随插件分发）。
  *
  * `import.meta.url` 指向 `lib/index.js`（构建产物）或 `src/turing-sdk.ts`（开发与
  * 测试），两者都在包根下一层，所以 `../native/...` 在两种形态下都成立——这是
@@ -232,8 +229,8 @@ export function hasTuringSdkBinding(
   platform: string = process.platform,
 ): boolean {
   // 分隔符按**数据**的平台选，失败后再试**另一种**拼法：Windows API 本来就接受
-  // `/`，测试传入的目录可能采用运行平台的路径格式（docs/WINDOWS.md 的铁律，
-  // `at-rest.ts` 有前科：运行平台的 join 拼出混分隔符路径，永不命中）。
+  // `/`，测试传入的目录可能采用运行平台的路径格式（docs/WINDOWS.md 的路径规则，
+  // `at-rest.ts` 曾因混用路径分隔符而无法定位文件）。
   //
   // 失败后尝试的是「另一种分隔符」，不是「运行平台的 join」——这是两者在 Windows 运行平台上的
   // 全部区别：`process.platform === 'win32'` 时运行平台的 join 就是 `win32.join`，于是
@@ -256,10 +253,10 @@ export function hasTuringSdkBinding(
  * 候选来自 `at-rest.ts` 的同一套安装形状（env 覆盖 → 默认布局；win32 再加
  * 卸载注册表这一路，覆盖装在非默认盘的情况）。所有 win32 路径都用
  * `path.win32`、darwin 用 `path.posix` 拼：这些是**数据**规定的分隔符，
- * 用运行平台的 `join` 会在 macOS CI 上产出永不存在的混分隔符路径（docs/WINDOWS.md
- * 的铁律，`at-rest.ts` 里已有前科）。
+ * 路径格式由被探测的安装平台决定，不能使用测试运行平台的默认 join。
+ * 否则在 macOS 上测试 Windows 安装路径时会混用分隔符，详见 docs/WINDOWS.md。
  *
- * 每个调用方传入的参数都是测试缝（RELEASING.md §2.5：断言不能钉住跑测试的机器）：
+ * 各依赖可由调用方注入，测试无需依赖运行机器的真实安装（见 RELEASING.md §2.5）：
  * `exists` 决定"这份安装里有没有 SDK"，`readRegistryAppPath` 决定注册表答案；
  * 注册表只在 `platform === 'win32'` 时读——否则 macOS 上的单元测试会去 spawn
  * 一个本机根本不存在的 `reg.exe`。
@@ -329,7 +326,7 @@ export interface TuringTokenReadout {
   state: 'ok' | 'stale' | 'unavailable' | 'idle'
   /** 掩码，可以直接进 UI。 */
   masked: string
-  /** token 的字符数（0 表示没有）。长度本身不是秘密，且是判断"拿对了没有"的唯一线索。 */
+  /** token 的字符数（0 表示没有）。长度用于辅助核对返回格式，不能单独证明凭据有效。 */
   length: number
   /** 这一枚 token 是什么时候取到的。 */
   fetchedAtMs?: number
@@ -567,7 +564,7 @@ export function createTuringSdk(options: {
   platform?: string
   /** 见 `platform`。 */
   arch?: string
-  /** 发现链的传入缝（只为测试存在）：家目录、环境、存在性检查、注册表读数。 */
+  /** 发现过程可注入的测试依赖（只为测试存在）：家目录、环境、存在性检查、注册表读数。 */
   home?: string
   env?: NodeJS.ProcessEnv
   exists?: (path: string) => boolean
@@ -608,18 +605,9 @@ export function createTuringSdk(options: {
   const ttlMs = options.ttlMs ?? TURING_TOKEN_TTL_MS
   const keepAliveTiming: TuringKeepAliveTiming = { ...TURING_KEEP_ALIVE_TIMING, ...options.keepAliveTiming }
   /**
-   * 每次**现读**开关，不在构造时求值一次。
-   *
-   * 开关是 `asVolatile` 的配置项，热更新后会变；而句柄活到卸载。钉死一次会让
-   * "关掉开关"必须重启 DSH 才生效——那与这个开关存在的理由（随时能停）矛盾。
-   *
-   * 未传 `enabled` 时回落到环境变量（{@link TURING_SDK_ENABLED_ENV}）：那是给
-   * `doctor` 这种读不到插件配置的独立进程用的。插件永远显式传，所以两边不会打架。
-   *
-   * **默认也是关**，与插件的 `default(false)` 同一个答案。代价是 `doctor` 在用户
-   * 开启之前只答 `disabled`——但那正是现状，而 `doctor` 的全部价值就是如实回答
-   * 现状。想排障"这个 SDK 到底能不能用"，用
-   * `WORKBUDDY_DEVICE_SDK_ENABLED=1 node lib/bin.js doctor` 临时打开即可。
+   * 显式 enabled 优先；未提供时读取环境变量。
+   * enabled 是构造选项中的布尔值，并非配置订阅器。插件配置变更是否需要
+   * 重建句柄由调用方负责。独立 doctor 只有在环境变量为 1 或 true 时才启用。
    */
   const isEnabled = (): boolean => options.enabled !== undefined
     ? options.enabled !== false
@@ -711,21 +699,17 @@ export function createTuringSdk(options: {
         reason: 'the real-device SDK is turned off in this plugin\'s settings',
       }
     }
-    // 目录可能是用户刚在卡片上改的，所以先解析再命中缓存——缓存按**解析结果**
-    // 判有效，否则"填了一个新目录"会在 10 秒的 probe 缓存里答成旧目录的状态。
+    // 先解析当前目录，再按解析结果检查缓存，避免修改目录后仍显示旧目录的检测状态。
     const dir = await resolveDir()
     if (probeCache !== undefined && probeCache.path === dir && at - probeCache.at < PROBE_CACHE_MS) {
       return probeCache.info
     }
     let info: TuringSdkInfo
-    // 门与发现链用**同一个**数据平台拼路径（`platform`）：dir 要么来自发现链
-    // （win32 形状），要么是调用方给的运行平台原生路径。混用运行平台的 join 会让添加
-    // platform:'win32' 的测试永远拼不出它自己的假目录——正是这条曾以
-    // `darwin-arm64 !== win32-x64` 红过的那个坑（RELEASING.md §2.5）。
+    // 使用与目录发现流程相同的 platform 拼接路径。测试可注入不同平台，
+    // 此处若使用运行机器的平台，就可能找不到测试提供的 binding。
     if (dir === '' || !hasTuringSdkBinding(dir, exists, platform)) {
-      // 没有可用目录：不值得起一个进程。`missing` 与 `error` 分开，是因为前者是
-      // "这台机器没装（或找不到）桌面端"（用户装一个就好），后者是"目录在但
-      // binding 坏了"（可修）。
+      // 找不到目录或 binding 时返回 missing，不启动探测子进程。
+      // 找到 binding 后仍加载失败的情况，由下方 worker 结果报告为 error。
       info = missingInfo(dir)
     } else {
       const answer = await runWorker('probe', { dir, worker, channelId, productName, productVersion, timeoutMs: 15_000, keychainStorage })
@@ -800,9 +784,7 @@ export function createTuringSdk(options: {
 
   async function current(): Promise<string | undefined> {
     const at = now()
-    // 总开关关掉时连缓存都不认：一枚关之前取到的 token 不该在关掉之后继续发出去。
-    // 这一条比"省一次子进程"重要——用户关开关的意思是"别再冒充真实设备"，
-    // 而不是"别再取新的但旧的可以继续用"。
+    // 此实例未启用 SDK 时，不向请求提供缓存 token。
     if (!isEnabled()) return undefined
     if (cached !== undefined && at - cached.fetchedAtMs <= ttlMs) return cached.token
     // 等待后重试：刚失败过就先别再造一个子进程。一轮对话十几条请求同时到，没有这一步，
@@ -810,13 +792,13 @@ export function createTuringSdk(options: {
     if (lastFailureAtMs !== undefined && at - lastFailureAtMs < RETRY_BACKOFF_MS) {
       return cached !== undefined && at - cached.fetchedAtMs <= TURING_TOKEN_STALE_MS ? cached.token : undefined
     }
-    // 单飞：12 个构头调用点可能同时到，一次冷启动只需要一个子进程。
+    // 并发获取请求共用一个执行中的任务，避免重复启动子进程。
     if (inFlight !== undefined) return inFlight
     inFlight = fetchOnce().finally(() => { inFlight = undefined })
     const token = await inFlight
     if (token !== undefined) return token
-    // 取值失败后的处理：宽限期内的旧值仍然可用（设备 token 长期有效），但状态会变 stale，
-    // 界面能看出"这是旧的"。
+    // 获取失败时仍可返回本地宽限期内的缓存，并在面板标为 stale。
+    // 宽限期是插件的重用策略，不保证上游仍接受该 token。
     if (cached !== undefined && now() - cached.fetchedAtMs <= TURING_TOKEN_STALE_MS) return cached.token
     return undefined
   }
@@ -833,9 +815,8 @@ export function createTuringSdk(options: {
    */
   async function warm(): Promise<void> {
     const at = now()
-    // 关掉时预热什么都不做，也不起子进程。`startAutoRefresh()` 在调用方已经被
-    // `deviceSdkEnabled` 挡住，这里再挡一次是为了防"开关在热更新后被关掉、而定时器
-    // 还在跑"——句柄是挂载时建的，设置可能在那之后才改。
+    // 未启用 SDK 的实例不执行预热。enabled 在实例创建时确定，
+    // 修改配置后需由调用方重新创建实例，才能应用新开关值。
     if (!isEnabled()) return
     const failedSinceFetch = cached !== undefined
       && lastFailureAtMs !== undefined

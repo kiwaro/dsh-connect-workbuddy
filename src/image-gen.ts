@@ -1,9 +1,10 @@
 /**
  * WorkBuddy 生图的纯逻辑层：媒体模型筛选、请求体构造、响应解析、失败描述。
  *
- * 这一层刻意不做任何网络 I/O、不引用 DSH 的任何包。`src/upstream.ts` 会被
- * `src/bin.ts` 静态可达（见 tests/host-peers.spec.ts 对 lib/bin.js 可达图的断言：
- * 除 `node:` 外不得出现任何裸说明符），所以任何被它引用的模块都必须保持零外部依赖。
+ * 本模块不执行网络 I/O，也不导入 DSH 包。命令入口 src/bin.ts 通过
+ * src/upstream.ts 加载本模块，因此运行时依赖也必须满足独立命令的要求。
+ * tests/host-peers.spec.ts 检查 lib/bin.js 的依赖，包名导入仅允许使用
+ * Node.js 内置模块的 node: 标识。
  *
  * 上游契约照抄官方 CLI `codebuddy-lite-wb.mjs` 的 ImageService（实测 2026-10-21，
  * 国内区 `copilot.tencent.com` 与 `www.workbuddy.cn` 两个入口逐字段同答）：
@@ -18,16 +19,16 @@
  *   - `gemini-*`  ：什么都不加
  *   - 其它        ：`response_format: 'b64_json'` + 可选 `n` / `quality` / `style` / `background`
  *
- * 两个区的目录各有一条媒体模型，互不重叠（2026-10-25 实测）：
+ * 2026-10-25 实测的两区图像模型如下，不能据此判断其他媒体模型是否重叠：
  *   - 国内区（61 条模型）：`text-to-image` 只有 `hunyuan-image-alpha`，
  *     `image-to-image` 只有 `hunyuan-image-alpha-edit`。走 hunyuan 分支，
- *     响应是 COS 签名 URL（24h 有效），单张约 5.71 credits。
+ *     响应是 COS 签名 URL（24h 有效），单张返回约 5.71 credits 的用量。
  *   - 国际区（29 条模型）：`hy-image-3.5` 同时带 `text-to-image` 与
  *     `image-to-image`。走「其它」分支（带 `response_format: 'b64_json'`），
  *     实测单张约 0.03 credits，返回的同样是 ap-singapore 的 COS 签名 URL。
  *
  * 两个数不是一个价目表的两个档位：目录条目只有 id/name/tags，**没有价格**，
- * 价格只在上游结算时以 `data.usage.credit` 返回，所以工具只能回报实扣、
+ * 用量在生成响应中以 `data.usage.credit` 返回，所以工具只能回报上游报告的积分、
  * 不能预先报价。
  *
  * @module dsh-connect-workbuddy/image-gen
@@ -218,11 +219,9 @@ function tagLabel(tag: string): string {
 }
 
 /**
- * 按能力标签选一个图像模型：先在该标签组内找调用方点名的那个，否则取组内第一个。
+ * 在指定能力标签组中选择模型。提供模型标识时按标识查找，否则使用组内第一个。
  *
- * 点名的模型必须在**这一组**里——写错名字或拿改图模型来文生图都直接报错，
- * 而不是把它发上去让上游回一个「route config not found」。这样报错信息能指出
- * 真正的问题（模型名写错，或该区这一组没有模型），那句话里还会列出本组可用项。
+ * 指定模型不属于该标签组时，在发送请求前返回错误，并列出本组可用模型。
  */
 export function pickMediaModel(
   models: readonly WorkBuddyMediaModel[],
@@ -304,7 +303,7 @@ export function buildEditBody(
   return body
 }
 
-/** 输入图的大小上限。上游没说，但一张改图输入不该比产物大一个量级，8 MB 足够。 */
+/** 插件将单张输入图限制为 8 MB；该值是本地限制，不代表上游上限。 */
 export const MAX_INPUT_IMAGE_BYTES = 8 * 1024 * 1024
 
 /** 按扩展名猜输入图的 MIME；不认识就返回 undefined（交给嗅探）。 */
@@ -380,7 +379,7 @@ export function isBareBase64Image(value: string): boolean {
  *
  * 信封是 `{code, msg, request_id, data}`；`code !== 0` 是业务失败（与 HTTP 状态
  * 无关，上游可能 HTTP 200 但 code 非 0）。`data.data` 是数组，元素要么带 `url`
- * 要么带 `b64_json`；`data.usage.credit` 是本次实际扣的积分。
+ * 要么带 `b64_json`；`data.usage.credit` 是上游返回的本次用量积分，不能单凭该字段确认账单实扣。
  */
 export function parseImageResponse(payload: unknown): WorkBuddyImageOutcome {
   if (typeof payload !== 'object' || payload === null) {
@@ -452,7 +451,7 @@ export function describeImageFailure(status: number, bodyText: string): WorkBudd
   }
   if (status === 401 || status === 403) {
     return new WorkBuddyImageError(
-      `workbuddy image: 凭据被上游拒绝（HTTP ${status}），请在插件设置里重新登录 WorkBuddy。${detail === '' ? '' : ` ${detail}`}`,
+      `workbuddy image: 凭据被上游拒绝（HTTP ${status}），请在 WorkBuddy 中重新登录，再回到插件检测账号。${detail === '' ? '' : ` ${detail}`}`,
       'AUTH',
     )
   }
@@ -464,7 +463,7 @@ export function describeImageFailure(status: number, bodyText: string): WorkBudd
   }
   if (status === 404) {
     return new WorkBuddyImageError(
-      `workbuddy image: 上游没有这条生图路由（HTTP 404）——当前区域暂未提供图片生成接口。${detail === '' ? '' : ` ${detail}`}`,
+      `workbuddy image: 当前区域的图片生成接口返回 HTTP 404，暂时无法生成图片。${detail === '' ? '' : ` ${detail}`}`,
       'NO_ROUTE',
     )
   }

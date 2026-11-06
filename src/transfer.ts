@@ -165,20 +165,12 @@ export function credentialOfTransferRecord(record: WorkBuddyTransferRecord): Omi
 }
 
 /**
- * Pure merge: fold selected records into a CHANGES map keyed by account id.
- *
- * Mirrors the sibling merger's contract: a record with the same account id
- * OVERWRITES the stored entry (the imported tokens replace what is stored —
- * re-importing a re-login must refresh it; the write layer stores the record
- * atomically, so "overwrite" needs no knowledge of the incumbent), and a
- * record without a token is skipped. The region gate lives HERE rather than
- * in the route so it is testable without a Host: a record whose login domain
- * maps to the other region's tab is skipped, because the two regions'
- * providers are parallel stacks and a cross-region import would cross-bill.
- *
- * The caller writes one vault file per map entry, so a selection that is
- * already stored rewrites those files with identical content — idempotent,
- * and the steady state of importing the same file twice.
+ * Project selected records into a changes map keyed by derived account id.
+ * Missing tokens, invalid indexes and domains outside the selected region are
+ * skipped. Later records with the same id replace earlier entries in the map.
+ * imported counts accepted selected records, not unique accounts or completed
+ * disk writes. The caller persists the resulting map; encryption, timestamps
+ * and incumbent replacement policy belong to that write path.
  */
 export function mergeTransferRecords(
   records: readonly WorkBuddyTransferRecord[],

@@ -3,13 +3,13 @@
  *
  * 这一层不添加头、不写盘、不发请求，只回答两个问题：
  *
- *   1. **现在**有没有设备身份真的上了线？——答案不是写死的文案，而是把请求路径
+ *   1. 按当前输入会构造哪些设备头？——答案不是写死的文案，而是把请求路径
  *      上同一批构造器跑出来的头名集合过滤一遍（{@link describeRequestHeaderNames}）。
  *      于是它随代码自动变化：P1 之前是空数组，P1 之后是 `X-Machine-ID` /
  *      `X-Session-ID`，而没有任何地方需要改两次。
  *   2. **派生档**会给这台机器的每个账号发什么？——同一个盐算出 machine/session
  *      一对 id，并统计"N 个账号 → 几个不同设备"。第二个数字是审计 §5.4 的核心
- *      问题：池子里的号是共用一台设备（易被聚成一群），还是各自一台（隔离）。
+ *      问题：池子里的号是共用一台设备（易被聚成一群），还是得到不同的派生标识；这不证明物理设备隔离。
  *
  * ## 为什么盐由调用方传进来
  *
@@ -52,7 +52,7 @@ export interface WorkBuddyDeviceReport {
   /**
    * 当前档位（设置里的「虚拟值 / 真实值」）。
    *
-   * 它必须排在 `onWire` 旁边：真实值档下 `onWire` 只有 `X-Device-Token` 一个名字，
+   * 它必须排在 `onWire` 旁边：真实值档取得 token 且未回退时，`onWire` 包含 `X-Device-Token`，
    * 而虚拟值档下是另一个组合。没有这一行，"为什么这次只有一条"要靠读者自己猜。
    */
   tier: 'virtual' | 'real'
@@ -68,7 +68,7 @@ export interface WorkBuddyDeviceReport {
   fallbackToVirtual?: boolean
   /**
    * 设备头名，**按当前代码实际会发的那一组算出来**。空数组 = 一个都不发。
-   * 它不是断言，是测量。
+   * 这是按当前配置和构造函数推导的结果，不是抓包证据。
    */
   onWire: readonly string[]
   /** 盐文件的状态；`salt` 本身永不出现在报告里。 */
@@ -100,7 +100,7 @@ export interface WorkBuddyDeviceReport {
   derived?: {
     /** 参与派生的账号数（= 输入里非空 uid 的个数）。 */
     accounts: number
-    /** 其中算出的**不同** machineId 个数。`accounts === distinct` 才算隔离。 */
+    /** 其中算出的**不同** machineId 个数。相等只说明本次派生值未重复，不能证明上游无法关联账号。 */
     distinct: number
     /** 一个样例，供人工比对两次 `doctor` 是否稳定；不代表"唯一"。 */
     sample: WorkBuddyDerivedDevice
@@ -137,7 +137,7 @@ export function describeDeviceState(
   tokenReadout?: DeviceTokenReadout,
   /**
    * 真实值档的读数（P3）。`tier` 单独传，不能由 `real` 在不在推断：真实值档在
-   * SDK 不可用时是"一个设备头都不发"，虚拟值档在同样情况下发派生对——两种沉默
+   * SDK 不可用且关闭回退时不发设备头；允许回退时按虚拟档处理——两种沉默
    * 的原因不同，不传 tier 就只能猜。
    */
   real?: {
