@@ -28,6 +28,12 @@ ${u} ${p}-panel-tab{font-size:13px;font-weight:600;line-height:20px;padding:7px 
 ${u} ${p}-panel{margin-top:0;min-width:0}
 ${u} ${p}-models-summary,${u} ${p}-panel-note{margin:2px 0 0;font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary,#999)}
 ${u} ${p}-free-quota-warn{font-weight:600}
+/* 说明段落的间距由容器统一控制，避免与卡片的纵向 gap 叠加。 */
+${u} ${p}-region-summary{display:flex;flex-direction:column;gap:2px}
+${u} ${p}-region-summary ${p}-models-summary{margin:0}
+/* 页签底边已经分隔账号区，不在账号池顶部重复画线。 */
+${u} #dsm-${plugin}-panel-accounts ${p}-pool{border-top:0;padding-top:0}
+
 ${u} ${p}-pool{display:flex;flex-direction:column;gap:12px;margin:0;padding:14px 0 0;border-top:1px solid var(--dsw-alias-border-l2,#777)}
 ${u} ${p}-pool-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 ${u} ${p}-pool-title{margin:0;font-size:13px;font-weight:600;line-height:18px}
