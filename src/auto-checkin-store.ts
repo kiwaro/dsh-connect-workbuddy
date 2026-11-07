@@ -4,8 +4,7 @@
  * 参考：本仓库 `src/account-pool-store.ts`（`$DSH_HOME` 下
  *   `.workbuddy-pool.<region>.json`，`withFileLock` + `writeFileAtomic`，
  *   `mode: 0o600`）。本模块沿用同一套写入方式与同一份隐私标准。
- * 改动：存的是**今天签到到哪一步**，因此文件里不含任何 token，也不含账号名
- *   ——只有账号 id 与一句失败原因。
+ * 文件保存当日签到进度、账号 id 和失败原因，不包含 token 或账号名。
  *
  * ## 为什么单独写入文件，而不是塞进 settings
  *
@@ -16,8 +15,8 @@
  *
  * ## 读写从不抛异常
  *
- * 自动签到是增强功能。一个损坏的进度文件绝不能让插件启动失败或让卡片渲染不出来
- * ——最坏情况是「今天当作没签过」，再次运行时会先读取签到状态，已签到则返回 already。
+ * 进度文件损坏时，插件仍正常启动并显示卡片，本地记录按当日未签到处理。
+ * 再次运行时先查询上游，已签到则返回 already。
  *
  * @module dsh-connect-workbuddy/auto-checkin-store
  */

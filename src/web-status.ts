@@ -395,11 +395,8 @@ export interface WorkBuddyStatusRouteOptions {
    */
   deviceSettings?: WorkBuddyDeviceSettingsPort
   /**
-   * 真实设备参数（本机安装的桌面端 SDK）的状态与取值口。
-   *
-   * Optional like the rest: 一个没有接 SDK 的 DSH（别的平台、或构建时裁掉了
-   * `native/`）答 503，卡片就把「SDK」这一页藏起来——比渲染一页永远"不可用"的
-   * 红字诚实。
+   * 可选的本机桌面 SDK 状态与取值接口。
+   * 平台不支持或构建未包含 native 时返回 503，卡片隐藏 SDK 页面。
    */
   deviceSdk?: WorkBuddyDeviceSdkPort
   /**
@@ -2380,18 +2377,14 @@ export function registerWorkBuddyStatusRoute(ctx: Context, deps: WorkBuddyStatus
       },
     })
     /**
-     * 设备头设置：档位切换 + 每账号的虚拟参数。
-     *
-     * GET 与 POST 描述的是同一份文档，所以一条路由两种方法。POST 的两种 `kind`
-     * 都是**即时生效**——这里没有草稿，因为齿轮改的是"这台机器对外声称自己是谁"，
-     * 一个需要点保存才生效的设备身份，会让"我改完到底发出去的是什么"变成猜测。
+     * 设备头设置路由，GET 读取配置，POST 保存档位或账号设备参数。
+     * 两种 POST kind 均即时保存并生效，不另设草稿。
      */
     const disposeDeviceProfile = ctx.webServer.register({
       kind: 'exact',
       path: WORKBUDDY_DEVICE_PROFILE_PATH,
       handler: async (req: IncomingMessage, res: ServerResponse) => {
-        // 先检查请求来源：包括"这条路由有没有调用关系"。503 会顺带告诉一个外部来源
-        // "此路由存在但未接"——那不是它该知道的事；403 对任何来源都是同一句话。
+        // 先校验请求来源。外部来源统一返回 403，避免泄露路由和 SDK 接入状态。
         if (!requireLoopback(req, res)) return
         const port = deps.deviceSettings
         if (port === undefined) {
@@ -2453,12 +2446,8 @@ export function registerWorkBuddyStatusRoute(ctx: Context, deps: WorkBuddyStatus
           return
         }
         /**
-         * `kind: 'sdk'` — 手填 SDK 目录与回退开关（作者意见 #1 / #2）。
-         *
-         * 两项都**不做值校验**，只做类型校验：目录填错时的正确反馈是 `probe` 答
-         * `missing`/`error` 并带上那个路径（用户立刻看见"我填的这个不存在"），而
-         * 不是这里 400——后者只会让输入框看起来没保存。路径的合法性由文件系统回答，
-         * 不由字符串正则回答。
+         * 保存 SDK 目录与回退开关，只校验值的类型。
+         * 目录是否可用由 probe 检查并返回 missing 或 error，使界面能够显示具体探测结果。
          */
         if (body['kind'] === 'sdk') {
           const values: { sdkDir?: string, sdkFallbackToVirtual?: boolean } = {}
@@ -2500,9 +2489,8 @@ export function registerWorkBuddyStatusRoute(ctx: Context, deps: WorkBuddyStatus
         }
         if (req.method === 'GET') {
           try {
-            // 返回的数据中带上总开关的**当前值**：卡片要能画出那个勾选框，而开关住在
-            // 插件配置里、不在设备设置文件里——多一次往返只为读一个布尔不值当，
-            // 也容易让两处答案短暂不一致。
+            // 响应包含插件配置中的 SDK 开关当前值，供卡片显示。
+            // 不另行查询，避免多次读取期间出现状态不一致。
             const report = await port.read()
             const enabled = await port.readEnabled()
             json(res, 200, enabled === undefined ? report : { ...report, sdkEnabled: enabled })
@@ -2523,15 +2511,11 @@ export function registerWorkBuddyStatusRoute(ctx: Context, deps: WorkBuddyStatus
             return json(res, 200, await port.refresh())
           }
           /**
-           * `?action=enable` / `?action=disable` —— SDK 总开关。
-           *
-           * 用两个动作名而不是 `?enabled=1`：这个路由的其余动作都是**动词**，
-           * 而一个布尔查询参数会让"没传"和"传了空"看起来一样。
+           * enable 和 disable 动作用于切换 SDK 总开关，与此路由的其他动作命名保持一致。
            */
           if (action === 'enable' || action === 'disable') {
             const written = await port.writeEnabled(action === 'enable')
-            // 老 DSH 没有 settings 服务：501 而不是 500——这不是故障，是 DSH 缺一项
-            // 能力，卡片据此把开关标成不可用。
+            // DSH 缺少 settings 服务时返回 501，卡片据此禁用开关。
             if (!written) return json(res, 501, { reason: 'settings-unavailable', error: 'this host has no settings write path' })
             return json(res, 200, { sdkEnabled: action === 'enable' })
           }

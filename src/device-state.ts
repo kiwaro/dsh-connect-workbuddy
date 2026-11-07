@@ -3,11 +3,11 @@
  *
  * 这一层不添加头、不写盘、不发请求，只回答两个问题：
  *
- *   1. 按当前输入会构造哪些设备头？——答案不是写死的文案，而是把请求路径
- *      上同一批构造器跑出来的头名集合过滤一遍（{@link describeRequestHeaderNames}）。
+ *   1. 当前输入会生成哪些设备头？本模块调用请求路径上的构造器，
+ *      再筛选返回的头名集合（{@link describeRequestHeaderNames}）。
  *      于是它随代码自动变化：P1 之前是空数组，P1 之后是 `X-Machine-ID` /
  *      `X-Session-ID`，而没有任何地方需要改两次。
- *   2. **派生档**会给这台机器的每个账号发什么？——同一个盐算出 machine/session
+ *   2. 派生档为各账号发送什么标识？本模块使用同一个盐计算 machine/session
  *      一对 id，并统计"N 个账号 → 几个不同设备"。第二个数字是审计 §5.4 的核心
  *      问题：池子里的号是共用一台设备（易被聚成一群），还是得到不同的派生标识；这不证明物理设备隔离。
  *
@@ -15,7 +15,7 @@
  *
  * P0 时这个模块自己 `ensureDeviceSalt()`，因为那时它是唯一的调用者。P1 之后
  * `doctor` 还要把同一个盐交给 {@link describeRequestHeaderNames} 去渲染完整的
- * 头名清单——两处各自读一次盐，就可能各自读到不同的状态（一次读到 absent、
+ * 头名清单。如果两处分别读取盐，可能得到不同状态（一次读到 absent、
  * 一次读到 ok），于是报告会在同一屏里自相矛盾。盐是调用方的事实，这里只做算术。
  *
  * 两者都不含凭据、不含盐本身。
@@ -32,8 +32,8 @@ import type { WorkBuddyWireIdentity } from './upstream.ts'
 import type { WorkBuddyCredential } from './auth.ts'
 
 /**
- * 承载设备身份的**全部**头名。P2/P3 加 `X-Device-Token` 的读取时，这个常量不变
- * ——它描述的是"哪些头算设备身份"，不是"我们发了哪些"。
+ * 本常量列出全部设备身份头名。P2/P3 增加 X-Device-Token 读取时无需修改。
+ * 实际发送的头名由当前请求构造结果决定。
  */
 export const WORKBUDDY_DEVICE_HEADER_NAMES: readonly string[] = [
   'X-Device-Token',
@@ -137,7 +137,7 @@ export function describeDeviceState(
   tokenReadout?: DeviceTokenReadout,
   /**
    * 真实值档的读数（P3）。`tier` 单独传，不能由 `real` 在不在推断：真实值档在
-   * SDK 不可用且关闭回退时不发设备头；允许回退时按虚拟档处理——两种沉默
+   * SDK 不可用且关闭回退时不发设备头；允许回退时按虚拟档处理。两种处理
    * 的原因不同，不传 tier 就只能猜。
    */
   real?: {
@@ -152,7 +152,7 @@ export function describeDeviceState(
      * 报告必须**按照请求中实际发送的参数**：退回时这一档实际发的是派生对，所以
      * `tierSent` 答 `virtual`、`onWire` 按虚拟值算。把 `tier`（用户的意愿）与
      * `tierSent`（线上实际）分成两个字段，是因为两者分岔时那正是唯一值得看的
-     * 信息——只报一个，用户就无法判断"我设的真实值到底生效了没有"。
+     * 信息，便于用户核对本机设备模式是否实际生效。
      */
     fallbackToVirtual?: boolean
   },
@@ -181,8 +181,8 @@ export function describeDeviceState(
         ...tokenReadout.ageMs === undefined ? {} : { ageMs: tokenReadout.ageMs },
         ...'reason' in tokenReadout ? { reason: tokenReadout.reason } : {},
       }
-  // 头名要与真实请求一致：档位、盐、token 都取刚刚那几份读数。少传一个，报告就会
-  // 答成"那个头没发"，而实际上发了——那正是这个模块最不该犯的错。
+  // 头名需与实际请求一致，因此档位、盐和 token 共用同一批读数。
+  // 缺少任一输入都可能使报告漏掉实际已发送的头名。
   //
   // 退回时按 `virtual` 算：那一档实际发的就是派生对（`upstream.ts` 的
   // `deviceTier: 'virtual'`），所以这里也必须走那条分支，否则报告会说"发的是真
@@ -230,7 +230,7 @@ export function describeDeviceState(
     ...sdk === undefined ? {} : { sdk },
   }
   // 真实值档不派生：所有账号共用这一台真机，算出来的一对 id 既不会发出去，
-  // 也不该在报告里出现——那只会让读者以为它跟请求有关。退回时**例外**：那一档
+  // 也不应出现在报告中，以免被误认为实际请求字段。发生回退时例外：对应档位
   // 实际发的是派生对，所以派生块必须出现，否则报告与 `onWire` 自相矛盾。
   if (tierSent === 'real') return base
   if (uids.length === 0 || saltReadout.state !== 'ok') return base

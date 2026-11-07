@@ -33,7 +33,7 @@ It depends on the WorkBuddy client's own endpoints (not a public API), so the pl
 
 ## 2. Features
 
-This fork is based on upstream 5.18.1. Development uses main. See [CREDIT-JOURNAL.md](docs/CREDIT-JOURNAL.md) for response credit records and account attribution.
+This fork is based on upstream 5.20.3. Development uses main. See [CREDIT-JOURNAL.md](docs/CREDIT-JOURNAL.md) for response credit records and account attribution.
 
 - **CN and international providers.** Accounts and settings are separated between `workbuddy` and `workbuddy-global`. Each region can be enabled independently. Disabling a provider removes its models from the picker; a session still using one of those models must select another provider.
 - **Four settings sections.** Accounts contains account selection, pool membership, balances and batch actions. Models contains the catalog and model settings. Capabilities contains optional tools and display controls. Diagnostics shows runtime information for troubleshooting. Switching sections retains the current draft.

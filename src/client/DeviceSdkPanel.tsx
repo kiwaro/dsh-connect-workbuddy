@@ -4,9 +4,8 @@
  * ## 为什么它单独一页，而不是塞进「诊断」
  *
  * 诊断页是"出问题时贴给开发看的一屏事实"，只读、不含操作。这一页有操作（重取、
- * 显示、复制），而且用户会在**没出问题**的时候来看它——切到「真实值」之后第一件
- * 事就是确认"真的连上了吗、值是什么"。把这两种意图混在一页，诊断页就再也没法
- * 保持"只读"这条约定。
+ * 显示、复制）。用户选择本机设备模式后，也需要查看 SDK 状态和设备凭据。
+ * 因此将操作单独放在 SDK 页，诊断页继续只读显示状态。
  *
  * ## 为什么默认是星号
  *
@@ -32,9 +31,8 @@ export interface DeviceSdkPanelProps {
   /**
    * 设备设置的读/写路由（{@link putDeviceSdk} 用它保存目录与回退开关）。
    *
-   * 与 `path` 分开：SDK 路由读的是"现在能不能取到"，设置路由读写的是"应该去哪
-   * 里找"。两者在老 Host 上会分别缺席，所以各自判空——一个有一个没有时，能用的
-   * 那半仍然该渲染。
+   * SDK 路由返回当前获取状态，设置路由读写 SDK 目录和回退选项。
+   * 旧版 DSH 可能仅提供其中一条路由，因此分别判空并显示可用部分。
    */
   settingsPath: string
 }
@@ -86,7 +84,7 @@ export function DeviceSdkPanel(props: DeviceSdkPanelProps): ReactElement | null 
    * SDK 总开关（`Config.deviceSdkEnabled`）。
    *
    * 与上面那几项**不是同一份文档**：这个落在插件配置（`cordis.patch.yml`），
-   * 而目录/回退落在设备设置文件。分两次读的理由与 `settingsPath` 分开一样——
+   * 而目录与回退开关保存在设备设置文件中，因此分别读取。
    * 两者可以各自缺席。`undefined` = 这个 Host 还不认识这一项（或没有 settings
    * 服务），此时开关置灰并显示「不可用」，而不是假装它是关的。
    */
@@ -136,10 +134,9 @@ export function DeviceSdkPanel(props: DeviceSdkPanelProps): ReactElement | null 
    * 「已加载、没取过」不该停在屏幕上。
    *
    * 启动时的后台预热要起一个子进程再等一次网络（约几百毫秒），而这一页是在用户
-   * 点开标签时挂载的——两者偶尔会撞在一起，那一瞬间读到的就是 idle。这里做有限次
+   * 打开标签时挂载。若此时预热尚未结束，首次读取会返回 idle，因此进行有限次数的
    * 复查（最多 5 次、每次 1.2 秒）：预热成功后，这一行更新为“可用”，而不是要用户
-   * 手动点一次「重新获取」。上限是必须的——预热真的失败时，无限轮询只是一台一直
-   * 发 GET 的机器。
+   * 手动重新获取。限制复查次数可以避免预热持续失败时仍无限发送 GET。
    */
   const idlePolls = useRef(0)
   useEffect(() => {
@@ -147,7 +144,7 @@ export function DeviceSdkPanel(props: DeviceSdkPanelProps): ReactElement | null 
     if (report?.sdk.state !== 'ready' || report.token.state !== 'idle') return
     if (idlePolls.current >= 5) return
     idlePolls.current += 1
-    // 静默复查：只更最新读取的数据，不动 `busy` / `value` / `error`——后台的一次 GET 不该
+    // 后台复查仅更新报告，保留 busy、value 和 error，避免一次 GET
     // 让「重新获取」按钮闪成"取数中"，也不该把用户已经展开的完整值收起来。
     const timer = window.setTimeout(() => {
       void fetchDeviceSdk(path).then(next => {
@@ -159,9 +156,8 @@ export function DeviceSdkPanel(props: DeviceSdkPanelProps): ReactElement | null 
 
   if (path === '') return null
   if (loading) return <p className="dsm-workbuddy-panel-note">{t('sdk.loading')}</p>
-  // Host 没有这条路由（老版本，或构建时裁掉了 native/）：给一句话，而不是一块
-  // 空白面板——空白会被读成"我点坏了"。标签页本身保留，因为"这个 Host 没有 SDK"
-  // 也是用户需要知道的事实。
+  // 旧版或裁去 native/ 的 DSH 可能未提供此路由。
+  // 保留标签页并说明不可用原因，避免显示空白面板。
   if (report === undefined && error === undefined) {
     return <p className="dsm-workbuddy-panel-note">{t('sdk.unavailable')}</p>
   }
@@ -194,8 +190,8 @@ export function DeviceSdkPanel(props: DeviceSdkPanelProps): ReactElement | null 
   /**
    * 保存目录：写盘之后**立刻重探一次**。
    *
-   * 只写不重探会让用户看见"已保存"而状态行还是旧的——那正是这条意见要消掉的
-   * 迷雾（`dirSource` 让新目录下一次 `probe` 就生效，所以这里必须主动触发那一次）。
+   * 保存后需重新检测，才能使状态行对应新目录。
+   * dirSource 在下一次 probe 时读取新设置，因此保存成功后主动触发检测。
    */
   const saveDir = async (): Promise<void> => {
     if (settingsPath === '') return

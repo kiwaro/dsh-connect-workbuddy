@@ -34,9 +34,8 @@ export interface DeviceProfileDialogProps {
   /**
    * 留空时真正会发出去的那一对 id。
    *
-   * 缺席 = Host 没有算（旧 Host、或本机没有设备盐）。此时不能写"留空会自动
-   * 派生"就算完——那正是这条反馈要修的东西：用户看不到结果，也没法判断两个
-   * 账号是不是被算成了同一台设备。
+   * 字段缺失表示 DSH 未计算派生值，可能由版本较旧或本机缺少设备盐导致。
+   * 此时提示需说明无法展示派生结果的原因，便于用户判断下一步操作。
    */
   derived?: { machineId: string, sessionId: string }
   /**
@@ -181,7 +180,7 @@ export function DeviceProfileDialog(props: DeviceProfileDialogProps): ReactEleme
  * 「真实值」档下点齿轮时看到的那一句话。
  *
  * 为什么齿轮仍然可点：一个真正 `disabled` 的按钮点不动，用户只会以为是界面坏了；
- * 这里要回答的是"为什么不让我改"——那必须有一次点击才能说出口。视觉上置灰
+ * 点击按钮后展示不可编辑的原因。视觉上置灰
  * （`dsm-workbuddy-device-gear-off`）表达"现在用不了"，点击表达"原因是什么"。
  */
 export function DeviceModeBlockedDialog(props: { t: Translate, onClose: () => void }): ReactElement {

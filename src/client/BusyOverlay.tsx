@@ -2,9 +2,8 @@
  * The shared busy veil: one overlay for every account operation whose result
  * only lands on screen after the list re-read.
  *
- * 参考：workbuddy2api-panel 的「添加账号」弹窗 —— 操作期间用一层蒙版把界面
- *   定住并说明正在做什么，而不是让用户对着没有变化的表格猜。本实现把该形态
- *   抽成可复用组件，供删除、导入、扫码添加三处共用同一套视觉与处理规则。
+ * 参考 workbuddy2api-panel 的添加账号弹窗，在操作期间显示蒙层和进度说明。
+ * 删除、导入和扫码添加共用本组件，以保持操作反馈和处理规则一致。
  * 遮罩持续到列表刷新完成，避免服务端已修改数据、页面仍显示旧列表时
  * 提前解除操作提示。显示文字与超时由调用方控制，本组件负责统一展示。
  *

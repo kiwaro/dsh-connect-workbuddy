@@ -1,30 +1,13 @@
 /**
- * The two shell behaviours the composer credit panel needs: hanging the panel
- * off its trigger, and dismissing it on an outside press.
- *
- * 参考：dingminhua/dsh-connect-trae（MIT，Copyright (c) 2026 LaoDing）
- *   — 该项目的 `client/popover.ts`，逐条沿用其判断：同样的上下放置、同样的
- *     视口收边、同样的 scroll(capture)/resize/自身尺寸变化重测、同样的
- *     「pointerdown 落在触发器与面板之外即关闭」。这些不是随手写的——那边
- *     2.12.0/2.13.0 的客户端加载失败与面板位置错乱都留下了记录，这里直接
- *     采用其最终结论。
- *
- * Implemented locally rather than imported from
- * `@deepseek-ai/dsh-client-ui-primitives`. The shell DOES register that package
- * for plugin bundles, so importing it is legal — this is a deliberate choice,
- * not a workaround: the two behaviours are ~40 lines of DOM geometry, and owning
- * them keeps this component renderable in the Node test suite without mocking a
- * package that itself reaches `*.module.css` and further DSH dependencies.
- *
- * NOTE ON A MISDIAGNOSIS, kept because it is the kind of thing that gets
- * re-litigated: the client load failure on the referring project was first
- * attributed to importing the primitives package. It was not that. The real
- * cause was `import { createPortal } from 'react-dom'` being BUNDLED rather than
- * externalized — the inlined development build opens with
- * `process.env.NODE_ENV` and threw `ReferenceError: process is not defined` in
- * the browser, at module-evaluation time, so the ENTIRE client half failed to
- * import. See `tsdown.config.ts` (`CLIENT_EXTERNALS`) for the fix and
- * `tests/client-runtime-imports.spec.ts` for the rule that now pins it.
+ * 处理积分浮层定位和点击外部关闭。
+ * 参考 dingminhua/dsh-connect-trae 的 client/popover.ts，遵循 MIT，Copyright (c) 2026 LaoDing。
+ * 根据视口决定上下放置和边界收缩；滚动、窗口大小和面板尺寸变化时重新测量。
+ * pointerdown 位于触发器和面板之外时关闭浮层。
+ * 保留本地 DOM 实现，便于 Node 测试，不引入 primitives 的 CSS 及其他 DSH 依赖。
+ * Trae 2.12.0/2.13.0 的客户端加载问题来自 react-dom 被打入 bundle：
+ * 其开发构建引用 process.env.NODE_ENV，在浏览器模块加载阶段报错。
+ * 问题不由 primitives 导入导致。外置依赖配置见 tsdown.config.ts 的 CLIENT_EXTERNALS，
+ * 回归验证见 tests/client-runtime-imports.spec.ts。
  */
 import { useEffect, useLayoutEffect, useState } from 'react'
 import type { CSSProperties, RefObject } from 'react'

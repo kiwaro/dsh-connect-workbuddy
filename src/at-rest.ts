@@ -25,11 +25,11 @@
  *
  * 改动：**「macOS 也加密」这一事实**（issue #15 真机取证）。本模块原先假设该
  *   policy 是 Windows 先行、macOS 只是「将来可能」，于是 macOS 的可执行文件
- *   路径用 App 名拼成 `<bundle>/Contents/MacOS/WorkBuddy`——而两个真实 bundle
+ *   路径用 App 名拼成 `<bundle>/Contents/MacOS/WorkBuddy`，但检查到的两个 bundle
  *   的 `CFBundleExecutable` 都是 `Electron`，该路径并不存在。结果是 macOS 上
  *   加密凭据**永远**取不到密钥，用户却被报成「未登录」。现在二进制名向 bundle
  *   自己问（`macosBundleExecutable()`），候选含国际版 `WorkBuddy AI.app`，
- *   并允许 App 被归入 applications 目录的子目录——扫到的候选必须先用
+ *   同时搜索 applications 下的子目录。发现的候选必须先用
  *   `CFBundleIdentifier` 确认身份才 `execFile`，因为其他 Electron 应用也可能使用这个二进制名，只按名字匹配可能启动另一个产品。
  *
  * @module dsh-connect-workbuddy/at-rest

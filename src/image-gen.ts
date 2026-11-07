@@ -68,7 +68,7 @@ export const MEDIA_TAGS: readonly string[] = [
  *
  * 实测上游只给三个字段（`{"id":"hunyuan-image-alpha","name":"Hunyuan Image Alpha",
  * "tags":["text-to-image"]}`），没有 credits、没有上下文长度。不要在这里补
- * 上游没有的字段——那正是「不猜」红线的反面。
+ * 上游未提供的字段，避免在请求中加入未经验证的配置。
  */
 export interface WorkBuddyMediaModel {
   readonly id: string
@@ -81,7 +81,7 @@ export interface WorkBuddyMediaModel {
    * 而不是发上去等一个「unsupported video duration」的 400。
    *
    * 形状与 `video-gen.ts` 的 `WorkBuddyVideoModelConfig` 一致（那边是视频层的
-   * 同一份定义，两处必须同步——tests/video-gen.spec.ts 有一条对拍测试）。
+   * 同一份定义，两处需同步；tests/video-gen.spec.ts 会比较两者）。
    */
   readonly videoGeneration?: WorkBuddyMediaVideoGeneration
 }
@@ -154,7 +154,7 @@ function asFiniteNumber(value: unknown): number | undefined {
 
 /**
  * 把目录条目上的 `videoGeneration` 读成已知字段的配置对象（图像处理过程只是搬运，
- * 不解释它）。与 `video-gen.ts` 的 `readVideoGeneration` 必须同形——同一份上游
+ * 不解释它）。本接口与 video-gen.ts 的 readVideoGeneration 读取同一份上游
  * 数据，两个入口不能读出两个答案。缺字段即 undefined，不补默认值。
  */
 export function readVideoGeneration(raw: unknown): WorkBuddyMediaVideoGeneration | undefined {
@@ -178,7 +178,7 @@ export function readVideoGeneration(raw: unknown): WorkBuddyMediaVideoGeneration
 /**
  * 从产品配置的 `data.models` 里挑出带指定 tag 的媒体模型。
  *
- * `tag` 可以是一组标签，命中任一即算——目录只读一次就返回全部媒体条目（{@link MEDIA_TAGS}），
+ * tag 可以包含多个标签，匹配任意一个即可。目录一次读取即返回全部媒体条目（{@link MEDIA_TAGS}），
  * 调用方再按能力分组过滤，比每种能力各读一遍 `/v3/config` 少一次往返。
  *
  * 去重按 `id`：上游目录里同一个 id 只应出现一次，但目录是外部数据，
@@ -365,7 +365,7 @@ const BARE_BASE64 = /^[A-Za-z0-9+/]+={0,2}$/
  * 看起来像「裸 base64」而不是路径吗？
  *
  * 判据照抄 CLI 的 `processImageInput`：不含路径分隔符、足够长、字符集是 base64。
- * 长度门槛是必要的——`a.png` 这种文件名同样不含分隔符，短到不足以是图片数据。
+ * 长度检查用于排除 a.png 等不含分隔符的短文件名，避免将其误识别为图片数据。
  */
 export function isBareBase64Image(value: string): boolean {
   const text = value.trim()

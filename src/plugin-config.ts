@@ -323,7 +323,7 @@ export interface Config {
    * 4 KB（A 实测 1210 字符，B 的 1 KB 上限会把它误杀成"没配"）。
    *
    * 读不到时**不发送该头**并记一条 warn，绝不回退成临时造一个 token。只在
-   * `wireProfile: 'balanced'` 下生效——`conservative` 的契约是逐字节等于 5.16.0。
+   * wireProfile 为 balanced 时生效。conservative 保持与 5.16.0 相同的请求字节。
    */
   deviceToken?: {
     /**

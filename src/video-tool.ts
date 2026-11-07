@@ -1,22 +1,10 @@
 /**
- * `workbuddy_draw_video`：把 WorkBuddy 的视频生成能力（国内区与国际区各自的
- * `text-to-video` / `image-to-video` 模型）暴露成一个 DSH agent 工具。
- *
- * 与生图工具（一次同步请求就拿回图片）不同，视频是**异步任务**：
- * 先 `submitVideo` 拿到 task id，再 `pollVideoTask` 轮询到 completed，
- * 最后由 `downloadVideo` 将视频下载为本地 `.mp4` 文件。流程参考
- * 官方 CLI 的 `VideoService`（submitTask / pollTask / downloadVideos），
- * 详见 docs/VIDEO_GEN.md。
- *
- * 参数 / 选模型层与生图工具几乎完全一致（共用 MEDIA_TAGS、video 标签常量、
- * 媒体目录缓存），所以「接受参数」这部分本插件已经就绪；真正多写的是
- * 上面那段异步执行流程。
- *
- * 为什么手写 ToolDefinition（不 import `@deepseek-ai/dsh-tools` 的 `defineTool`）：
- * 同 image-tool.ts 的注释——DSH `Tools.register` 只校验 `output.render` 是函数、
- * `output.schema` 是受支持的 JSON Schema，`schemaOf()` 把 `parameters` 原样传递，
- * 手写换来零新 peer 依赖、不会触发 tests/host-peers.spec.ts 对可达图的断言。
- *
+ * 将 WorkBuddy 国内版和国际版的视频模型注册为 DSH 工具。
+ * 先提交任务取得 task id，再轮询任务状态，最后下载为本地 MP4 文件。
+ * 流程参考官方 CLI 的 VideoService，详见 docs/VIDEO_GEN.md。
+ * 参数解析和媒体目录缓存与生图工具保持一致。
+ * 本地声明 ToolDefinition，以免增加 peer 依赖。DSH 注册时检查 output.render 和 output.schema，
+ * parameters 由 schemaOf 原样传递，执行阶段仍需自行校验参数。
  * @module dsh-connect-workbuddy/video-tool
  */
 
@@ -68,13 +56,9 @@ export const WORKBUDDY_VIDEO_TOOL_NAME = 'workbuddy_draw_video'
  */
 export const VIDEO_TOOL_TIMEOUT_MS = 570_000
 /**
- * 轮询自身上限，同样要短于工具上限。
- *
- * 留 30s 给"抛错 + 下载"，这样即使轮询吃满，工具层也还有时间把 `POLL_TIMEOUT`
- * 连同 task id 返回，而不是让两个 deadline 撞在一起。
- *
- * 导出只为让测试钉住"它确实更短"——这是 issue #187 第三种现象的修复本身，
- * 不是实现细节。
+ * 轮询上限比工具执行上限短 30 秒，为下载和返回错误预留时间。
+ * 即使轮询用尽预算，也应能返回带 task id 的 POLL_TIMEOUT。
+ * 导出该常量用于验证两个超时预算的关系，见 issue #187。
  */
 export const VIDEO_POLL_BUDGET_MS = 540_000
 /** 媒体模型目录的缓存时长：目录变化很慢，不必每次都重新读一遍。 */
@@ -177,7 +161,9 @@ function describeArgType(value: unknown): string {
   return typeof value
 }
 
-/** 本工具真正认的参数——与 `parameters.properties` 一一对应。 */
+/**
+ * 受支持的参数集合，与 parameters.properties 保持一致。
+ */
 const ALLOWED_ARGS: ReadonlySet<string> = new Set([
   'prompt',
   'image',
@@ -190,16 +176,9 @@ const ALLOWED_ARGS: ReadonlySet<string> = new Set([
 ])
 
 /**
- * 拒掉 schema 里没有的参数。
- *
- * `additionalProperties: false` 只是写在 schema 里给模型看的：宿主把 `parameters`
- * 原样投影、不代校验，execute 照样会收到从别的生图工具串过来的字段——
- * `size: '1024x1024'`（生图的）、`ratio` / `n` / `return_base64`（agnes 的）、
- * `quality` / `style` 之类。静默忽略的后果是模型以为横竖版生效了，实际出的是
- * 默认 16:9，而视频按次扣积分、一次几十秒，错一次代价很高。
- *
- * 注意 `aspect_ratio` 是本工具**真有**的参数，与生图的 `size` 是同一件事的两种
- * 写法：不要因为生图没有 `aspect_ratio` 就把它也拒掉。
+ * 拒绝 schema 未声明的参数。DSH 不代为执行 additionalProperties 校验。
+ * 不静默忽略来自其他工具的 size、ratio、n、quality 等参数，避免用户要求未生效仍产生费用。
+ * aspect_ratio 是本工具支持的比例参数，应保留。
  */
 function rejectUnknownArgs(record: Record<string, unknown>): void {
   const unknown = Object.keys(record).filter(key => !ALLOWED_ARGS.has(key))
@@ -216,14 +195,9 @@ function rejectUnknownArgs(record: Record<string, unknown>): void {
 }
 
 /**
- * 可选参数的严格读取族：undefined/null/空串 → 未提供（走默认值）；
- * 类型不对 → INVALID_ARGS，绝不静默丢掉。
- *
- * 旧行为（`asNumber`/`asBoolean` 式的"类型不对就当没给"）与生图工具
- * `image: [...] 被丢掉切回文生图` 是同一族错误：`seconds: "10"` 安静地
- * 出 5 秒的片、`model: ["kling-video-v3"]` 安静地换了模型扣积分。调用方
- * 写了参数就要么被尊重、要么被明说——类型写错就报错，不要替它猜默认值。
- * 这些校验都发生在「发请求」之前：不花积分、不进冷却。
+ * 严格读取可选参数：undefined、null 和空字符串视为未提供，使用默认值；
+ * 其他类型不符的值返回 INVALID_ARGS，避免擅自改变时长或模型。
+ * 校验发生在生成请求前，失败时不进入冷却。
  */
 function strictString(value: unknown, name: string): string | undefined {
   if (value === undefined || value === null) return undefined
@@ -259,14 +233,9 @@ function strictBoolean(value: unknown, name: string): boolean | undefined {
 }
 
 /**
- * 输入图参数：字符串 → 照旧；单元素字符串数组 → 解包（与字符串等价，宽容
- * 模型侧常见的数组写法）；undefined/null/空串 → 未提供（文生视频）。
- * 其余 → INVALID_ARGS。
- *
- * 为什么不收多图数组：图生视频上游只吃**单张** `image_url`，不像图生图的
- * `/v2/images/edits` 收数组。调用方传多张时它以为自己在做多图参考——
- * 静默取第一张或静默全丢都是撒谎，必须明说；生图工具那种「数组被丢掉、
- * 模式悄悄切成文生」的 bug 在这里被钉死不再发生。
+ * 输入图接受字符串或单元素字符串数组；undefined、null 和空字符串表示文生视频。
+ * 图生视频的上游接口只接受单张 image_url，因此多图数组及其他无效类型返回 INVALID_ARGS。
+ * 不静默取第一张，也不丢弃输入图后切换成文生视频。
  */
 function asVideoImageInput(value: unknown): string | undefined {
   if (value === undefined || value === null) return undefined
@@ -317,9 +286,9 @@ const BILLABLE_FAILURE_CODES: ReadonlySet<string> = new Set([
 ])
 
 /**
- * 是否该进冷却——由「这一次到底有没有把生视频请求发出去」决定。
- * 读目录 / 选模型 / 参数校验全在「发请求」之前，失败了不花积分、不冷却。
- * 一旦调用 `submitVideo`，请求可能已被计费，后续轮询或下载失败同样进入冷却；请求发出不等于已证实扣费。
+ * 结合 sent 标志和错误码判断是否进入冷却。
+ * 目录读取、模型选择与参数校验失败时，尚未提交生成请求，不进入冷却。
+ * 提交后的轮询或下载失败可能已产生费用；请求发出本身不能证明已经扣费。
  */
 function isBillableFailure(error: unknown, sent: boolean): boolean {
   if (!sent) return false
@@ -329,27 +298,10 @@ function isBillableFailure(error: unknown, sent: boolean): boolean {
 }
 
 /**
- * 把任意形态的输入图规整成 data URL。
- *
- * ## 为什么 http(s) 也要下载下来（issue #187）
- *
- * 这里以前只发一个 `HEAD` 做触发条件校验，然后把 URL **原样**交给上游。两个问题：
- *
- * 1. **`HEAD` 会被 COS 拒绝。** 插件自己出图返回的是腾讯 COS 签名 URL
- *    （`ai-corpus-backup-*.cos.ap-beijing.myqcloud.com`），签名只覆盖 `GET`。
- *    对它发 `HEAD` 拿到 **403**，于是用户在"用上一张成功的图做首帧"这条最自然的
- *    路径上卡死——而那个 URL 用 `curl` 明明取得到。报错因此指向了错误的对象：
- *    用户以为是自己的图有问题。
- * 2. **上游不接受外链。** 即使 HEAD 通过，图生视频的 `image_url` 与图生图的
- *    `image` 是同一条规则（PR #145 记录过："image 必须是 data URI，传 COS 原始
- *    URL → invoke model error"）。原样传 URL 只是把失败推迟到上游，并且那时已经
- *    提交了任务，可能产生费用。
- *
- * 所以这里与 `image-tool.ts` 的 `resolveImageInput` 采用相同处理方式：**下载并编码成
- * data URL**。这也顺带让签名过期、上游改域名的场景在本地就报出可读的错，而不是
- * 变成提交生成请求后才发现的 `TASK_FAILED`。
- *
- * 仍然不做缩放或格式转换——用户给什么就传什么，只改承载形式。
+ * 将输入图统一转换为 data URL。
+ * HTTP(S) 图片先通过 GET 下载：COS 签名可能只覆盖 GET，额外的 HEAD 请求会返回 403，见 issue #187。
+ * 上游不接受图片外链，直接转发 URL 会使输入问题延迟到任务提交后才暴露，可能产生费用。
+ * 下载后只改变承载形式，不缩放图片或转换格式。
  */
 async function resolveVideoImageInput(value: string, signal?: AbortSignal): Promise<string> {
   const text = value.trim()
@@ -373,9 +325,7 @@ async function resolveVideoImageInput(value: string, signal?: AbortSignal): Prom
     let response: Response
     try {
       response = await fetch(text, {
-        // `GET` 而不是 `HEAD`：COS 签名只覆盖 GET，对签名 URL 发 HEAD 会拿到
-        // 403（issue #187 的第二种现象）。既然无论如何都要下载，就不再单独
-        // 打一次 HEAD——那是两次往返换一个"存在"的布尔，还换来了假 403。
+        // 使用 GET 下载图片，不额外发送 HEAD；COS 签名可能只覆盖 GET，见 issue #187。
         signal: signal ?? AbortSignal.timeout(VIDEO_INPUT_TIMEOUT_MS),
       })
     } catch (error: unknown) {
@@ -420,10 +370,8 @@ async function resolveVideoImageInput(value: string, signal?: AbortSignal): Prom
 }
 
 /**
- * 文件大小与空文件检查——所有输入图都从这里过，所以「空文件」和「超过 8 MB」
- * 的文案只有一份。与 `image-tool.ts` 的 `assertInputImageBytes` 同逻辑。
- *
- * `byteLength` 必须是解码后的字节数：base64 比原始字节长约 4/3。
+ * 统一检查输入图的空内容和 8 MB 限制，与 image-tool.ts 保持一致。
+ * byteLength 必须使用 Base64 解码后的字节数。
  */
 function assertVideoInputImageBytes(byteLength: number, source: string): void {
   if (byteLength === 0) {
@@ -454,13 +402,10 @@ export function createVideoTool(deps: VideoToolDeps): VideoToolDefinition {
   let mediaCache: { readonly at: number; readonly models: readonly WorkBuddyMediaModel[] } | undefined
   let cooldownUntil = 0
   /**
-   * 上游在拒绝一次提交时顺带告诉我们的「这个模型支持几秒」。
-   *
-   * 目录里没有 `videoGeneration` 的账号（实测国内区部分账号的 `/v3/config`
-   * 条目只有 `{id,name,tags}`）本地无从校验，只能让上游先拒一次。它拒的时候
-   * 会把区间写在文案里，这里记下来：同一个进程里第二次给同样的越界值，就在本地
-   * 被 `resolveVideoParams` 拦下——零请求、零冷却。键带上区域名，因为模型 id
-   * 不跨区（同名 id 在两个区可能是不同模型）。
+   * 缓存上游最近一次拒绝响应中给出的模型时长范围。
+   * 部分账号的模型目录不含 videoGeneration，此时首次提交仍由上游校验。
+   * 获得范围后，同进程内再次提交相同越界值时由 resolveVideoParams 提前拒绝，不进入冷却。
+   * 缓存键包含区域和模型 id，避免同名模型跨区共用限制。
    */
   const learnedSeconds = new Map<string, { readonly minSeconds: number; readonly maxSeconds: number }>()
   const secondsKey = (domain: string, modelId: string): string => `${domain}|${modelId}`
@@ -485,8 +430,8 @@ export function createVideoTool(deps: VideoToolDeps): VideoToolDefinition {
       + '本工具只有 prompt、image、model、seconds、resolution、aspect_ratio、'
       + 'negative_prompt、enable_audio 八个参数：没有 size / ratio / n / return_base64 / '
       + 'quality / style 之类的字段，塞进来会直接报错。'
-      + '时长用 seconds、横竖用 aspect_ratio（16:9 / 9:16 / 1:1）、清晰度用 resolution'
-      + '——用户提这类要求时改这些参数，不要只在 prompt 里写「横版」「竖版」。'
+      + '时长使用 seconds，比例使用 aspect_ratio（16:9 / 9:16 / 1:1），清晰度使用 resolution。'
+      + '用户指定时长、比例或清晰度时，填写对应参数。'
       + '可选参数要么不填、要么类型正确；填错类型直接 INVALID_ARGS 且不发请求，'
       + '不会静默丢参数或切换模式。'
       + '国内区与国际区都可用，模型取自该区产品配置里带 video tag 的条目。'
@@ -623,8 +568,7 @@ export function createVideoTool(deps: VideoToolDeps): VideoToolDefinition {
       const requestedAspectRatio = strictString(record['aspect_ratio'], 'aspect_ratio')
       const requestedNegativePrompt = strictString(record['negative_prompt'], 'negative_prompt')
       const requestedEnableAudio = strictBoolean(record['enable_audio'], 'enable_audio')
-      // 模式由「有没有给输入图」唯一决定（同生图工具的思路：不增加 mode 参数）。
-      // 类型不对的 image 必须报错而不是当成「没给图」——见 asVideoImageInput。
+      // 根据是否提供输入图确定生成模式。无效 image 类型须报错，不能视为未提供。
       const image = asVideoImageInput(record['image'])
 
       const now = Date.now()
@@ -651,7 +595,7 @@ export function createVideoTool(deps: VideoToolDeps): VideoToolDefinition {
         ? AbortSignal.timeout(VIDEO_TOOL_TIMEOUT_MS)
         : AbortSignal.any([exec.signal, AbortSignal.timeout(VIDEO_TOOL_TIMEOUT_MS)])
 
-      // 这一次到底有没有把生视频请求发出去——冷却的唯一判据。
+      // 记录是否已调用提交接口；冷却还需结合错误码判断。
       let sent = false
       // 选中的模型要活到 catch 里：上游拒绝时得知道是哪条模型的区间，好记下来。
       let chosen: WorkBuddyMediaModel | undefined
@@ -673,8 +617,7 @@ export function createVideoTool(deps: VideoToolDeps): VideoToolDefinition {
         }
         chosen = model
 
-        // 校验用的时长区间：以目录给的 `videoGeneration` 为底；上游上一次拒绝时
-        // 自报的区间（learned）存在就覆盖它——那是比目录更晚的事实。
+        // 优先使用最近一次上游拒绝响应中的时长范围；没有该记录时使用目录配置。
         const learned = learnedSeconds.get(secondsKey(credential.domain, model.id))
         const modelConfig = learned === undefined
           ? model.videoGeneration
@@ -701,7 +644,7 @@ export function createVideoTool(deps: VideoToolDeps): VideoToolDefinition {
           aspectRatio: resolved.aspectRatio,
           enableAudio: requestedEnableAudio,
         }
-        // 真正的请求从这里开始——置位 sent，此后失败按错误码决定冷却，不能仅凭 sent 认定扣费。
+        // 提交前设置 sent，后续按错误码判断冷却。sent 不代表已证实扣费。
         sent = true
         const submission = await deps.submitVideo(credential, request, signal)
         const outcome = await deps.pollVideoTask(credential, submission.taskId, signal)

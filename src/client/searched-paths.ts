@@ -1,21 +1,9 @@
 /**
- * Presentation rules for the signed-out card's probed-path list.
- *
- * 参考：dingminhua/dsh-connect-trae（MIT，Copyright (c) 2026 LaoDing）
- *   — 「未登录时把探测过的路径与失败原因列给用户，而不是只说一句 not signed
- *     in」这一做法来自该项目（`auth.ts` 的 `diagnose()` →
- *     `TraeUsageCard` 的 `<details>` 块）。此处沿用其思路。
- * 改动：1. 原因多一档 `encrypted`（见下）；
- *   2. 探测结果按「值得先看 / 只是不存在」分组，而不是全部平铺 ——
- *      普通机器上多数候选路径都是「不存在」，平铺会把真正解释失败的那一条
- *      淹掉；trae 的 `row.searchedMore` 文案定义了却从未接上，这里真正实现。
- *
- * Kept out of `WorkBuddyCard.tsx` — and free of any browser-only import — so the
- * grouping and labelling rules can be unit-tested directly. The card is a
- * `.tsx` component whose module graph pulls DSH's browser packages, which cannot
- * load in the Node test environment (there is no jsdom or react-dom here); the
- * rules below are exactly the part that must not go untested.
- *
+ * 组织未登录卡片中的路径探测结果。
+ * 参考 dingminhua/dsh-connect-trae 的 diagnose 与 TraeUsageCard，遵循 MIT，Copyright (c) 2026 LaoDing。
+ * 除路径外还显示失败原因，并增加 encrypted 分类。
+ * 优先显示值得检查的结果，将不存在的候选路径放入可展开分组，避免关键信息被掩盖。
+ * 本模块不依赖浏览器包，使分组和标签规则可在 Node 环境直接测试。
  * @module dsh-connect-workbuddy/client/searched-paths
  */
 

@@ -2,13 +2,13 @@
  * The card's OAuth QR sign-in section: one resting bar row plus a dialog
  * opened by the sign-in button.
  *
- * 参考：workbuddy2api-panel 的「添加账号」弹窗交互形态 —— 静态入口一行，
+ * 参考 workbuddy2api-panel 的添加账号弹窗，提供固定入口，
  *   点开后弹窗内分步走：获取授权链接 → 自动打开浏览器 → 弹窗内显示链接
  *   与等待状态 → 完成/失败回填结果。本实现沿用该步骤划分；弹窗样式直接
  *   用本项目导出/导入弹框的类（dsm-workbuddy-transfer-dialog），不引入
  *   第二套视觉。
  * 改动：自动打开浏览器。弹窗拦截的规避方式是「用户手势内同步 window.open
- *   占位，拿到授权 URL 后再导航」——点击「获取授权链接」的那一刻浏览器
+ *   占位，取得授权 URL 后再导航」。点击「获取授权链接」时，浏览器
  *   仍认定这是用户激活的手势链，占位窗口不会被拦；若 Host 环境连占位都
  *   拦（返回 null），改为弹窗内手动「打开登录页」链接，功能不损失。
  *

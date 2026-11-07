@@ -1,20 +1,14 @@
-# CN 网关备选主机（issue #220）
+# 国内版网关备选地址
 
-> 本文记录 `regions.cn.cnBase` 这一设置**为什么存在、允许什么、实测到了什么**。
-> 它是本仓库里唯一一个让用户改「请求发到哪台主机」的设置，所以每一条边界都要写清依据。
+`regions.cn.cnBase` 用于选择国内版请求使用的网关。留空时，插件使用 `https://copilot.tencent.com`。当前网络无法连接默认网关时，可以填写其他允许的 HTTPS 地址。
 
-## 问题
+## 1. 问题来源与验证范围
 
-企业网络按 **TLS ClientHello 的 SNI** 做黑名单时，`copilot.tencent.com`、`www.workbuddy.cn`、
-`www.codebuddy.cn` 三个 CN 品牌主机都连不上——**TCP 可连通，带这些 SNI 的 ClientHello 被即时 RST**，
-`ECONNRESET`，耗时 <100ms。而同一台机器上的 WorkBuddy 桌面客户端**正常**，因为它读自己配置里的
-failover 列表（`~/.workbuddy/failover.json` 的 `trustedOrigins`），其中还有 `wb.tencentbuddy.com`。
+issue #220 的报告者遇到企业网络连接重置：TCP 可以连接，但发送特定 TLS SNI 后收到 RST，错误为 `ECONNRESET`，耗时小于 100ms。受影响的主机包括 `copilot.tencent.com`、`www.workbuddy.cn` 和 `www.codebuddy.cn`。同机 WorkBuddy 桌面端仍可使用，其 `~/.workbuddy/failover.json` 中的 `trustedOrigins` 包含 `wb.tencentbuddy.com`。
 
-改 hosts 绕不过去（拦截只看 SNI 与解析无关，且证书 SAN 不含被拦域名），所以**只能改代码**。
+这是该报告中的网络现象。连接快速失败本身不足以判断其他网络也存在同一问题。按报告中的拦截方式，修改 hosts 无法改变 TLS SNI，因此插件增加了网关地址设置。
 
-## 实测（2026-11-06，macOS，非受限网络）
-
-九条 CN 路由，`wb.tencentbuddy.com` 与 `copilot.tencent.com` 的**状态码逐条相同**：
+上游维护者于 2026-11-06 在 macOS 的非受限网络中比较了以下路由。此处保留当时的结果，未将其作为本次重新实测的结果。
 
 | 路由 | copilot.tencent.com | wb.tencentbuddy.com |
 | --- | --- | --- |
@@ -28,75 +22,49 @@ failover 列表（`~/.workbuddy/failover.json` 的 `trustedOrigins`），其中�
 | `POST /v2/billing/meter/daily-checkin` | 401 | 401 |
 | `POST /billing/meter/compensation-status` | 401 | 401 |
 
-`/v3/config` 的 252 字节信封在 **四个 CN 主机**上逐个相同（`wb.tencentbuddy.com`、
-`copilot.tencent.com`、`www.codebuddy.cn`、`www.workbuddy.cn`）——这就是「同构主机」的直接证据，
-也解释了为什么 `src/upstream.ts` 里早有一条注释说这些主机「逐字节同答」。
+当时四个主机的 `/v3/config` 均返回相同的 252 字节信封：`wb.tencentbuddy.com`、`copilot.tencent.com`、`www.codebuddy.cn`、`www.workbuddy.cn`。桌面端配置中的备选地址也支持增加此设置。
 
-本机 `~/.workbuddy/failover.json` 的 `trustedOrigins` 同时列出这三个 CN 主机，与上面的测量一致。
+这些结果证明上述主机在当次检查中返回了对应路由的响应；其中的 401 和 400 不能证明登录后的全部操作已成功。受限网络中备选地址可用的结果来自报告者，上游维护者未复现该网络环境。
 
-**档位**：以上是**实测**（本机 curl，非受限网络）。**受限网络下 wb 可用**这一点来自 issue 报告者，
-本仓库**未复现**——那种网络不在维护者机器上。设置本身不依赖复现：它只是让用户把主机指到别处。
+## 2. 地址校验
 
-## 允许什么
-
-`src/cn-gateway.ts` 的允许清单按**可注册域**匹配：
+`src/cn-gateway.ts` 的 `resolveCnGateway` 统一校验设置值。地址必须使用 HTTPS，主机名必须等于下列域名之一，或以点号分隔的子域名形式属于其中之一：
 
 - `copilot.tencent.com`
-- `tencentbuddy.com`（含 `wb.` 与任意子域）
+- `tencentbuddy.com`
 - `workbuddy.cn`
 - `codebuddy.cn`
 
-必须是 **https**；路径、查询、锚点、userinfo 全部丢弃（只保留主机名）。
+例如，`wb.tencentbuddy.com` 可用；`tencentbuddy.com.evil.example` 不符合规则。实现使用完整主机名相等或 `'.' + domain` 后缀匹配，避免放行名称相似的其他域名。
 
-## 为什么是允许清单，不是「任意 URL」
+解析后仅保留小写主机名并添加 `https://`。输入中的端口、用户信息、路径、查询和锚点均不保留。
 
-这个 base 会被拼到每一条带 `Authorization: Bearer <token>` 的 CN 请求前面，也包括 refresh token 交换。
-**一个自由的 base 就是一枚凭据外泄原语**：能改设置的人（同步的 profile、共享的 dotfile、论坛上抄来的
-「修复」）就能把活的 WorkBuddy token 重定向到自己的主机，而且**看不出坏了**——请求照样成功。
+国内版请求包含访问凭据，刷新接口还会发送刷新凭据。因此，允许用户填写任意服务器地址可能导致凭据被发送到第三方服务器。允许域名清单用于限制凭据的发送目标，新增域名时需核对实际服务用途。相关测试见 `tests/cn-gateway.spec.ts`。
 
-所以允许清单是安全边界，不是便利。`tests/cn-gateway.spec.ts` 里真正吃重的是几个近似域用例：
-`tencentbuddy.com.evil.example` 必须被拒，而这正是手写 `endsWith('tencentbuddy.com')` 会放过的形状。
+## 3. 生效范围
 
-## 什么跟着变、什么不变
+保存后，国内版的聊天、模型目录、繁忙状态查询、生图、生视频、签到、积分和权益领取请求使用所选网关。账号和计费区域保持不变。
 
-**跟着变**：chat、模型目录、busy 探测、生图/生视频、签到、积分、领取权益——所有 CN 出口。
+`Origin` 和 `Referer` 继续使用国内版网页端地址。这两个请求头用于标明网页应用来源，网关地址用于确定连接目标，两者由不同规则生成。
 
-**不变**：
+国际版不使用此设置。国际版凭据与对应品牌网关绑定，国内版备选地址不能用于替换国际版网关。
 
-- `Origin` / `Referer`：它们回答的是「这个请求自称来自哪个网页应用」，与连到哪台主机无关。
-  从覆盖值改写会让身份自述自相矛盾，而网关正是按「CN 网页端」读它们的。
-- **国际版**：全球 token 按品牌绑定（`codebuddy.ai` 的 token 被 `workbuddy.ai` 网关拒绝，反之亦然），
-  没有「换一个同构主机」这回事。所以该设置**只作用于 CN**，国际版 tab 上连控件都不渲染。
-- 账号与区域：这是连接层的事，不改计费对象。
+## 4. 插件与诊断命令
 
-## 三条入口，一套校验
+| 使用场景 | 配置来源 |
+| --- | --- |
+| 卡片「能力」栏保存网关 | `regions.cn.cnBase` |
+| 插件发送国内版请求 | 每次请求读取 `regions.cn.cnBase` |
+| `doctor` 诊断命令 | `WORKBUDDY_CN_BASE` 环境变量 |
 
-| 入口 | 读什么 | 谁用 |
-| --- | --- | --- |
-| 卡片「能力」栏的输入框 | `regions.cn.cnBase` | 用户 |
-| 每一条 CN 请求 | 同上，**每次现读** | 运行中的插件 |
-| `doctor` | `WORKBUDDY_CN_BASE` 环境变量 | CLI |
+`doctor` 运行在独立进程中，不加载插件设置。使用备选网关排查连接时，需为诊断命令设置对应的 `WORKBUDDY_CN_BASE`，使检查目标与插件一致。三个入口均调用 `resolveCnGateway` 校验地址。
 
-为什么 `doctor` 要单独用环境变量：它跑在自己的进程里，**从不加载插件设置**——这也是
-`WORKBUDDY_DEVICE_TOKEN_FILE` 早就存在的同一个原因。没有它，用户修好网络后跑 `doctor`，
-拿到的报告是**对着他那张网络会重置的网关**测的；一个谎报「我探了哪台主机」的诊断工具比没有更糟。
+插件通过 `cnBase?: () => string` 读取器获取当前值，每次发送请求时重新读取。因此，在卡片保存有效地址后，后续请求立即使用新地址，无需重启插件。
 
-三条入口都走 `resolveCnGateway`，所以**校验规则不可能分叉**。
+## 5. 无效配置的处理
 
-## 每次现读，不是构造期采样
+卡片拒绝保存无效地址，并分别提示地址格式、HTTPS 协议或域名不符合要求。
 
-`regions` 是 volatile 字段，用户在卡片上保存后不重启插件。若在构造期采样一次，
-改设置就只有重启才生效——而「填了没反应」恰好是本设置唯一的用途。所以 client 收的是
-**读取器**（`cnBase?: () => string`），不是值。
+若配置文件中已有无效值，请求层会记录警告并恢复使用默认网关，以保留聊天功能。同一个无效值只警告一次，避免每次请求重复写入日志。
 
-## 失败时怎么表现
-
-**卡片**：非法值**拒绝保存**，并按具体规则说明（「不是完整 URL」/「只接受 https」/「不是 CN 品牌主机」）。
-三种规则需要三种不同的修法，一句笼统的「无效」等于没说。
-
-**Host**：配置里若有一个通不过校验的值（手改的、旧版本写的、同步弄坏的），请求层**退回内置网关并记一条
-warn**，且**同一个值只警告一次**——这条路径在每一次请求上，不能把一次误配置变成每个请求一条日志。
-退回而不是抛，是因为抛会打断聊天。
-
-**诊断栏**：报告的是**解析后生效的值**，不是保存的原始字符串。一个保存了但校验失败的值仍然走内置网关，
-回显原文就会告诉用户「你的覆盖已生效」——而实际上每个请求都去了别处。
+诊断栏显示解析后实际生效的网关。配置值校验失败时，诊断栏显示默认网关，便于核对实际请求目标。

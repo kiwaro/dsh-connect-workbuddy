@@ -1,19 +1,9 @@
 /**
- * Verified writes of the per-region account slot.
- *
- * 参考：DSH 自带插件卡片（`@deepseek-ai/dsh-client-ui-settings-plugins`
- *   的 `CardForm.store()`）— 「写入后重新读取用户层并与写入值比对」这一校验形态，
- *   是本模块 `writeAccountSlot()` 的出发点。
- * 改动：针对账号绑定字段调整 —— 重新读取的是**解析后的 section**而非 user 层
- *   （DSH 的 legacy 归属也读它，两者必须同源），并用精确比较区分 `''`（哨兵清除）
- *   与 `undefined`（键缺失），因为后者会让区域重新回退到旧版 `accountId`。
- *
- * Kept out of `WorkBuddyCard.tsx` — and free of any browser-only import — so
- * the write contract can be unit-tested directly. The card is a `.tsx`
- * component whose module graph pulls DSH's browser packages, which cannot load
- * in the Node test environment; the check below is exactly the part that must
- * not go untested.
- *
+ * 校验区域账号绑定的写入结果。
+ * 参考 DSH CardForm.store 的写后重读流程，但此处重读解析后的 section，
+ * 以便与 DSH 读取旧版账号归属的路径保持一致。精确区分空字符串与 undefined：
+ * 前者清除绑定，后者表示字段缺失并允许回退到旧版 accountId。
+ * 本模块不引入浏览器依赖，便于在 Node 环境直接验证写入约定。
  * @module dsh-connect-workbuddy/client/account-selection
  */
 

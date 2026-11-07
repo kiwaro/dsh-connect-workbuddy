@@ -562,13 +562,13 @@ export const en = {
   'row.cliBridgeLabel': 'Let the local CodeBuddy CLI do the work',
   'row.cliBridgeHint': 'Adds the codebuddy_ask tool and the /codebuddy command. Each call spends CodeBuddy quota. injectResult only affects /codebuddy — its result is injected back into the session, costing one DSH turn when the session is idle; tool calls never read it. Rate-limited: 6 turns per session per hour, 20 per process per hour, one turn at a time. Off by default.',
   'row.cnBaseLabel': 'CN gateway host',
-  'row.cnBaseHint': 'Leave empty to use copilot.tencent.com. Set it only if your network resets that host by TLS SNI (connection fails in milliseconds while the WorkBuddy desktop app still works) — the app itself falls back to wb.tencentbuddy.com. Accepted hosts: any subdomain of copilot.tencent.com, tencentbuddy.com, workbuddy.cn or codebuddy.cn, over https. Chat, billing, catalog and check-in all follow it; your account and region do not change.',
+  'row.cnBaseHint': 'Leave empty to use copilot.tencent.com. If that gateway is unreachable on your network, enter an alternative HTTPS address. Accepted domains are copilot.tencent.com, tencentbuddy.com, workbuddy.cn and codebuddy.cn, including their subdomains. The plugin uses the selected gateway for CN chat, billing, model catalog and check-in requests. Your account and region stay the same.',
   'row.cnBasePlaceholder': 'https://wb.tencentbuddy.com',
   'row.cnBaseInvalidMalformed': 'That is not a full URL. Include https:// and the host, e.g. https://wb.tencentbuddy.com',
-  'row.cnBaseInvalidInsecure': 'Only https is accepted — a plaintext host would send your token in the clear.',
-  'row.cnBaseInvalidHost': 'That host is not one of the CN brands. Use a subdomain of copilot.tencent.com, tencentbuddy.com, workbuddy.cn or codebuddy.cn.',
-  'row.cnBaseSaved': 'CN gateway saved. New requests use it; originals/CORS headers keep naming the CN web app.',
-  'row.cnBaseCleared': 'Back to the built-in CN gateway.',
+  'row.cnBaseInvalidInsecure': 'Enter an HTTPS address to protect your login credentials during transmission.',
+  'row.cnBaseInvalidHost': 'Use copilot.tencent.com, tencentbuddy.com, workbuddy.cn or codebuddy.cn, or a subdomain of one of these domains.',
+  'row.cnBaseSaved': 'CN gateway saved. New requests use the selected gateway.',
+  'row.cnBaseCleared': 'Restored the default CN gateway.',
   'row.diagCnBase': 'CN gateway',
   'row.diagCnBaseDefault': 'built-in (copilot.tencent.com)',
   'row.sidebarPanelLabel': 'Show WorkBuddy in the sidebar',
@@ -643,8 +643,8 @@ export const en = {
   // newly listed upstream. On a fresh install every id is first-seen, so the
   // switch is off until someone asks for it.
   'row.showNewModels': 'Show newly seen models',
-  'row.showNewModelsHint': 'Adds a "· N new models" segment beside the credit readout, and a "new" mark on those rows in the model picker. "New" means this machine recorded the model id for the first time — it says nothing about when the upstream listed it. Off by default: on a new install the whole roster is "new".',
-  'row.showNewModelsHintInline': 'First seen by this machine, not newly listed upstream. Off by default — on a new install the whole roster counts as new.',
+  'row.showNewModelsHint': 'Shows the number of new models beside the credit readout and marks them in the model picker. Only models in the current catalog first recorded on this machine within the last 7 days are counted. This timestamp does not indicate when the model was released. Off by default because all models are recorded for the first time on a new install.',
+  'row.showNewModelsHintInline': 'Counts models in the current catalog first recorded on this machine within the last 7 days. Off by default because every model is first recorded on a new install.',
   // The supplement to a quota failure (issue #63), rendered as an INLINE
   // PARENTHETICAL in the conversation — one short clause, no dialog, no button.
   // The plugin no longer claims the `shell.quota-notice` chain seat, so this is
@@ -707,7 +707,7 @@ export const en = {
   'composer.newModelsRow': 'Models discovered in the last 7 days',
   'composer.newModelsTitle': 'Models discovered in the last 7 days: ',
   'composer.newModelsSep': ', ',
-  'composer.newModelsNote': '"New" means this machine recorded the model id for the first time; it says nothing about when the upstream listed it. Only active models first seen within the last 7 days are shown. Returning models keep their original timestamp.',
+  'composer.newModelsNote': 'Only models in the current catalog first recorded on this machine within the last 7 days are shown. This timestamp does not indicate when the model was released. Returning models keep their original timestamp.',
   'sidebar.creditsCn': 'WorkBuddy - CN credits',
   'sidebar.creditsGlobal': 'WB AI credits',
   'sidebar.refresh': 'Refresh',
@@ -751,7 +751,7 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   "row.tabHint": "国内版和国际版可同时启用。切换上方版本页签，可分别查看和管理各版本的账号、积分和模型。",
   // 免费（×0）模型**不是无限量**：上游按**单次请求体积**限流（6004，实测约 25k token
   // 通过、约 30k 被拒）并按**模型侧负载**限流（14003）。两者都不是插件能读到的
-  // 「时间段内累计 token 定额」——上游没有这个字段——所以这句只说限制存在，不声称
+  // 累计 token 定额。上游没有提供该字段，因此提示只说明已知限制，不声称
   // 插件无法验证的机制。与 `tabHint` 分开、且加粗显示，因为它要防的误读代价很高：
   // 以为 ×0 = 无限用的人，会把 6004 读成「插件坏了」而不是「这个请求太大/太忙」。
   'row.tabFreeQuotaWarn': "免费模型也可能遇到上游请求限制或服务繁忙。",
@@ -801,8 +801,8 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   'row.accountsHint': "插件列出桌面端、插件登录和导入的账号，请在此选择要使用的账号。",
   'row.accountsRescan': '重新检测账号',
   'row.accountsScanning': '正在检测…',
-  // 首屏加载中的提示（issue #77）。它取代的正是「未登录」那段说明——
-  // 那一段在用量接口返回前一直显示，让已登录的用户以为自己没登录。
+  // 用量接口返回前显示加载状态。原先在此阶段显示「未登录」，会让已登录用户误判
+  // 账号状态；issue #77 记录了这一问题。
   'row.accountsLoading': '正在加载账号…',
   'row.accountsWriteFailed': "账号设置保存失败，插件继续使用原账号。请检查配置文件权限和文件占用后重新保存。错误：{message}。文件路径见 docs/WINDOWS.md。",
   'row.selectionLostHint': "插件无法读取已保存账号的有效登录凭据。",
@@ -835,7 +835,7 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   // 自己未保存的改动藏到折叠后面，而界面上什么都不说。
   'row.modelsDirty': '有未保存的修改',
   // 标题行中间的淡色提示。它说的是「此刻能做的动作」，因此读起来像一句指引，
-  // 而不是区块的标签——写成固定的「展开或收起」会让读者自己去想该按哪个。
+  // 提示需对应当前可执行的动作，帮助用户判断点击后会展开还是收起。
   'row.modelsRefresh': '从 WorkBuddy 刷新',
   'row.modelsRefreshing': '正在刷新模型…',
   'row.discard': '放弃修改',
@@ -970,16 +970,12 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   'row.poolTitle': '账号池',
   'row.poolNoCandidate': '账号池里目前没有可用的账号。',
   'row.poolNoCandidateHint': "账号可能处于限流冷却、积分耗尽、凭据被拒绝或连接失败状态。临时故障按服务端指定时间重试；服务端未指定时，默认等待 30 分钟。等待结束不代表上游已经恢复。凭据被拒绝时需重新登录。",
-  // 「所有成员都撞在同一个模型上」的池级结论（issue #64）。与上面那条刻意分开：
-  // 那条说的是**账号**不行，这条说的是**账号没问题、模型才是那堵墙**。没有它，
-  // 卡片上每行「模型繁忙」加起来就成了一个整体上错误的结论，用户会去找一个不存
-  // 在的坏账号 —— 正是 issue #56 报告的那场搜寻。
+  // 所有成员均因模型繁忙而失败时，单独显示模型层面的原因，见 issue #64。
+  // 若只显示账号均不可用，用户可能误以为需要排查账号故障；issue #56 记录了这一误判。
   'row.poolModelWideBusy': "所有账号请求的模型均繁忙。",
   'row.poolModelWideBusyHint': "请约 2 分钟后重试，或切换到负载较低的模型。",
-  // 「勾选的」而不是「所有」：这两个按钮只走勾选进池的成员，而表格里
-  // 未勾选的行就摆在旁边 —— 「所有账号」会被读成「我登录过的每一个账号」，
-  // 与禁用条件（一个都没勾就置灰）和成员区那句「只有勾选的账号参与轮换、
-  // 签到与测试」都对不上。
+  // 签到和测试按钮只处理已勾选的成员，没有成员时禁用。
+  // 表格同时显示未勾选的账号，因此按钮需明确写出「勾选的账号」，避免误解处理范围。
   'row.poolCheckinAll': '签到勾选的账号',
   'row.poolCheckingIn': '签到中…',
   'row.poolTestAll': '测试勾选的账号',
@@ -1035,7 +1031,7 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   'row.remainingHours': '约 {count} 小时后',
   'row.remainingDays': '约 {count} 天后',
   // 带动词的同一时长（`recoversInText`）：账号行上单独一句「约 2 小时后」只说了
-  // 时长，没说那一刻会发生什么 —— 读起来既可能是「限流解除」也可能是别的。
+  // 时长，无法说明到时可以重试，也可能被误解为上游保证在该时刻恢复。
   // 这一行整行的职责就是回答「这个账号现在能不能用」，所以动词不能省。
   'row.recoversImminent': '即将可重试',
   'row.recoversMinutes': '约 {count} 分钟后可重试',
@@ -1147,9 +1143,8 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   'row.poolRowRemoved': "{accountName} 已从插件列表隐藏，点击「重新检测账号」可恢复。",
   'row.poolRowRemoving': '正在删除账号…',
   'row.poolRowRemoveDesktopOnly': "{accountName} 已从插件列表隐藏，桌面端仍保持登录；点击「重新检测账号」可恢复显示。",
-  // 设备头档位与逐账号齿轮。中文这几句的要点与英文一致：**「真实值」= 所有账号
-  // 共用这台机器真实的设备**，所以齿轮关掉——一台真机不可能有两个 id。只写"不可
-  // 编辑"而不写原因，用户会当成控件坏了。
+  // 本机设备模式下，各账号共用桌面 SDK 获取的设备标识，因此禁用逐账号编辑。
+  // 提示需说明标识来源和禁用原因，并保持中英文含义一致。
   'row.deviceModeTitle': "设备标识",
   'row.deviceModeVirtual': "虚拟设备",
   'row.deviceModeReal': "本机设备",
@@ -1211,7 +1206,7 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   'sdk.ageJustNow': '刚刚',
   'sdk.ageMinutes': '{count} 分钟前',
   'sdk.ageHours': '{count} 小时 {rest} 分前',
-  // 设置项（作者意见 #1 / #2）。目录这一条的每一项都要回答「留空会怎样」——
+  // SDK 目录提示需说明留空时的查找行为，回应作者意见 #1 / #2。
   // 一个空输入框最容易被读成「必须填」。
   'sdk.dirLabel': 'SDK 目录',
   'sdk.dirPlaceholder': "留空时自动查找 WorkBuddy 桌面端",
@@ -1236,8 +1231,8 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   'row.sessionTitleModel': '目标模型：',
   'row.extraPrefixesCount': "自定义上下文前缀数量：",
   // 渠道门自动续发。这段文案要同时说清三件事：它只对哪一种失败起作用、它会花掉
-  // 真实请求、上限数的是**连续**次数——因为开关默认关闭，而用户了解这些的唯一
-  // 其他途径就是配置文件。
+  // 请求额度，并说明上限按连续次数计算。开关默认关闭，用户也可从
+  // 配置文件了解这些条件。
   'row.channelRejectContinueLabel': "渠道校验拦截后自动发送「继续」",
   'row.channelRejectContinueHint': "遇到 code 11128 时，以新回合发送下方文本，每次会消耗请求额度。仅当触发拦截的内容随回合变化时可能有效。默认关闭，连续发送上限为 1 次；对话成功或用户发送消息后计数清零。仅用于主会话，修改后立即生效。",
   'row.channelRejectContinueLimit': '连续发送上限：',
@@ -1247,7 +1242,7 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   'row.sidebarPanelLabel': '在侧边栏显示 WorkBuddy',
   'row.sidebarPanelHint': "在侧边栏显示 WorkBuddy 设置入口，默认关闭。开关即时生效；关闭时，已打开的设置页会返回对话。",
   // 本地 CLI 路由的三个快调旋钮：跑哪个模型、哪个推理档位、按什么顺序
-  // 遍历凭据区域。模型列表不写死——是卡片已为当前页签同步到的目录，
+  // 遍历凭据区域。模型选项来自当前页签同步到的目录，
   // 跟随上游；已选值即使目录里没有也会原样列出，不让它无声消失。
   'row.cliBridgeModelLabel': 'CLI 模型',
   'row.cliBridgeModelDefault': 'CLI 默认',
@@ -1296,20 +1291,18 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   'row.creditPositionComposer': '输入框工具栏',
   'row.creditPositionStats': '输入框下方',
   'row.creditPositionAria': '{region} 的积分显示位置',
-  // 位置选择器的从属说明，**始终可见**：它解释的是「为什么这里还有个下拉框」，
-  // 而不是复述选项名称 —— 复述类说明只该在该行灰掉时出现，见
-  // creditPositionDisabledHint。两段文字都刻意短：它们是主开关标题下的
-  // 第二、三级文字，再长就会把主开关本身挤成次要信息。
+  // 位置说明始终可见，用于解释默认显示位置。
+  // 控件禁用时另由 creditPositionDisabledHint 提示启用条件，避免重复说明。
   'row.creditPositionHintInline': "默认显示在输入框工具栏，与模型选择同一行。",
   'row.creditPositionDisabledHint': "请先开启上方积分显示开关，再调整位置。",
   // 这一行讲「读数是什么」；下面 creditPositionHintInline 讲「选位置是什么意思」。
   // 一个控件一句说明。
   'row.showCreditsHintInline': "显示当前区域正在使用的账号余额。点击查看各账号明细，每 5 分钟自动刷新。",
-  // 额度失败的补充（issue #63），渲染成**对话里的行内括号**——一句短话，没有对话框、
+  // 额度失败提示作为对话中的行内补充显示，回应 issue #63。此处没有对话框、
   // 没有按钮。插件**不再**占用 DSH 的 `shell.quota-notice` 链座位，所以这句不再由本插件
   // 拼在 DSH 句子后面（那次占用才是把无样式 span 留在 overlay 左上角的原因）；DSH 自己画
-  // 它那句，本插件只在这句旁边补一句。措辞对 QUOTA 覆盖的**两种**情况都成立 —— 模型自己
-  // 的每日额度（与积分无关）与真的积分耗尽 —— 因为上游说的是中文散文，插件不允许解析它
+  // 主提示，本插件在旁边补充说明。QUOTA 可能指模型自身
+  // 的每日额度，也可能指积分耗尽。上游返回自然语言说明，插件不解析该文本
   // 来下政策判断。
   'quotaNotice.fallbackHead': '当前请求的额度已用尽',
   'quotaNotice.supplement': "（部分模型还设有独立的每日额度）",
@@ -1336,10 +1329,8 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   'composer.openSettings': '设置',
   'composer.openSettingsHint': '打开本插件的设置页（账号、模型、各项开关）',
   'composer.openSettingsFailed': "插件设置入口不可用",
-  // 头部的刷新按钮（在「设置」左侧）。按读者拿到的东西命名——这张表变成最新的
-  // ——而不是按机制命名（机制是一批探测）。提示必须把机制说出来：「刷新」听起来
-  // 是免费重读，而这个要花积分、要跑一分钟；让人意外掏钱的控件，比标签长一点的
-  // 控件更糟。
+  // 头部按钮位于「设置」左侧，用于测试账号并更新表格状态。
+  // 提示需说明测试消耗积分，耗时随账号数量及上游响应变化。
   'composer.refresh': '刷新',
   'composer.refreshing': '正在刷新…',
   'composer.refreshHint': "插件逐个测试当前区域账号池中已勾选并保存的账号，再更新账号状态。测试按模型费率消耗积分；总耗时随账号数量和服务端响应变化。",
@@ -1356,7 +1347,7 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   'composer.newModelsRow': "近 7 天发现的模型",
   'composer.newModelsTitle': "近 7 天发现的模型：",
   'composer.newModelsSep': '、',
-  'composer.newModelsNote': "按本机首次记录时间统计，模型暂时离开目录后再次出现不会重新计时。",
+  'composer.newModelsNote': '仅显示当前目录中、本机近 7 天首次记录的模型。首次记录时间不代表上游上架时间；模型离开目录后再次出现时，保留原记录时间。',
   'sidebar.creditsCn': 'WorkBuddy - CN 积分',
   'sidebar.creditsGlobal': 'WB AI 积分',
   'sidebar.refresh': '刷新',
@@ -1377,16 +1368,16 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   'row.channelRejectHint': '开启前请阅读重试条件。遇到渠道拒绝时，此选项可能额外发送一次请求。',
   'row.sidebarPanelLead': '选择是否在 DSH 侧边栏显示 WorkBuddy。此设置只影响导航入口。',
   'row.cnBaseLabel': 'CN 网关主机',
-  'row.cnBaseHint': '留空即用 copilot.tencent.com。只有当你的网络按 TLS SNI 重置这个域名时才需要填（连接在毫秒级就失败，而同一台机器上的 WorkBuddy 桌面端正常——客户端自己会退回 wb.tencentbuddy.com）。可填 copilot.tencent.com、tencentbuddy.com、workbuddy.cn、codebuddy.cn 任一域名下的子域，且必须是 https。聊天、计费、模型目录、签到都会跟着走；账号与区域不会变。',
+  'row.cnBaseHint': '留空时使用 copilot.tencent.com。当前网络无法连接默认网关时，可填写其他 HTTPS 地址。允许的域名为 copilot.tencent.com、tencentbuddy.com、workbuddy.cn、codebuddy.cn 及其子域名。保存后，国内版的聊天、计费、模型目录和签到请求使用所选网关，账号与区域保持不变。',
   'row.cnBasePlaceholder': 'https://wb.tencentbuddy.com',
   'row.cnBaseInvalidMalformed': '这不是一个完整 URL。请带上 https:// 与主机名，例如 https://wb.tencentbuddy.com',
-  'row.cnBaseInvalidInsecure': '只接受 https——明文主机会把你的 token 裸发出去。',
-  'row.cnBaseInvalidHost': '这个主机不在 CN 品牌里。请用 copilot.tencent.com、tencentbuddy.com、workbuddy.cn、codebuddy.cn 下的子域。',
-  'row.cnBaseSaved': 'CN 网关已保存，新请求即刻使用它；Origin/Referer 仍然自称 CN 网页端。',
-  'row.cnBaseCleared': '已回到内置 CN 网关。',
+  'row.cnBaseInvalidInsecure': '请填写 HTTPS 地址，以加密传输登录凭据。',
+  'row.cnBaseInvalidHost': '请使用 copilot.tencent.com、tencentbuddy.com、workbuddy.cn、codebuddy.cn 或其子域名。',
+  'row.cnBaseSaved': '国内版网关已保存，后续请求使用所选网关。',
+  'row.cnBaseCleared': '已恢复使用国内版默认网关。',
   'row.diagCnBase': 'CN 网关',
   'row.diagCnBaseDefault': '内置（copilot.tencent.com）',
   'row.showNewModels': '显示新出现的模型',
-  'row.showNewModelsHint': '在积分读数旁多加一段「· N 新模型」，并在模型选择器里给这些行标一个「新」。这里的「新」指**本机首次记到这个模型 id**，与上游何时上架无关。默认关闭：全新安装时整个目录都算「新」，那个数字说明不了任何事。',
-  'row.showNewModelsHintInline': '指本机首次见到，不是上游新上架。默认关闭——全新安装时整个目录都算新。',
+  'row.showNewModelsHint': '在积分旁显示新模型数量，并在模型选择器中标记这些模型。统计范围为当前目录中、本机近 7 天首次记录的模型，首次记录时间不代表上游上架时间。此选项默认关闭，因为全新安装时所有模型都会被首次记录。',
+  'row.showNewModelsHintInline': '统计当前目录中、本机近 7 天首次记录的模型。此选项默认关闭，因为全新安装时所有模型都会被首次记录。',
 }

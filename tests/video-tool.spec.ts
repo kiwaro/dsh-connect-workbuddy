@@ -490,7 +490,7 @@ describe('video tool strict argument validation', () => {
     expect(tool.description).not.toContain('minimax-video-h3')
     expect(tool.description).toContain('model 默认留空')
     expect(tool.description).toContain('八个参数')
-    expect(tool.description).toContain('不要只在 prompt 里写')
+    expect(tool.description).toContain('用户指定时长、比例或清晰度时，填写对应参数。')
   })
 
   it('schema 把 image 声明为字符串或数组，宿主才不会先于工具拒掉数组', async () => {

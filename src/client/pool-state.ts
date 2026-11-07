@@ -1,14 +1,7 @@
 /**
- * Pure decision helpers for the account pool's card section.
- *
- * 参考：`src/account-pool.ts` 的做法——把「判定规则」从组件里抽出来，让规则本身
- *   可被单测直接钉住，而不是只能通过渲染整棵组件树间接观察。
- * 改动：新增本模块，收纳三组此前内联在 `AccountPool.tsx` 里的判定。抽出它们的
- *   直接原因是**独立验证发现 H-1/H-2 两个最高危修复没有任何自动化回归测试**：
- *   内联在组件里就只能靠组件渲染验证，而渲染测试既慢又容易被隔离问题骗过。
- *
- * 本模块不 import React、不碰网络，纯函数、全函数。
- *
+ * 账号池界面的纯函数判定规则。
+ * 从 AccountPool.tsx 提取三组判定，以便直接测试 H-1/H-2 修复涉及的状态，
+ * 避免只能通过完整组件渲染间接验证。本模块不依赖 React 或网络。
  * @module dsh-connect-workbuddy/client/pool-state
  */
 

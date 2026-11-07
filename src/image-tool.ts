@@ -116,19 +116,9 @@ function asNonEmptyString(value: unknown): string | undefined {
 }
 
 /**
- * 把工具参数 `image` 规整成输入图列表。
- *
- * 返回 undefined 表示「没给图」（文生图）；字符串数组 → 多张（上游
- * `/v2/images/edits` 的 `image` 字段本来就收数组）。
- *
- * 只收数组：一张图也写成 `["/abs/path.png"]`。早先的 schema 是
- * `type: ['string', 'array']`，联合类型在只认单 type 的 function-calling 上游
- * 会被压平或整段丢掉，模型也会写出 `image: "a.png"` 这种半对半错的值；
- * 现在统一成数组，类型不对就明说，不去猜调用方想表达什么。
- *
- * 畸形输入（字符串 / 数字 / 对象 / 布尔、空数组，或数组里混了非字符串 / 空串）抛
- * INVALID_ARGS——绝不能像更早那样把「不是单个字符串」当「没给图」，那会让
- * 参考图被悄悄丢掉、工具静默退回文生图，生成的画面跟 prompt 毫无关系。
+ * 将 image 参数解析为输入图列表。未提供时返回 undefined；提供时只接受非空字符串数组。
+ * 单张图片也须放入数组，因为部分 function-calling 适配器不能正确投影联合类型。
+ * 字符串、空数组、非字符串元素等无效输入均返回 INVALID_ARGS，避免丢弃参考图后误执行文生图。
  */
 function asImageList(value: unknown): string[] | undefined {
   if (value === undefined || value === null) return undefined
@@ -166,16 +156,9 @@ function asImageList(value: unknown): string[] | undefined {
 }
 
 /**
- * 可选字符串参数（size / model）：undefined/null/空串 → 未提供；其它类型
- * （数字 / 数组 / 对象 / 布尔）→ INVALID_ARGS。
- *
- * 旧行为把类型不对的值静默丢掉、回落到默认值：`model: ["hy-image-3.0"]`
- * 会安静地用默认模型扣积分，`size: 1024` 安静地用默认尺寸——与 image 数组
- * 被静默丢掉切回文生图是同一族错误，只是后果轻些。类型写错就明说，
- * 不要替调用方猜一个默认值。
- *
- * size 还要再过一道格式关（见 {@link parseSizeSpec}）：schema 里的 pattern
- * 只是给模型的提示，宿主不代校验，真正拦住「2K」「1024」「1024*1024」的是这里。
+ * 严格读取可选字符串。undefined、null 和空字符串视为未提供，其他非字符串值返回 INVALID_ARGS。
+ * 不将错误类型替换成默认模型或默认尺寸，以免执行与调用方要求不同的计费请求。
+ * size 的格式由 parseSizeSpec 继续校验；schema 中的 pattern 不能替代执行时校验。
  */
 function strictString(value: unknown, name: string): string | undefined {
   if (value === undefined || value === null) return undefined
@@ -188,7 +171,9 @@ function strictString(value: unknown, name: string): string | undefined {
   return value.trim() === '' ? undefined : value.trim()
 }
 
-/** 「宽x高」——允许 `x` / `X` / 全角 `×`；不接受 `*`、空格、带单位。 */
+/**
+ * 尺寸允许 x、X 或全角 × 作为宽高分隔符，不接受星号、空格或单位。
+ */
 const SIZE_PATTERN = /^[0-9]+[xX×][0-9]+$/
 /** 上游实测上限：总像素约 419 万（见 docs/IMAGE_GEN.md「尺寸与比例」）。 */
 const MAX_IMAGE_PIXELS = 4_194_304
@@ -198,7 +183,9 @@ const MAX_IMAGE_EDGE = 2560
 /** 实测被上游拒绝的尺寸，报错时直接点出来，省得模型反复试。 */
 const KNOWN_BAD_SIZES: ReadonlySet<string> = new Set(['2560x2560', '3072x3072', '4096x4096'])
 
-/** 本工具真正认的参数——与 `parameters.properties` 一一对应。 */
+/**
+ * 受支持的参数集合，与 parameters.properties 保持一致。
+ */
 const ALLOWED_ARGS: ReadonlySet<string> = new Set(['prompt', 'size', 'image', 'model'])
 
 /**
@@ -220,17 +207,10 @@ function rejectUnknownArgs(record: Record<string, unknown>): void {
 }
 
 /**
- * 解析 size：必填、必须写成「宽x高」或 `auto`。
- *
- * **必填**是因为以前不填就静默按 1024x1024 出方图，模型于是学会了「什么都不写、
- * 让它自己猜」——要竖版壁纸也出方图，用户还看不出是哪一步丢的。
- *
- * 这里只管**格式**，不管范围：越界不报错，交给 {@link planImageSize} 等比收进
- * 范围（那条路要等输入图量过宽高，见那边的说明）。
- *
- * `parameters.pattern` 只是写给模型看的，宿主把 `parameters` 原样投影、不代校验，
- * execute 收到的可能是 `"2K"` / `1024`（已由 {@link strictString} 拦下）/ `"1024*1024"`。
- * 这些猜不出调用方到底想要多大的输入仍然直接 INVALID_ARGS（本地免费）。
+ * 解析必填的 size 参数，仅接受宽x高或 auto。
+ * 未提供时直接报错，避免默认方图覆盖调用方需要的画布比例。
+ * 此处只校验格式，尺寸范围和等比缩放交由 planImageSize 处理。
+ * DSH 将 parameters 原样传递，因此执行时仍需拒绝 2K、1024*1024 等无效写法。
  */
 function parseSizeSpec(value: unknown): SizeSpec {
   const raw = strictString(value, 'size')
@@ -322,8 +302,8 @@ function planImageSize(spec: SizeSpec, input: ImageDimensions | undefined): Size
  * 参数写错 / 未登录 / 目录里没有模型都还没花钱。
  */
 /**
- * 这些失败码都发生在「请求已经发出去」之后——上游可能已经扣了积分或排了队，
- * 连续重试只会把它们再花一遍，所以进冷却。
+ * 这些错误发生在生成请求发出之后，上游可能已计费或排队。
+ * 将这些失败纳入冷却，避免立即重复提交。请求发出本身不能证明已经扣费。
  */
 const BILLABLE_FAILURE_CODES: ReadonlySet<string> = new Set([
   'AUTH',
@@ -345,7 +325,9 @@ function isBillableFailure(error: unknown, sent: boolean): boolean {
   return true
 }
 
-/** 生成图片的临时目录（issue #174）——清理由 {@link pruneTempDir} 负责。 */
+/**
+ * 生成图片的临时目录，清理由 {@link pruneTempDir} 负责，见 issue #174。
+ */
 const TEMP_IMAGE_DIR = join(tmpdir(), 'workbuddy-image-gen')
 
 /** 将 Base64 图片写入临时文件，返回文件的绝对路径。 */
@@ -355,9 +337,8 @@ async function writeTempImage(b64: string, model: string): Promise<string> {
   const safeModel = model.replace(/[^A-Za-z0-9._-]+/g, '_')
   const path = join(TEMP_IMAGE_DIR, `${safeModel}-${stamp}.png`)
   await writeFile(path, Buffer.from(b64, 'base64'))
-  // 机会式清理（issue #174）：在写入之后跑，不 await——回给模型的是路径，不是清理
-  // 报告，而清理失败不该让一次成功的生成变成失败。`void` 而不是裸调用，是为了让
-  // 「这是故意不等」一眼能看出来。
+  // 写入完成后在后台清理旧文件，不等待清理结果，见 issue #174。
+  // 清理失败不应使已经成功的生成请求返回失败。
   void pruneTempDir(TEMP_IMAGE_DIR, TEMP_MEDIA_KEEP, ['.png'])
   return path
 }
@@ -379,7 +360,9 @@ interface ImageDimensions {
   readonly height: number
 }
 
-/** 输入图的朝向——改图时用它给输出画布挑档。 */
+/**
+ * 输入图方向，用于为改图选择输出画布。
+ */
 type ImageOrientation = 'landscape' | 'portrait' | 'square'
 
 /** 方图容差：长短边之差不到长边的 5% 就算方图（比如 1000x1010）。 */
@@ -402,18 +385,10 @@ const DEFAULT_SIZE_BY_ORIENTATION: Readonly<Record<ImageOrientation, ImageDimens
 }
 
 /**
- * 从图片字节里读像素宽高。
- *
- * 为什么值得自己解析：改图时 `size` 是**输出画布**，最合理的默认值由输入图的
- * 方向决定；但上游不回传输入尺寸，模型也读不到本地文件。早几版的描述要求模型
- * 「按原图比例挑一档」——那是在要求它猜，两个评审子代理都判这条不可执行。
- * 现在在把输入图读成字节的同一处顺手解出宽高，模型直接被告知真实方向。
- *
- * 只读文件头里的两个整数：不解码像素、不校验 CRC。认不出（或头不完整）就返回
- * undefined，让调用方退回方向兜底——「量不出尺寸」不该变成一次失败。
- *
- * 覆盖 PNG（IHDR）、JPEG（任一 SOF 段）、GIF（逻辑屏幕描述符）、WEBP
- * （VP8 / VP8L / VP8X 三种子格式）。
+ * 从图片文件头解析宽高，供 auto 画布计算使用。
+ * 模型无法读取本地文件，因此由插件读取实际尺寸，再告知模型所选画布。
+ * 支持 PNG、JPEG、GIF 和 WEBP；不解码像素，也不校验 CRC。
+ * 数据不足或格式无法识别时返回 undefined，调用方继续使用方向默认尺寸。
  */
 function parseImageDimensions(bytes: Uint8Array): ImageDimensions | undefined {
   const at = (index: number): number => bytes[index] ?? 0
@@ -487,7 +462,9 @@ function parseImageDimensions(bytes: Uint8Array): ImageDimensions | undefined {
   return undefined
 }
 
-/** 由宽高判方向——改图据此挑输出画布。 */
+/**
+ * 根据宽高判断图片方向，供改图选择画布。
+ */
 function orientationOf(dimensions: ImageDimensions): ImageOrientation {
   const longest = Math.max(dimensions.width, dimensions.height)
   const shortest = Math.min(dimensions.width, dimensions.height)
@@ -496,12 +473,8 @@ function orientationOf(dimensions: ImageDimensions): ImageOrientation {
 }
 
 /**
- * 取第一张**量得出宽高**的输入图的尺寸。
- *
- * 用第一张不是因为「第一张最重要」，而是因为多张横竖混用时必须有个确定的判据：
- * 描述里已经写着「多张按第一张定」，这里就跟它对齐。第一张解析不出来就顺延到
- * 下一张，总比直接放弃好——认不出格式的图（比如上游还没见过的）不该让整次改图
- * 失去参照。
+ * 按输入顺序返回第一张可解析出宽高的图片尺寸。
+ * 使用固定顺序以保证多图输入时判定一致；无法解析某张图片时继续检查下一张。
  */
 function firstDimensions(
   inputs: readonly { readonly dimensions?: ImageDimensions }[],
@@ -513,15 +486,11 @@ function firstDimensions(
 }
 
 /**
- * 按输入图的比例定输出画布（`size: "auto"`）。
- *
- * 长边固定 {@link AUTO_LONG_EDGE}、短边同比算——这是「改图别改版式」的落点：模型
- * 看不到原图多大，让它自己按比例挑档等于让它猜（1600x900 该写 2560x1440 还是
- * 1536x864？）。方图走 1024x1024：1536x1536 会顶到 235 万像素，比上游常用档大，
- * 方图的短边也没有信息增益。
- *
- * 极端比例（比 5:1 还细长）等比缩放放不进范围时，退回按方向的常用档——宁可换
- * 比例，也不能报错让用户无从下手；`exact: false` 就是用来把这句实话写进 hint 的。
+ * 按输入图比例计算 auto 输出画布。
+ * 非方图将长边设为 AUTO_LONG_EDGE，并等比计算短边；方图使用 1024x1024。
+ * 模型无法读取本地文件，因此由插件计算尺寸，避免模型猜测画布。
+ * 极端比例无法等比落入支持范围时，使用对应方向的常用尺寸，
+ * 并以 exact: false 记录比例发生变化，供 hint 向用户说明。
  */
 function canvasForInput(
   input: ImageDimensions,
@@ -545,8 +514,8 @@ function canvasForInput(
 function shrinkProduct(width: number, height: number): ImageDimensions {
   let w = width
   let h = height
-  // 各自 floor 之后乘积仍可能略超上限（2509x1673 = 4,197,557），再收一两轮即可，
-  // 循环上限只是防御——正常情况下第二轮就到位。
+  // 取整后面积仍可能超过上限，例如 2509x1673 = 4,197,557。
+  // 继续逐步减小尺寸，并设置循环上限，避免异常输入导致无限循环。
   for (let round = 0; round < 4 && w * h > MAX_IMAGE_PIXELS; round += 1) {
     const scale = Math.sqrt(MAX_IMAGE_PIXELS / (w * h))
     w = Math.floor(w * scale)
@@ -616,7 +585,9 @@ interface SizePlan {
   readonly size: string
   /** 规整成小写后的原始输入；写了 auto 就是 'auto'，没动过尺寸时不回带。 */
   readonly requested?: string
-  /** 对尺寸做过什么，原样写进 hint——模型得据实转告用户。 */
+  /**
+   * 记录尺寸调整结果，供 hint 向用户说明。
+   */
   readonly note?: string
 }
 
@@ -629,11 +600,8 @@ function isSizeInRange(width: number, height: number, normalized: string): boole
 }
 
 /**
- * 文件大小与空文件检查——四种输入形态都从这里过，所以「空文件」和「超过 8 MB」的
- * 文案只有一份。
- *
- * `byteLength` 必须是**解码后**的字节数：base64 比原始字节长约 4/3，拿字符串长度
- * 比上限度会把一个 6 MB 的图误判成超限（并在错误信息里报出一个虚高的 MB 数）。
+ * 统一检查四类输入图的空内容和 8 MB 大小限制。
+ * byteLength 使用解码后的字节数，避免将约为原始数据 4/3 的 Base64 长度误作文件大小。
  */
 function assertInputImageBytes(byteLength: number, source: string): void {
   if (byteLength === 0) throw inputImageError(`workbuddy image: 输入图是空文件：${source}`)
@@ -645,11 +613,8 @@ function assertInputImageBytes(byteLength: number, source: string): void {
 }
 
 /**
- * 把任意形态的输入图规整成上游唯一接受的形态：`data:<mime>;base64,<b64>`。
- *
- * 官方 CLI 的 `processImageInput` 收 data URL、http(s)、裸 base64、本地路径四
- * 种；这里将这四种输入归一为 data URL，**不做**缩放、裁剪、格式转换——用户给什么就传什么，
- * 免得悄悄改了输入图。
+ * 将 data URL、HTTP(S) 地址、Base64 和文件路径统一转换为上游接受的 data URL。
+ * 保持图片字节不变，不缩放、裁剪或转换图片格式。
  */
 async function resolveImageInput(
   value: string,
@@ -663,10 +628,8 @@ async function resolveImageInput(
         'workbuddy image: image 格式无效，请使用 data:image/*;base64,...。',
       )
     }
-    // 这一支以前直接 return，于是绕过了 encodeInputImage 里的空文件与 8 MB 大小检查：
-    // 一个超限的 data URL 会原样发给上游，失败后还会按「请求已发出」进 30 秒冷却
-    // ——正是「输入图的毛病都该在请求发出前报 INVALID_ARGS」要避免的那种情形。
-    // 体积要按**解码后**的字节数算（base64 比原始字节长约 4/3），不能拿字符串长度比。
+    // data URL 也必须在发送请求前检查空内容和 8 MB 限制。
+    // 按 Base64 解码后的字节数计算，避免无效输入被提交到上游并触发冷却。
     const bytes = Buffer.from(parsed.base64, 'base64')
     assertInputImageBytes(bytes.byteLength, INLINE_DATA_URL_LABEL)
     const dimensions = parseImageDimensions(new Uint8Array(bytes))
@@ -762,7 +725,7 @@ export function createImageTool(deps: ImageToolDeps): ImageToolDefinition {
       // 分段用 \n：这段文字是模型唯一的说明书，挤成一整段时尺寸规则会被淹掉。
       '用 WorkBuddy 生图或改图：一次调用只出一张图，要几张就调几次，每张单独计费。'
       + '本工具没有 seed、不存历史、不能重放：同一段 prompt 重调不保证张张一样。'
-      + '所以先判一件事，跟要几张无关——用户要的是「一样」还是「不同」：'
+      + '调用前先确认用户需要相同图片的副本，还是内容不同的图片：'
       + '(i) 要「一样」「同款」「同一张」「复制几张」「跟上一张一样」→ 做不到，说明原因，让他只出一张自己复制；不报价、不调用。要几张「都一样」就走这一条，不是「出 N 张」。'
       + '(ii) 要「不同风格」「各来一张」→ 按 (b) 的口径报张数和总价（「4 张：国内版约 22.8、国际版约 0.12 积分」）→ 等他明确同意 → 连着调 N 次，每次换 prompt（换姿态、视角、光位）。'
       + '(iii) 要「挑一张」「先看一张」→ 先出 1 张给他看，满意再按张补后面的，补之前重新报一次总价。'
@@ -772,33 +735,33 @@ export function createImageTool(deps: ImageToolDeps): ImageToolDefinition {
       + '文生图且主体还没定、用户把某个超过 2560 的像素当验收标准（原话里有「必须」「正好」「就是要」「不能改」）、'
       + '用户要求硬排除某个元素（「绝对不能有 XX」）、要自己按表外比例算像素（见 ⑥）、'
       + '用户本轮或上一轮里说过嫌贵、或正要你改区设置（(c)）。'
-      + '七条都不成立（单张文生图、size 用现成档位）就直接调，不用等点头；但单张仍要按 (b) 报一次两档价——那是告知，不是请示。'
+      + '上述条件均不成立时，先按 (b) 告知两种区域的参考价格，再调用工具。'
       + '成立两条以上时合成一次问完。'
       + '「同意」只算用户明确说同意，沉默、反问、换话题都不算。'
       + '\n'
       + '(a) 画什么：prompt 写主体、风格、构图、光线。用户给了主体、只是没给风格和光线，就由你补，别为这个反问他；'
       + '只有 text-to-image 才受这条限制：用户连主体都没给（只说了尺寸、比例、档位、用途、方向或风格）就先问「想画什么」，'
-      + '不要自己编一个主体去扣积分。改图（给了 image）不算没主体——参考图本身就是主体，别拿着图还问「想画什么」。'
+      + '确认主体后再调用工具。提供 image 时，以参考图为主体，无需再次询问。'
       + '主体＝画面上要出现的人、物、景（「一只猫」「一束向日葵」）；只说「主题」「氛围」「风格」不算给了主体'
       + '（「秋季新品」是主题，「一束向日葵」才是主体）；风格、流派、季节、情绪只说明怎么画，不说明画什么'
       + '（「赛博朋克」「极简」「水彩」「秋天」「高级感」都不算主体）。'
       + '可以写「不要出现 XX」来排除元素，但那是弱提示、不保证生效。用户说「绝对不能有 XX」「必须没有 XX」时，'
-      + '先用这句话说明做不到硬排除、问他要不要接受「写了但不保证」——他接受才画（就是上面七条的第五条）。'
-      + '要让图上出现文字就写明确切文字和位置，10 个字以内；整段控制在 300 字以内（按汉字算）——超了不会报错，但后半段容易被忽略，'
+      + '先说明工具无法保证排除指定元素，取得用户同意后再生成。这对应前述第五项确认条件。'
+      + '需要图中文字时，写清文字内容和位置，文字控制在 10 字以内。prompt 控制在 300 个汉字以内；较长的提示虽不会报错，后半段仍可能被模型忽略，'
       + '所以用户给的长描述先由你压到 300 字以内，压完直接调，并在回复里附上实际用的那版 prompt。'
-      + '改图时用相对的说法——「保持第一张图的主体、构图、光线不变，只把 X 改成 Y」——不要描述你没看到的具体细节；'
+      + '改图时明确保留项和修改项，例如「保持第一张图的主体、构图、光线不变，只把 X 改成 Y」。描述以实际看到的参考图为依据；'
       + '这次 size 换了比例时别写「构图不变」也别写「只换画布」：工具实际会裁切或留白，画面内容会变，'
       + '只写「保持主体和光线不变」。用户只说改尺寸或方向、没说改内容时，prompt 就写「保持主体和光线不变，按新的画布重新构图」，不要另编画面内容。\n'
       + '(b) 花多少：按张计费，国内版约 5.71 积分/张，国际版约 0.03 积分/张，相差约 190 倍；文生图和改图同价。'
       + '报价按这个口径：还没拿到 credit 就两个区各报一个数（如「每张：国内版约 5.71、国际版约 0.03 积分」），'
       + '说清「2 张就是国内约 11.4 / 国际约 0.06」，并说明走哪个区这一次定不了、以返回的 credit 为准。'
       + '本次调用返回过 credit 的（同一张图、同一次请求）就直接按那个数报；没拿到过 credit 就报两档，'
-      + '别拿上一次的 credit 报这一次——换区、换模型都会变价。'
+      + '区域和模型变化可能影响单价，因此本次费用应以本次返回的 credit 为准。'
       + '实扣和你报的「约」对不上（差一个量级通常说明这次走了另一个区）就照实说实际扣了多少，别替它圆。'
       + '积分不等于人民币、也没有汇率，问折合多少照实说给不出。'
-      + '单张也要先把这两档价说一句，然后在同一轮里接着调——先说后调，不等回应；这是告知，不是请示（改图会改版式、要出多张这些仍在七条里，得等同意）。'
+      + '生成单张图片时，先告知两种区域的参考价格，再在同一轮调用；前述七项确认条件仍然适用。'
       + '但用户这一句只是在问价（「多少钱」「先别画」）就只报、不调。用户要锁定金额只有一条路：按 (c) 关掉一个区的开关，让下一次只可能走另一个区。\n'
-      + '(c) 走哪个区：只看账号的配置，不看这次调用——插件里两个区可以分别登录、分别打开「允许模型自主生图」，'
+      + '(c) 使用区域由插件配置决定。国内版和国际版可分别登录，并分别开启「允许模型自主生图」，'
       + '本次走的是「开着且打开了那个开关」的区；两个区都满足时走国内版（贵的那一档），'
       + '只开国际版时才走国际版。'
       + '本次走哪个区调用前查不到，以返回的 region 为准（cn=国内版、global=国际版），回复里翻译成中文。'
@@ -807,35 +770,35 @@ export function createImageTool(deps: ImageToolDeps): ImageToolDefinition {
       + '否则照样按国内版扣。'
       + '用户问价就按 (b) 的两个数报，不要为了问价去出图；多张且没说同异时先问同异再报总价。'
       + '要拿到真实单价就得真调一次，那就先说清「这一次会真扣一次积分」，用户同意再调。'
-      + '报 NOT_LOGGED_IN 时你看不出卡在哪个区，让用户把两个区都查一遍：登录了没、那个开关开了没——'
+      + '返回 NOT_LOGGED_IN 时，请用户检查两个区域的登录状态和生图开关。'
       + '报这个错时还没发请求，不扣积分。\n'
       + '(d) size 怎么填（必填）：写「宽x高」的像素数（例如 1024x1536），改图也可以写 auto。'
       + '**先过 (a) 的主体门槛**：主体没给、还在问「想画什么」的时候，后面的推导一条都不要走，更不要为了尺寸先出一张。'
       + '主体确认之后，按顺序匹配，命中一条就停（比例词和方向词都算「用户提了」）：\n'
       + '① 用户对输出图给了具体像素 → 先改写成「数字 + x」再传（1024*1024、1024 by 1024 都写成 1024x1024；'
-      + '带空格、*、by 的写法宿主会直接拒掉，改写必须你自己做；大小写和 × 不用管）；越界也别自己缩，工具会缩——'
+      + '带空格、*、by 的写法会被 DSH 拒绝，需要先转换；X、× 由工具规整）。尺寸越界时由工具等比缩放，'
       + '唯一的例外是比 5:1 还细长的比例，那种缩不出合法值，见下面的范围段。'
-      + '改图时这是输出画布，不等于原图尺寸：输入图的宽高永远不是 size 的值——用户说「我这张图是 1600x900」'
+      + '改图时 size 表示输出画布。用户说「我这张图是 1600x900」'
       + '是在交代输入图，照 ④ 处理。\n'
       + '② 比例词各对应唯一一档：「16:9」2560x1440、「9:16」1440x2560、'
       + '「4:3」2048x1536、「3:4」1536x2048、「3:2」1536x1024、「2:3」1024x1536、「1:1」1024x1024。'
-      + '比例词压过档位词和方向词——「2K 的 16:9 壁纸」还是 2560x1440（不是方图 2048x2048），'
+      + '比例词优先于档位词和方向词。例如，「2K 的 16:9 壁纸」还是 2560x1440（不是方图 2048x2048），'
       + '「16:9 横图」也是 2560x1440，不是 3:2 的 1536x1024。'
       + '比例词一旦命中，就不再因为用户又加了 2K / 4K / 高清 / 大图而改值，唯一例外是「1:1」：'
       + '只说 1:1 是 1024x1024，同时说了 2K / 4K / 高清 / 大图才写 2048x2048（别的比例词没有这个例外）。'
-      + '比例词和方向词打架时按比例词，并把这件事说出来——「9:16 横图」写 1440x2560（竖的），'
+      + '比例和方向冲突时，按比例确定尺寸并向用户说明。例如，「9:16 横图」写 1440x2560（竖的），'
       + '回复里要说明「按 9:16 出的是竖图，和您说的横版不一致」。\n'
       + '③ 档位词只在用户没提比例词时生效，一词一档：「2K」横 2560x1440、竖 1440x2560、方 2048x2048；'
       + '「4K」不设独立档，直接用上面 2K 那组值（横的 2560x1440 就填这个）。别按常识换成 3840x2160 或 4096x2160：'
       + '本工具最长边只有 2560，写大了会被等比缩回 2K 档，尺寸一样、描述还多一句换算；'
-      + '「高清」按 2K；「1080P」横 1920x1080、竖 1080x1920，「720P」横 1280x720、竖 720x1280——'
+      + '「高清」按 2K；「1080P」横 1920x1080、竖 1080x1920，「720P」横 1280x720、竖 720x1280。'
       + '方向统一这么定：用户明说了横/竖/方就按他说的；没说就看用途（桌面壁纸算横，手机壁纸、竖版海报、开屏算竖）；'
       + '用途也没说就用方。1080P / 720P 没有方档，这两个落到「用途也没说」时按横的给'
       + '（「1080P 的竖版海报」：海报算竖，给 1080x1920）。'
-      + '同一句里既说了档位词又说了用途时，尺寸按本阶（档位词）走，用途只用来定方向——'
+      + '同时给出档位和用途时，用档位确定尺寸、用用途确定方向。例如，'
       + '「4K 配图」是 2048x2048，不是 ⑤ 的 1024x1024。'
       + '只有用户提的档位超出本工具上限（说「4K」「8K」「原图那么大」）时，才在回复里补一句「本工具最长边 2560，出的是这一档」；说 2K / 高清 / 1080P 的不必提 4K 这回事。\n'
-      + '④ 有输入图（改图）时：先把「用户说的到底是输出尺寸还是输入图尺寸」分清楚——'
+      + '④ 有输入图时，先区分输入图尺寸和输出尺寸。'
       + '「改成 1200x800」「要 9:16」是输出；「我这张是 1600x900」是输入，输入尺寸永远不填进 size，'
       + '这种情况直接写 auto。同一句里既有输入图尺寸又有比例时（「这张 4000x1000 的图改成 4:5」），'
       + '输入那个数不参与匹配，按比例走：4000x1000 只是输入尺寸，size 填 ⑥ 算出来的 4:5 那组。'
@@ -843,9 +806,9 @@ export function createImageTool(deps: ImageToolDeps): ImageToolDefinition {
       + '只提了方向 → 见 ⑦；只说了「保持原比例」「版式别动」「就按这张的比例」，或什么都没提、'
       + '或只是交代了输入图多大（「我这张是 1600x900」）→ 写 auto。'
       + '改图只要 size 的比例可能和原图不一样（写了具体比例，或按档位词 / 方向 / 用途给了某个档），'
-      + '工具就按 size 裁切或留白原图，版式会变——调用前先说一句'
+      + '工具会按 size 裁切或留白，可能改变原图版式。调用前应说明'
       + '「会按这个比例裁切/留白，原版式可能被切」，他同意再调，别等出完图才说。'
-      + '他不接受裁切就改用 auto——auto 会保住原版式；只有原图比 5:1 还细长时 auto 也会换比例（见下面的范围段），那种要提前说。\n'
+      + '用户要求保留原版式时，使用 auto。原图长宽比超过 5:1 时，auto 也会调整比例，调用前需说明这一限制，具体规则见下方范围说明。\n'
       + '⑤ 用户说了用途（一样先过 (a)：只有用途没有主体，先问「想画什么」，别拿用途当主体）→ 配图、插图、封面、头像、表情包 1024x1024；要「大一点的方图」或「大图」单独出现 → 2048x2048；'
       + '桌面壁纸 2560x1440；手机壁纸、竖版海报（要说到「海报」才算）、手机开屏 1440x2560；只说「竖版」「横版」「方图」是方向词，走 ⑦，不算用途。'
       + '表里每行都自带方向，命中一行就用它；用户另外说的方向与这一行冲突就交换宽高：'
@@ -857,27 +820,27 @@ export function createImageTool(deps: ImageToolDeps): ImageToolDefinition {
       + '⑥ 用户说的是表里没有的比例（4:5、21:9、5:4 等）→ 就按这个比例写一组像素：'
       + '两个上限取更严的那个（长边 2560、面积 4,194,304），按比例算完取整、再把宽高乘一遍验算'
       + '（21:9 → 2560x1097；4:5 → 1831x2289，再多一号就超面积）。这一阶只在你需要自己算像素时用，而算出来的比例不能比 5:1 更细长（8:1 这种长边算到 2560 时短边只剩 320，'
-      + '固定像素在本地必被拒，见下面的范围段）——遇到这种比例：改图就改用 auto，'
+      + '固定像素会在本地被拒绝，具体规则见下方范围说明）。遇到这种比例时，改图使用 auto，'
       + '文生图没有 auto 可退（auto 要量输入图，没图会在本地报错），只能先跟用户说最细到 5:1、让他换个不那么细长的比例。'
       + '算出来的宽高先按 ④ 说给用户（改图时尤其要说会被裁切），同意后再调用；调用完把实际填的宽高写进回复。\n'
       + '⑦ 只提了方向、比例档位用途都没提 → 取 ② 表里同方向那一档：横 1536x1024、竖 1024x1536、方 1024x1024。'
       + '这一阶管所有方向词：④ 里「只提了方向」、③ 里定方向、⑤ 里表外用途，都落到这里。\n'
       + '⑧ 以上全都没命中、也看不出方向 → 1024x1024（默认档），回复里说一句是按默认档出的。'
       + '⑧ 只管尺寸，不给主体发通行证：「随便画一张」没有主体，先按 (a) 问清想画什么，再回来走这一阶。'
-      + '改图有输入图时走不到这一阶——「什么都没提」在 ④ 已经派给 auto 了，别把原图裁成方图。\n'
+      + '有输入图且未指定尺寸时，按 ④ 使用 auto，以保留原图比例。\n'
       + '范围：两条边各 512–2560，宽乘高不超过 4,194,304（这是工具的上限；① 里说「别自己缩」是因为工具会替你缩，⑤ 里那几档本身都在范围内）。'
       + '写超了、或某条边小于 512，都不用你换算：工具会等比缩/放后照常出图，'
-      + '并把「按你给的 X 缩放成 WxH」写进 hint，同时回带 requestedSize——'
+      + '并在 hint 中说明从请求尺寸到实际尺寸的换算，同时返回 requestedSize。'
       + '这句必须转告用户，别把缩过的尺寸说成用户要的。'
       + '比例极端到缩不进这个范围（比 5:1 还细长）时：写了固定像素就在本地报错、不扣积分；'
-      + '写 auto（只有改图能写）则会改用该方向的常用档、照常出图，并在 hint 里说明比例有变化——能出图，但不是原比例，'
+      + '改图使用 auto 时，工具改用对应方向的常用尺寸，并在 hint 中说明比例变化。'
       + '这一句同样要转告用户。\n'
       + 'image 是改图用的参考图，写成数组，一张也写 ["/abs/a.png"]；数组长度只表示参考图张数，不影响出图张数（永远一张）。'
       + '多张按顺序全部生效，第一张当主参考，主体冲突以第一张为准。'
       + '纯文生图把这个字段整个省掉，不要传空数组（[] 会被拒）。'
       + '格式与 8 MB 上限见 image 参数的说明。用户只说「这张图」却没给路径时先问他要路径，别猜一个；前面哪一轮给过就沿用那一张，调用前把文件名说出来确认。\n'
       + 'model 一般留空（或空字符串）：留空就用该区目录里第一个带对应 tag 的模型（文生图 text-to-image、改图 image-to-image）。'
-      + '用户点名要某个模型就照他给的 id 填（区域和目录查不到不影响填），填了不存在或没有对应 tag 的 id 会直接报错并列出可用 id——'
+      + '用户指定模型时，填写其 id。模型不存在或缺少对应 tag 时，工具会拒绝调用并列出可用 id。'
       + '别自己编 id。用户说「用上次那个模型」这类指代、没给 id 时，留空按目录第一个，并告诉他这次实际用的是哪个。'
       + '用户说「用便宜的那个」是在说区、不是模型，按 (c) 回答。\n'
       + '计费边界分三种说法：返回带 url 又带 credit → 按 credit 说实扣了多少；'
@@ -894,7 +857,7 @@ export function createImageTool(deps: ImageToolDeps): ImageToolDefinition {
       + 'size（实际出图宽高）、model、prompt、hint（可直接转述给用户）、'
       + 'credit（上游结算的实际积分，没给就没这个字段）、requestedSize（尺寸被缩/放过时才回带，是你原本写的值）、'
       + 'path（上游返回内联 base64 时本工具落盘才有，此时也有一份 url 是 file:// 地址）。'
-      + '展示给用户时用 markdown 图片语法：有 path 就用 path（本地文件，不过期）；只有 url 时引用它并提醒尽快转存——'
+      + '展示图片时使用 Markdown 图片语法。有 path 时引用本地路径；只有 url 时引用链接，并提醒用户及时另存。'
       + '本工具不负责下载或转存，要长期保存得用户自己点开链接另存。',
     parameters: {
       type: 'object',
@@ -929,7 +892,7 @@ export function createImageTool(deps: ImageToolDeps): ImageToolDefinition {
             + '只有在手写 JSON 文本时，一个反斜杠才要写成两个。'
             + '多张参考图按数组顺序全部生效，如 [模板图, 服装图]。'
             + '每个元素接受本地绝对路径、file:// URL、http(s) URL、data URL 或裸 base64，'
-            + '上限 8 MB/张（按原始文件字节算，不是 base64 之后的长度），本工具不做压缩或格式转换——'
+            + '每张输入图上限为 8 MB，按原始文件字节计算。工具不压缩图片，也不转换格式；'
             + '超了会在本地报错、不扣积分，先让用户压一下再传。',
         },
         model: {
@@ -960,8 +923,7 @@ export function createImageTool(deps: ImageToolDeps): ImageToolDefinition {
           credit: { type: 'number', description: '本次实际消耗的 WorkBuddy 积分。' },
           path: { type: 'string', description: '服务端返回 base64 图片时的本地保存路径。' },
         },
-        // region 与 size 由本工具自己算，一定在；把它们列进 required，调用方才不用
-        // 猜 「credit 是可选、region 是不是也可选」——报价流程依赖 region，不能靠运气。
+        // region 和 size 均为必填参数。region 用于确定区域并取得对应报价。
         required: ['url', 'mode', 'region', 'size', 'model', 'prompt', 'hint'],
         additionalProperties: false,
       },
@@ -1035,9 +997,8 @@ export function createImageTool(deps: ImageToolDeps): ImageToolDefinition {
         const resolved = images === undefined
           ? undefined
           : await Promise.all(images.map(image => resolveImageInput(image, signal)))
-        // 改图的输出画布按第一张输入图的真实宽高定（size 写 auto 时用它按比例算；
-        // 写了具体尺寸时它只是 hint 里的一句实话）。宽高是从字节里解出来的，
-        // 不需要模型知道原图多大——它本来也读不到本地文件。
+        // 从参考图字节中解析实际尺寸。auto 使用该尺寸计算画布；
+        // 指定尺寸时仅在 hint 中说明调整结果，不依赖模型读取本地文件。
         const inputSize = resolved === undefined ? undefined : firstDimensions(resolved)
         const plan = planImageSize(sizeSpec, inputSize)
         const size = plan.size
@@ -1053,8 +1014,8 @@ export function createImageTool(deps: ImageToolDeps): ImageToolDefinition {
             signal,
           )
         const mode = inputs === undefined ? 'generate' : 'edit'
-        // 用户最关心的三件事：走的哪个区、用的哪个模型、这张扣了多少积分。
-        // 区得从凭据的 domain 现算——工具是跨区注册的，同一份描述要服务两个区。
+        // 根据当前凭据的 domain 确定区域，再报告实际模型及上游返回的积分用量。
+        // 工具同时服务两个区域，不能使用注册时的区域代替本次调用区域。
         const region = regionOf(credential.domain) === 'global' ? 'global' : 'cn'
         const regionLabel = region === 'global' ? '国际版' : '国内版'
         const dimensionNote = plan.note === undefined ? '' : `${plan.note}。`
@@ -1099,8 +1060,7 @@ export function createImageTool(deps: ImageToolDeps): ImageToolDefinition {
         if (outcome.credit !== undefined) value['credit'] = outcome.credit
         return value
       } catch (error: unknown) {
-        // 只有「真的发过请求」的失败才进冷却。参数写错、没登录、目录里没有模型、
-        // 读目录时网络抖了一下——这些都还没花钱，冷却它们只会让用户以为工具坏了。
+        // 结合 sent 与错误码判断冷却。参数、登录、目录及选模阶段的失败不进入冷却。
         if (isBillableFailure(error, sent)) cooldownUntil = Date.now() + FAILURE_COOLDOWN_MS
         throw error
       }
@@ -1114,10 +1074,8 @@ export interface ToolsServiceLike {
 }
 
 /**
- * 把工具注册进 DSH。返回 disposer；调用方负责在插件卸载时调用它。
- *
- * 注册本身是同步的；`tools` 服务由 DSH 提供，拿不到就直接返回 undefined
- * 并记一条警告——生图工具缺失不该让整个插件起不来。
+ * 向 DSH 同步注册工具，并返回供调用方清理注册的 disposer。
+ * tools 服务由 DSH 提供；服务缺失时记录警告并返回 undefined，避免阻止整个插件加载。
  */
 export function registerWorkBuddyImageTool(
   tools: ToolsServiceLike,

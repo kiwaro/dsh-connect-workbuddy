@@ -470,7 +470,7 @@ describe('createImageTool', () => {
     expect(tool.description).toContain('「3:2」1536x1024、「2:3」1024x1536、「1:1」1024x1024')
     expect(tool.description).not.toContain('按长边需求选')
     // 比例词仍然压过形状词：「16:9 横图」要 16:9，不是 3:2。
-    expect(tool.description).toContain('比例词压过档位词和方向词')
+    expect(tool.description).toContain('比例词优先于档位词和方向词')
     // 第 ① 步不再要求它自己判合法：用户报 4096x4096 时照写，越界由工具缩，
     // 模型只需要负责「照用户的话写」和「把 hint 里的缩放说明转告用户」。
     // 第十一轮：① 从「照他的数写」改成「先规整成数字 + 小写 x」——旧写法与 schema 的
@@ -480,10 +480,10 @@ describe('createImageTool', () => {
     expect(tool.description).toContain('1024 by 1024 都写成 1024x1024')
     // 第十七轮：schema 只收 x/X/×，正文举例里的空格、* 和 by 传进来会被宿主拒，
     // 但原稿写「先规整成…再传」，读起来像工具会替你规整。
-    // 第十九轮改措辞：「改写必须你自己做 / 大小写不用管」，并把责任拆开——
+    // 第十九轮改措辞：「需要先转换 / 大小写不用管」，并把责任拆开——
     // 宿主拒的是空格、*、by，X 与 × 工具自己认。
-    expect(tool.description).toContain('改写必须你自己做')
-    expect(tool.description).toContain('带空格、*、by 的写法宿主会直接拒掉')
+    expect(tool.description).toContain('需要先转换')
+    expect(tool.description).toContain('带空格、*、by 的写法会被 DSH 拒绝')
     // 用途兜底从 ④ 挪到 ⑤：中间插进了比例词台阶，否则「9:16」这类说法无处可落。
     // 第十一轮把用途与方向拆成两阶（⑤ 用途、⑥ 默认档），并写明两者同时出现时按方向，
     // 否则「给这篇文章配张图，要横的」会先命中「聊天配图 1024x1024」出成方图。
@@ -557,7 +557,7 @@ describe('createImageTool', () => {
     // ② 与 ③ 都自称能回答「2K 的 16:9 壁纸」：② 给 2560x1440、③ 给 2K 方图 2048x2048，
     // 「命中即停」只能选先出现的那个，而 ② 的旧尾括号「（用户同时说了 2K/4K/大图时才用
     // 2048x2048）」只挂在 1:1 后面，辖域看不出来 → 用户拿到方图，且已扣费。
-    expect(tool.description).toContain('比例词压过档位词和方向词')
+    expect(tool.description).toContain('比例词优先于档位词和方向词')
     expect(tool.description).toContain('「2K 的 16:9 壁纸」还是 2560x1440（不是方图 2048x2048）')
     // ② 的值是定死的，用户再加「2K / 4K / 大图」不该把它升上去（升不上去，只会撞越界）。
   // 删掉「各档都已顶到本工具上限」：3:2 是 1536x1024（1.57M），离 4,194,304 差得远，
@@ -568,7 +568,7 @@ describe('createImageTool', () => {
     expect(tool.description).toContain('比例词一旦命中，就不再因为用户又加了 2K / 4K / 高清 / 大图而改值')
     expect(tool.description).toContain('只说 1:1 是 1024x1024，同时说了 2K / 4K / 高清 / 大图才写 2048x2048')
     // ② 与方向词打架时要有裁决，否则「9:16 横图」无解。
-    expect(tool.description).toContain('比例词和方向词打架时按比例词')
+    expect(tool.description).toContain('比例和方向冲突时，按比例确定尺寸')
     // ③ 只在没提比例词时生效，否则「4K 16:9」会被 ③ 吃掉，「不是真 4K」的披露义务整句丢失。
     expect(tool.description).toContain('③ 档位词只在用户没提比例词时生效')
     // 披露义务改成「只要提了 2K/4K/高清就加一句」，不再只挂在 ③ 里——挂在某一阶上时，
@@ -580,7 +580,7 @@ describe('createImageTool', () => {
     // 只能掉到 ⑧ 的 1024x1024——用户要 2048² 拿到 1024² 还被计费。
     // 第二十一轮：④ 首句加了「先分清输出尺寸还是输入图尺寸」——旧句直接进「按这个顺序定」，
     // 而 ① 主句（数字+x 就是输出像素）已经把「我这张是 1600x900」吞掉了。
-    expect(tool.description).toContain('④ 有输入图（改图）时：先把「用户说的到底是输出尺寸还是输入图尺寸」分清楚')
+    expect(tool.description).toContain('④ 有输入图时，先区分输入图尺寸和输出尺寸')
     expect(tool.description).toContain('分完之后按这个顺序定：提了输出像素 → 用 ①；提了比例 → 用 ②；提了档位词 → 用 ③')
     expect(tool.description).toContain('提了用途 → 用 ⑤')
     expect(tool.description).not.toContain('别再被「版式别动」拽回 auto')
@@ -593,7 +593,7 @@ describe('createImageTool', () => {
     expect(tool.description).toContain('去插件设置把不想用的那个区的')
     expect(tool.description).toContain('「允许模型自主生图」关掉，下一次调用才生效')
     // 越界缩放会回带 requestedSize，模型转述「缩成多少」时才有据可依。
-    expect(tool.description).toContain('同时回带 requestedSize')
+    expect(tool.description).toContain('同时返回 requestedSize')
   })
 
   it('第十五轮：方向单独成一阶、表外比例有落点、多张先报价', () => {
@@ -627,7 +627,7 @@ describe('createImageTool', () => {
     // 第二十二轮：报价前先判「一样」还是「不同」——旧句「要超过一张（含同题多版）时先报价」
     // 会让「来 4 张一样的」先报 4 张价、再连调 4 次，买一个原文自己承认做不到的结果。
     // 第二十二轮把多图写成三态：一样 → 拒绝；不同 → 报总价等同意再连调；挑一张 → 先出 1 张。
-    expect(tool.description).toContain('跟要几张无关——用户要的是「一样」还是「不同」')
+    expect(tool.description).toContain('调用前先确认用户需要相同图片的副本，还是内容不同的图片')
     expect(tool.description).toContain('本工具没有 seed、不存历史、不能重放')
     expect(tool.description).toContain('让他只出一张自己复制；不报价、不调用')
     expect(tool.description).toContain('(ii) 要「不同风格」「各来一张」→ 按 (b) 的口径报张数和总价')
@@ -638,12 +638,12 @@ describe('createImageTool', () => {
     // 第十六轮：原稿要求「出图后说明并问要不要改用 auto」——模型调用前量不到输入图比例，
     // 照字面必然先扣一次费再问。改成调用前先说、用户同意再调。
     expect(tool.description).toContain('改图只要 size 的比例可能和原图不一样')
-    expect(tool.description).toContain('工具就按 size 裁切或留白原图')
+    expect(tool.description).toContain('工具会按 size 裁切或留白')
     expect(tool.description).toContain('会按这个比例裁切/留白，原版式可能被切')
     expect(tool.description).toContain('他同意再调，别等出完图才说')
     // 第十八轮：auto 不是绝对安全——原图比 5:1 还细长时 auto 也会换比例，
     // 原句「改用 auto 保住原版式」在这里是假承诺。
-    expect(tool.description).toContain('auto 会保住原版式；只有原图比 5:1 还细长时 auto 也会换比例')
+    expect(tool.description).toContain('用户要求保留原版式时，使用 auto。原图长宽比超过 5:1 时，auto 也会调整比例')
     // 调用前不知道是哪个区，只报 0.03 会让用户以为那就是实价。
     // 第十八轮：把「估价一律按国内版 5.71 说」收敛成两区各报一个数 + 已拿到 credit 就按那个数报。
     // 第二十二轮：口径不再自称「只有一个」——有 credit 时按实扣报是第二种合法报法，
@@ -653,7 +653,7 @@ describe('createImageTool', () => {
     // 收敛成「两个区各报一个数」。
     expect(tool.description).toContain('两个区各报一个数（如「每张：国内版约 5.71、国际版约 0.03 积分」）')
     // 档位词与用途同句时（「4K 配图」）尺寸按 ③、用途只定方向，不能掉到 ⑤ 的 1024x1024。
-    expect(tool.description).toContain('尺寸按本阶（档位词）走，用途只用来定方向')
+    expect(tool.description).toContain('用档位确定尺寸、用用途确定方向')
     expect(tool.description).toContain('「4K 配图」是 2048x2048，不是 ⑤ 的 1024x1024')
   })
 
@@ -669,8 +669,8 @@ it('第十九轮：报价口径统一、主体门禁补方向词、改写责任�
     expect(tool.description).toContain('只说了尺寸、比例、档位、用途、方向或风格')
     // ① 同一句里先说「工具会规整成小写」、又说「规整这一步是你自己做」，
     // 两句话的责任方不同；宿主拒的是空格 / * / by，大小写工具自己认。
-    expect(tool.description).toContain('带空格、*、by 的写法宿主会直接拒掉，改写必须你自己做')
-    expect(tool.description).toContain('大小写和 × 不用管')
+    expect(tool.description).toContain('带空格、*、by 的写法会被 DSH 拒绝，需要先转换')
+    expect(tool.description).toContain('X、× 由工具规整')
     expect(tool.description).not.toContain('工具会规整成小写）')
     // 只改尺寸或方向、不改内容时（「把这张改成横的」）原文没规定 prompt 写什么，
     // 模型要么编画面内容（违反「不要描述你没看到的具体细节」），要么卡住。
@@ -696,8 +696,8 @@ it('第十九轮：报价口径统一、主体门禁补方向词、改写责任�
     // 「9:16」——输出变 16:9 横图，与用户要求相反且不报错，白花一次积分。
     expect(tool.description).toContain('用户说「我这张图是 1600x900」是在交代输入图')
     // 第二十一轮：旧句「不算提了输出尺寸」是**否定式澄清**，读者还得自己去找该走哪条；
-    // 现在改成肯定句「输入图的宽高永远不是 size 的值」，去处交给 ④ 的首句。
-    expect(tool.description).toContain('输入图的宽高永远不是 size 的值')
+    // 现在改成肯定句「改图时 size 表示输出画布」，去处交给 ④ 的首句。
+    expect(tool.description).toContain('改图时 size 表示输出画布')
     // ② 「高清」在 schema 的档位词清单里被点名，但描述的两张表里没有这一格，
     // 模型只能落到 ⑥ 默认档或自己猜 1080P。
     expect(tool.description).toContain('「高清」按 2K')
@@ -722,7 +722,7 @@ it('第十九轮：报价口径统一、主体门禁补方向词、改写责任�
     expect(tool.description).toContain('用户把某个超过 2560 的像素当验收标准');
     expect(tool.description).not.toContain('做不到（真 4K、');
     // 单张「告知即可」不能把改图裁切也一起放行——那是七条里明写的停点。
-    expect(tool.description).toContain('（改图会改版式、要出多张这些仍在七条里，得等同意）');
+    expect(tool.description).toContain('前述七项确认条件仍然适用');
     // 「4 张要多少钱」没说同异：旧稿只能二选一（对做不到的事报价 / 违反报价义务）。
     expect(tool.description).toContain('没说同异、只问张数价钱（「4 张要多少钱」）');
     expect(tool.description).toContain('先问「要一样的还是各不相同的」，问完再报');
@@ -739,14 +739,14 @@ it('第十九轮：报价口径统一、主体门禁补方向词、改写责任�
     // 冷读 2154c618 判 −1.5 的那条：单张「不用请示」+ 默认走贵区 + 调用前查不到区
     // = 用户完全不知情就按 190 倍价扣费。补一条「告知，不用等同意」的报价口，
     // 并把「想锁定金额」的唯一合法路径写出来（关掉一个区的开关）。
-    expect(tool.description).toContain('单张也要先把这两档价说一句，然后在同一轮里接着调')
-    expect(tool.description).toContain('这是告知，不是请示')
+    expect(tool.description).toContain('生成单张图片时，先告知两种区域的参考价格，再在同一轮调用')
+    expect(tool.description).toContain('前述七项确认条件仍然适用')
     expect(tool.description).toContain('用户要锁定金额只有一条路')
     expect(tool.description).toContain('让下一次只可能走另一个区')
     // ⑦ 与 ④ 的默认值互斥：④ 说「什么都没提 → auto」，⑧ 说「全没命中 → 1024x1024」，
     // 改图会静默裁成方图，而这正是停等第 2 条要求先问的动作。
-    expect(tool.description).toContain('改图有输入图时走不到这一阶')
-    expect(tool.description).toContain('别把原图裁成方图')
+    expect(tool.description).toContain('有输入图且未指定尺寸时，按 ④ 使用 auto')
+    expect(tool.description).toContain('以保留原图比例')
     // 主体门槛只给了三个反例，「赛博朋克」「秋天」这类词无处归类。
     expect(tool.description).toContain('风格、流派、季节、情绪只说明怎么画，不说明画什么')
     expect(tool.description).toContain('「高级感」都不算主体')
@@ -769,8 +769,8 @@ it('第十九轮：报价口径统一、主体门禁补方向词、改写责任�
     expect(tool.description).toContain('用户把某个超过 2560 的像素当验收标准')
     expect(tool.description).toContain('用户要求硬排除某个元素（「绝对不能有 XX」）')
     // 对抗评审：这个括号的「不用请示」把 (b) 的强制报价告知降成了可跳过项——静默走贵区的直接诱因。
-    expect(tool.description).toContain('七条都不成立（单张文生图、size 用现成档位）就直接调，不用等点头')
-    expect(tool.description).toContain('但单张仍要按 (b) 报一次两档价——那是告知，不是请示')
+    expect(tool.description).toContain('上述条件均不成立时，先按 (b) 告知两种区域的参考价格，再调用工具')
+    expect(tool.description).toContain('先按 (b) 告知两种区域的参考价格，再调用工具')
     // 对抗 H2：④ 原来第一句就是「按这个顺序定」，而 ① 主句已经把「我这张是 1600x900」当成
     // 输出像素吞掉了。④ 必须先在「输出尺寸 / 输入图尺寸」上分一次类。
     expect(tool.description).toContain('「改成 1200x800」「要 9:16」是输出')
@@ -802,7 +802,7 @@ it('第十九轮：报价口径统一、主体门禁补方向词、改写责任�
     // 第二十二轮：主体门槛反噬改图主路径——「把这张改成水彩」只有风格没有主体，
     // 旧稿让人拿着参考图还问「想画什么」。门槛只对 text-to-image 生效。
     expect(tool.description).toContain('只有 text-to-image 才受这条限制')
-    expect(tool.description).toContain('改图（给了 image）不算没主体')
+    expect(tool.description).toContain('提供 image 时，以参考图为主体，无需再次询问')
     expect(tool.description).toContain('只说「主题」「氛围」「风格」不算给了主体')
     // C4：全文只写了多张的同意卡，单张要不要先请示是空白——模型可能每次出图都先问一遍。
     // 第二十一轮：改成一份可判定的五条清单。旧句「单张不必请示」是**授权扩张**，
@@ -817,13 +817,13 @@ it('第十九轮：报价口径统一、主体门禁补方向词、改写责任�
     // 2560x320 再必然被拒。⑥ 必须自己排除这条死路。
     expect(tool.description).toContain('而算出来的比例不能比 5:1 更细长')
     // 第二十二轮：⑥ 的「改用 auto」对文生图是死路——auto 要量输入图，没图必在本地报错。
-    expect(tool.description).toContain('改图就改用 auto')
+    expect(tool.description).toContain('遇到这种比例时，改图使用 auto')
     expect(tool.description).toContain('文生图没有 auto 可退')
     // C3：旧句「往上几条给过就算给了」等于允许静默复用旧图，改错文件还扣费。
     expect(tool.description).toContain('调用前把文件名说出来确认')
     // C9：「10 字」「300 字」没写单位，中文场景下会被按单词算。
-    expect(tool.description).toContain('10 个字以内')
-    expect(tool.description).toContain('300 字以内（按汉字算）')
+    expect(tool.description).toContain('文字控制在 10 字以内')
+    expect(tool.description).toContain('300 个汉字以内')
     // C8：「约」价与实扣 credit 不符时没有善后规则，模型会照旧说「约 5.71」蒙过去。
     expect(tool.description).toContain('实扣和你报的「约」对不上')
     expect(tool.description).toContain('别替它圆')
@@ -880,7 +880,7 @@ it('第十九轮：报价口径统一、主体门禁补方向词、改写责任�
     // 读起来像工具替你规整；实际规整发生在传进来之后。
     // 第十九轮改了措辞：同一句里原先既说「工具会规整成小写」又说「规整这一步是你自己做」，
     // 责任方对不上。宿主拒的是空格 / * / by，大小写工具自己认。
-    expect(tool.description).toContain('改写必须你自己做')
+    expect(tool.description).toContain('需要先转换')
     expect(tool.description).not.toContain('规整这一步是你自己做')
     // ③ ⑥ 的旧例子 4:5 → 1600x2000 与「长边尽量 2560」互斥，面积还差 30%。
     expect(tool.description).toContain('21:9 → 2560x1097')
@@ -919,7 +919,7 @@ it('第十九轮：报价口径统一、主体门禁补方向词、改写责任�
     expect(tool.description).toContain('不要传空数组')
     // 改图时 size 决定输出画布，不是「沿用原图」；不说清就会把 1024x1024 方图
     // 套到一张 2.6:1 的条带上，构图被模型重画。
-    expect(tool.description).toContain('这是输出画布，不等于原图尺寸')
+    expect(tool.description).toContain('改图时 size 表示输出画布')
   })
 
   it('工具描述写清计费边界：哪些失败免费、重试前先看上一次的结果', () => {
@@ -953,7 +953,7 @@ it('第十九轮：报价口径统一、主体门禁补方向词、改写责任�
     expect(tool.description).toContain('用户问价就按 (b) 的两个数报')
     expect(tool.description).toContain('用户同意再调')
     // 24 小时链接必须配一句转存提醒：只说 URL 会过期的模型不会主动提醒用户留档。
-    expect(tool.description).toContain('尽快转存')
+    expect(tool.description).toContain('提醒用户及时另存')
     // 第十二轮：NOT_LOGGED_IN 出现在「还没发请求」这一侧，必须写清它免费，
     // 否则模型会把「没登录」当成「可能已扣费」去吓用户，或反过来当成可以重试的信号。
     expect(tool.description).toContain('报这个错时还没发请求，不扣积分')

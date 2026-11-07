@@ -21,7 +21,7 @@
  *   模型目录路径改为 `/v2/enterprises/personal/models`（原版为
  *   `/console/enterprises/personal/models`）：两版官方桌面 App 均调用
  *   `/v2` 形态，CN 网关两条路径逐字节同答，而国际版网关（workbuddy.ai）
- *   只答 `/v2`、`/console` 形态返回 HTTP 500——统一 `/v2` 即同时覆盖
+ *   只响应 /v2 路由，/console 路由返回 HTTP 500，因此统一使用 /v2 以覆盖
  *   国内版与国际版（WorkBuddy AI）账号，区域由 `domain` 自动路由。
  *
  * @module dsh-connect-workbuddy/upstream
@@ -1663,8 +1663,7 @@ function conversationHeaders(
     'X-Conversation-ID': id(),
     'X-Conversation-Request-ID': conversationRequestId,
     // 根请求追踪：官方客户端把这一轮的根请求 id 单独再发一次（B 的 issue #35
-    // 后台聚合就按这一族读）。值必须与 X-Conversation-Request-ID 相同——它是
-    // 同一个事实的第二个名字，不是第二个 id。
+    // 后台聚合使用这一字段族）。该值与 X-Conversation-Request-ID 标识同一请求，因此保持相同。
     ...profileOf(identity) === 'balanced' ? { 'X-Root-Request-ID': conversationRequestId } : {},
     'X-Conversation-Message-ID': messageId,
     ...officialIds ? { 'X-Request-ID': messageId } : {},
@@ -1706,7 +1705,7 @@ export function uuidv7(nowMs = Date.now()): string {
  * 请求头中的客户端标识档位（`docs/DEVICE-IDENTITY-AUDIT.md` 的 P1）。
  *
  * 两档而不是三档：`conservative` 逐字节还原 5.16.0，`balanced` 是 P1 的完整形态。
- * 审计里预留的 `max`（B3 / Trace 处理过程族）刻意没有实现——那几项只影响上游侧的
+ * 审计中预留的 max 档位尚未实现。B3 / Trace 字段只影响上游侧的
  * 可通过日志和界面检查的结果与聚合，不影响放行，而伪造一棵并不存在的 trace 树比不发更可疑。
  *
  * 为什么需要档位而不是直接改：这一次改动动的是**每一条发出的请求**的头。P0.5 的
@@ -1750,8 +1749,7 @@ export interface WorkBuddyWireIdentity {
   /**
    * 发出的请求头档位，缺省 {@link DEFAULT_WIRE_PROFILE}。
    *
-   * `conservative` 必须逐字节还原 5.16.0 —— 不是"少发几个新头"，而是连
-   * `X-Product: SaaS` 这种被改名前的值也要还原，否则它就不是回退档。
+   * conservative 档需完整恢复 5.16.0 的请求形态，包括 X-Product: SaaS 等字段值。
    */
   profile?: WorkBuddyWireProfile
   /**
@@ -1765,11 +1763,10 @@ export interface WorkBuddyWireIdentity {
    * 外部供给的真设备 token（P2），由 `deviceToken.file` 指向的文件读出。
    *
    * 它每 5 分钟重读一次（token 分钟级过期，进程却是小时级），所以这条不是构造期
-   * 的事实，而是**每条请求现取**——见 `WorkBuddyUpstreamClient.wireIdentity()`。
+   * 的固定值，而是在每条请求时重新读取，见 WorkBuddyUpstreamClient.wireIdentity()。
    *
    * 与 {@link deviceSalt} 同时存在时两者都会发出去。这个组合（审计 §5.3 的
-   * `mixed` 档）是 P2 的过渡形态：档位互斥规则留到 P3 决定，这里不做静默取舍
-   * ——悄悄关掉一半，等于替使用者做了一个他还没做的决定。
+   * mixed 档）是 P2 的过渡形态。此处保留两类输入，实际是否发送由设备档位决定。
    */
   deviceToken?: string
   /**
@@ -1783,7 +1780,7 @@ export interface WorkBuddyWireIdentity {
    * 设备头档位（设置里的「虚拟值 / 真实值」）。
    *
    * 它必须**显式**存在，不能靠"有没有 token"推断：真实值档取不到 token 时是
-   * "一个设备头都不发"，而虚拟值档在同样情况下发派生对——两种沉默的原因不同，
+   * 不发送设备头；虚拟值档在相同条件下发送派生标识。这两种处理原因不同，
    * 输出也不同。少一个字段就无法表达"我在真实值档，但这次没有值"。
    */
   deviceTier?: 'virtual' | 'real'
@@ -1791,12 +1788,12 @@ export interface WorkBuddyWireIdentity {
    * 本机真实设备 token（P3，由 SDK 签发）。`deviceTier === 'real'` 时才有意义。
    *
    * 一旦有值，{@link deviceHeaders} 只发这一个头，`X-Machine-ID` /
-   * `X-Session-ID` 一个都不发。这是审计 §5.3 的结论落到代码上——真 token 内含
+   * X-Session-ID 均不发送。依据审计 §5.3，真实 token 已包含
    * 设备信息，旁边再挂一对按 uid 算出来的 id 是自证不一致；而一个真实客户端也
    * 不会同时带这两种标识。
    *
    * 它与 {@link deviceToken}（P2 的文件源）不在同一档：真实值档由 SDK 供数，文件源
-   * 只在虚拟值档起作用。两者同时配置时 SDK 优先——"真实值"这个选项的处理规则就是
+   * 仅在虚拟值档生效。两者同时配置时优先使用 SDK，本机设备模式要求
    * "这台机器真的装着的那套东西"，换成别人写的文件就不再是了。
    */
   deviceReal?: string
@@ -1814,7 +1811,7 @@ function profileOf(identity: WorkBuddyWireIdentity): WorkBuddyWireProfile {
  * 从不会这么称呼自己；A（`client_name` 默认 `WorkBuddy`）与 B
  * （`attributionClientName` 默认 `WorkBuddy`）都发 `WorkBuddy`，而 B 的注释直接
  * 把 `SaaS` 称作"还原旧行为"。同值三头（Name / Type / Product）也是两家的共同
- * 形状——本实现按该档位为三个字段使用同一产品名；这只是请求形状，不能证明请求来自官方客户端。
+ * 形状。本档位为三个字段使用同一产品名；请求形状本身不能证明请求来自官方客户端。
  */
 const ATTRIBUTION_CLIENT_NAME = 'WorkBuddy'
 
@@ -1822,8 +1819,7 @@ const ATTRIBUTION_CLIENT_NAME = 'WorkBuddy'
  * `Accept-Language`：按账号域切。
  *
  * 官方客户端按账号所属区发对应语言（B 的 D5：CN `zh-CN` / global `en-US`）。
- * 一个中文账号发 `en-US` 是"这台机器换了语言"，而语言是设备指纹里最廉价、
- * 也最常被用来做聚类的一维——本实现随区域选择该值；语言头对服务端校验的实际影响仍需实验确认。
+ * 本实现按区域选择对应值；语言头是否影响服务端校验仍需实验确认。
  */
 function acceptLanguageOf(credential: WorkBuddyCredential): string {
   return regionOf(credential.domain) === 'global' ? 'en-US' : 'zh-CN'
@@ -1842,8 +1838,8 @@ function acceptLanguageOf(credential: WorkBuddyCredential): string {
  *
  * ## `conservative` 为什么还原的是 `SaaS` 而不是"少发几个"
  *
- * 回退档的契约是"逐字节等于 5.16.0"。只删新头、留下改名后的 `X-Product`，等于
- * 造出第三个从未上线过的形状——排查时最怕的就是"回退了但没完全回退"。
+ * 回退档需完整恢复 5.16.0 的请求形态，因此新增头和改名后的 X-Product 均需恢复。
+ * 仅修改部分字段会形成与两个既有档位都不一致的请求。
  *
  * 版本号取 {@link APP_VERSION}（从 {@link PRODUCT_UA} 解析出来），不写字面量：
  * 两个独立字面量正是版本升级时开始互相矛盾的方式。
@@ -1879,8 +1875,7 @@ function deviceHeaders(
 ): Record<string, string> {
   if (profileOf(identity) !== 'balanced') return {}
   // 真实值档：一条声明，没有第二个标识可以跟它打架。取不到 token 时这里返回
-  // 空对象——一个设备头都不发，而不是退回派生对（那会让界面写着"真实值"、
-  // 线上跑着虚拟值）。
+  // 空对象，表示不发送设备头。此分支不回退派生标识，避免界面与实际请求不一致。
   if (identity.deviceTier === 'real') {
     return identity.deviceReal === undefined || identity.deviceReal === ''
       ? {}
@@ -1907,7 +1902,7 @@ function deviceHeaders(
 }
 
 /**
- * 把 identity 补全成"可以直接拿去构造头"的形态——解析本机设备盐。
+ * 解析本机设备盐，补全构造请求头所需的 identity 字段。
  *
  * 三条提前返回，各有理由：
  *   - 非 `balanced`：这一档根本不发设备头，去读盘只是浪费一次 IO；
@@ -1956,8 +1951,8 @@ function refreshHeaders(credential: WorkBuddyCredential): Record<string, string>
     'X-Refresh-Token': credential.refreshToken,
     // 这个取值 A（`converter.py:307`）与 B（`headers.go:410`）都是 `plugin`，
     // 本插件用的是 `workbuddy`。两者在当前网关上都被接受（刷新一直是好的），
-    // 属于一致性隐患而非现行故障；但"能用"不等于"该改"——refresh 是整条处理过程
-    // 里最不能出错的一跳，改它必须单独实测，所以 P1 刻意不碰，留给 P2 一次性
+    // 属于潜在的一致性问题，尚未确认实际故障。修改刷新请求需单独实测，
+    // 因此 P1 保留该值，留给 P2 一次性
     // 连同 token 源一起验（见审计 §4 的 D3）。
     'X-Auth-Refresh-Source': 'workbuddy',
   }
@@ -2053,8 +2048,8 @@ export type WorkBuddyWireRequestKind = 'chat' | 'image' | 'refresh' | 'billing'
  * 到底发了什么"，而这个答案必须**由代码给出**，不能由一段写死的清单给出：写死的
  * 清单在上线三个月后一定与真实请求脱节，届时它会安静地撒谎。因此这里直接调用
  * 请求路径上同一批构造器（{@link chatHeaders} / {@link imageHeaders} /
- * {@link refreshHeaders} / {@link billingHeaders}），返回它们的键集合——往
- * `chatHeaders` 里加一个头，这里自动跟着变，不需要第二次修改。
+ * {@link refreshHeaders} / {@link billingHeaders}），返回键名集合。
+ * 请求构造器增加头字段后，报告会自动包含对应头名。
  *
  * 两处**刻意与调用时使用的值一致**的地方：
  *   - `chat` 的 `Authorization` 由调用点合并（`:3739` / `:3810`），不在这批构造器
@@ -3815,7 +3810,7 @@ export class WorkBuddyUpstreamClient {
    * same silence the previous single-source reader had.
    */
   /**
-   * 解析一次的底座：设备盐（P1）。真 token 不在这里——它分钟级过期，
+   * 设备盐在初始化时解析一次。真实 token 需定期刷新，
    * 必须每条请求现取，见 {@link wireIdentity}。
    */
   private readonly baseIdentity: Promise<WorkBuddyWireIdentity>
@@ -3850,8 +3845,8 @@ export class WorkBuddyUpstreamClient {
        * CN 网关 base 覆盖（issue #220）的**读取器**，不是值。
        *
        * 为什么是函数：`regions` 是 volatile 字段，用户改完不必重启插件。若这里收
-       * 一个字符串，改设置在进程生命周期内不会生效——用户会认为「填了没反应」，
-       * 而这恰好是本设置唯一的用途。每次请求现问一次，与 `regionEnabled` 读活值
+       * 一个字符串，进程运行期间修改网关后，后续请求仍会使用旧地址。
+       * 因此每次请求重新读取，与 regionEnabled 使用当前值
        * 同一条规则。返回空串表示用内置网关。
        */
       cnBase?: () => string
@@ -3893,7 +3888,7 @@ export class WorkBuddyUpstreamClient {
        * 取不到真实 token。两条路，由用户在卡片上选（作者意见 #2）。
        *
        * **不退回（默认关时会走到这里，也是 P3 原来的行为）**：一个设备头都不发。
-       * 那是"SDK 不可用"时唯一不会说谎的答案——拿虚拟值顶上而界面写着「真实值」
+       * 这样可以明确显示 SDK 不可用。若改用虚拟值而界面仍显示本机设备模式，
        * 会让线上与界面对不上。
        *
        * **退回**（默认开）：落到下面的虚拟值通道，但**档位降成 `virtual`**，不是
@@ -3908,8 +3903,7 @@ export class WorkBuddyUpstreamClient {
         return { ...base, deviceTier: 'real' }
       }
       // 落到虚拟值通道，但**不带**逐账号覆盖值：这一跳是"真实值档塌回虚拟值"，
-      // 不是"用户切到了虚拟值档"。把每账号的覆盖值混进来，等于让一次改用预设设备参数时又
-      // 改变这台机器对外声称的身份——而用户并没有要求这件事。
+      // 用户手动选择虚拟值档。此时仅采用默认派生标识，不叠加逐账号覆盖值。
       const fallbackToken = this.deviceTokens === undefined ? undefined : await this.deviceTokens.current()
       return {
         ...base,
@@ -3949,7 +3943,7 @@ export class WorkBuddyUpstreamClient {
     try {
       // 身份先算，再判是否已被取消。顺序反过来的话，取消发生在 `await` 期间的
       // 那次请求仍会被发出去（只是带着一个已 abort 的 signal），白打一次上游、
-      // 白起一个 SDK 子进程——而调用方早已挂断。
+      // 在调用方已经取消后仍启动 SDK 子进程，造成不必要的工作。
       const headers = {
         ...chatHeaders(credential, await this.wireIdentity(credential)),
         'Authorization': `Bearer ${credential.accessToken}`,
@@ -4118,7 +4112,7 @@ export class WorkBuddyUpstreamClient {
             // 这一处**刻意不统一**。`/v3/config` 不是"客户端在替用户做事"，而是
             // 读一份产品配置：它的字节是逐条实测过的（UA 选通道，
             // 其余头固定），而 P0.5 的收益是在 chat 上量的。给一次元数据读加上
-            // 归属头，只会多几个能被比对的落点，换不来任何东西——与
+            // 归属头没有已验证的收益，因此遵循与
             // `fetchModelBusy` 同一条规则。
             'X-Product': 'SaaS',
             'X-Requested-With': 'XMLHttpRequest',
@@ -4219,7 +4213,7 @@ export class WorkBuddyUpstreamClient {
         method: 'POST',
         headers: {
           // 元数据读，**保持 5.16.0**：`legacyCommonHeaders` 而不是
-          // `commonHeaders`。理由与 `/v3/config` 同一条（见 `:4147` 的注释）——
+          // commonHeaders。原因与 /v3/config 相同，见 :4147 的注释。
           // 这类调用不替用户做事，加身份头只增加落点、不带来收益。
           ...legacyCommonHeaders(credential),
           'Authorization': `Bearer ${credential.accessToken}`,
@@ -4247,7 +4241,7 @@ export class WorkBuddyUpstreamClient {
    *   - 国际区 29 条 / 7 条带 tag：`hy-image-3.5`（`text-to-image` +
    *     `image-to-image`）、`kling-video-v3`（两种视频 tag）。
    * 两区目录分别读取，但包含同名模型；因此「国际区一条都没有」是 2026-10-21 的旧观测，
-   * 已经过期 —— 目录真的没标时才返回空数组（而不是编一个模型出来）。
+   * 已经过期。仅当目录确实没有对应标签时返回空数组，不生成额外模型。
    *
    * 返回的是**未分组**的全集：谁要 `text-to-image` 就自己按 tag 过滤
    * （{@link selectMediaModels} / `pickMediaModel`）。生图工具、改图路径、卡片清单
@@ -4357,8 +4351,8 @@ export class WorkBuddyUpstreamClient {
    * 2026-10-25 国际区实测：`hy-image-3.5` + 一张 712×962 的截图 → 200、code 0、
    * 一张 COS 签名 URL、`credit 0.03`。
    *
-   * `image` 的形态由调用方（工具层）负责规整成 data URL——这一层只发请求、
-   * 不碰文件系统，和 {@link generateImage} 的分工保持一致。
+   * image 由工具层转换为 data URL。本层负责发送请求，不访问文件系统，
+   * 与 {@link generateImage} 的分工一致。
    */
   async editImage(
     credential: WorkBuddyCredential,
@@ -4469,7 +4463,7 @@ export class WorkBuddyUpstreamClient {
    * 轮询节奏与整体超时（默认 ~600s，远大于生图的 180s，因为视频要生成几十秒到几分钟）。
    *
    * 注意：任务已提交，可能已产生费用。轮询期间的临时网络故障、超时要
-   * 当成真实失败——调用方据此进冷却。只有"提交那一次"因为参数写错 / 没登录而没
+   * 视为已发起的任务失败，调用方据此进入冷却。只有提交时因参数错误或未登录而未
    * 发出去，才不进冷却（同生图工具的设计）。
    */
   async pollVideoTask(
@@ -4535,7 +4529,7 @@ export class WorkBuddyUpstreamClient {
       if (result.status === 'failed') {
         // `detail` 是上游在 `data` 里那些我们还没认识的原因字段（issue #187 的
         // 第一种现象：只能看到 failed，看不到为什么）。带上它，而不是替用户
-        // 猜"可能是提示词"——前者下次能变成证据，后者永远只是猜测。
+        // 推断提示词是原因。记录接口返回值才能为后续排查提供依据。
         throw new WorkBuddyVideoError(
           `workbuddy video: 生视频任务失败（task ${taskId}）。`
           + (result.detail === undefined

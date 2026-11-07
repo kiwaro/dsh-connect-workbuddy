@@ -1270,8 +1270,9 @@ export const WORKBUDDY_CARD_CSS = `
   display:inline-flex;border:1px solid var(--dsw-alias-border-l2,#3a3d45);
   border-radius:999px;overflow:hidden;
 }
-/* 分段控件：两个按钮共享一条边框，选中态用底色而不是描边——描边会让"选中"
-   与"聚焦"看起来一样，键盘操作时分不清光标在哪。 */
+/**
+ * 分段按钮共享边框，用底色表示选中状态，使选中与键盘焦点可分别辨认。
+ */
 .dsm-workbuddy-device-seg-btn{
   appearance:none;border:0;background:transparent;cursor:pointer;
   padding:2px 10px;font:inherit;font-size:12px;line-height:20px;
@@ -1284,7 +1285,7 @@ export const WORKBUDDY_CARD_CSS = `
 /* 选中态用"前景色做底、底色做字"这一对，而不是品牌色底 + 白字。
    原因写在截图里：暗色主题下 --dsw-alias-brand-primary 本身就是一枚浅色，
    白字落上去等于整格消失（用户看到的是一个空白胶囊）。把两者绑成反相关系后，
-   亮色主题是深底浅字、暗色主题是浅底深字，任何主题都不可能出现同色叠同色——
+   亮色主题采用深底浅字，暗色主题采用浅底深字，以保证文字与背景有对比度。
    因为这两个变量按定义就互为背景与文字。 */
 .dsm-workbuddy-device-seg-on{
   background:var(--dsw-alias-label-primary,#ededed);
@@ -1296,7 +1297,9 @@ export const WORKBUDDY_CARD_CSS = `
 @media (prefers-color-scheme: light){
   .dsm-workbuddy-device-seg-on{background:var(--dsw-alias-label-primary,#202020);color:var(--dsw-alias-bg-base,#fff)}
 }
-/* 齿轮：置灰只表达"现在用不了"，仍然可点——点了会说明原因。 */
+/**
+ * 齿轮置灰表示当前不可编辑，仍可点击查看禁用原因。
+ */
 .dsm-workbuddy-device-gear{line-height:1;padding:0 6px}
 .dsm-workbuddy-device-gear-off{opacity:.45}
 .dsm-workbuddy-device-backdrop{
@@ -1326,16 +1329,16 @@ export const WORKBUDDY_CARD_CSS = `
   border:1px solid var(--dsw-alias-border-l2,#3a3d45);
 }
 
-/* SDK 目录输入行（作者意见 #1）：输入框吃掉剩余宽度，按钮不换行。
-   与 .dsm-workbuddy-device-input 同一套外观，只改布局——单独一条而不是复用
-   弹窗那条，是因为这里旁边还有 1~2 个按钮，而弹窗里是上下堆叠。 */
+/* SDK 目录输入行：输入框占用剩余宽度，旁边的 1~2 个按钮保持同行。
+   外观沿用 .dsm-workbuddy-device-input，单独定义布局以区别于弹窗中的上下堆叠。 */
 .dsm-workbuddy-sdk-dir-row{display:flex;align-items:center;gap:8px;margin:2px 0 4px}
 .dsm-workbuddy-sdk-dir-input{flex:1 1 auto;min-width:0;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 /* 回退开关：勾选框交回平台（accent-color），方框尺寸/圆角/勾形不由我们画。 */
 .dsm-workbuddy-sdk-switch{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--dsw-alias-label-primary,#e8e9ed);cursor:pointer}
 .dsm-workbuddy-sdk-switch input{accent-color:var(--dsw-alias-brand-primary,#5686fe)}
-/* 总开关区块：它在面板最上面，与下面那组诊断之间要有一道肉眼可见的分界——
-   否则"关掉它"和"看它现在的状态"会被读成同一件事。 */
+/**
+ * 总开关与下方诊断信息留出明确分隔，区分功能开关和当前状态。
+ */
 .dsm-workbuddy-sdk-master{
   display:flex;flex-direction:column;gap:4px;
   margin:0 0 10px;padding:10px 12px;
@@ -1378,7 +1381,7 @@ export const WORKBUDDY_CARD_CSS = `
 
 /* ---- 「SDK」分区：连接状态与真实取值 --------------------------------------
    状态点用 6px 圆点而不是图标：这一行已经有文字说清楚状态，圆点只负责"一眼"。
-   token 块必须能换行——真实 token 一千多字符，不换行会把面板撑出一条横向滚动，
+   token 可能超过一千字符，因此允许换行，避免面板产生横向滚动，
    而横向滚动条会让"复制"按钮跑出视口。 */
 .dsm-workbuddy-sdk-dot{
   display:inline-block;width:6px;height:6px;margin-right:6px;border-radius:50%;

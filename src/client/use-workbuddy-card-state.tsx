@@ -460,7 +460,7 @@ export function useWorkBuddyCardState({ t, settingsScope, view, surface, backToC
         const settings = await fetchDeviceSettings(WORKBUDDY_DEVICE_PROFILE_PATH)
         if (!cancelled && mounted.current) setDeviceSettings(settings)
       } catch {
-        // 读失败当作"这台 Host 没有这条路由"：不渲染控件，也不打扰用户——
+        // 读取失败时按当前 DSH 未提供该路由处理，隐藏对应控件，
         // 设备参数是可选功能，读不到它不该在卡片上留下一行红字。
       }
     })()

@@ -2,14 +2,14 @@
  * Account transfer: the export / import file format shared with sibling
  * credential managers for the same upstream.
  *
- * 参考：通行实现 —— 文件是一个 JSON 数组，每项为一条凭据记录，顶层字段
+ * 导出文件使用 JSON 数组，每项为一条凭据记录，顶层字段
  *   snake_case（`access_token` / `refresh_token` / `uid` / `nickname` /
  *   `email` / `domain` / `expiresAt`(ms) / `refreshExpiresAt` / `auth_raw`），
  *   导入按 `uid` 去重（同 uid 覆盖），缺 `access_token` 的记录跳过；预览只
  *   回脱敏字段（含 `hasToken` 布尔量），不回明文。解析函数不依赖文件系统，
  *   便于无 UI 环境单测；落库由 DSH 端的 store 完成。
  * 互通：`expiresAt` 一族按契约是**毫秒**（由 auth_raw 的原始认证文档携带）；
- *   本插件的 vault 文档 `expiresAt` 是秒 —— 换算只发生在导出/导入边界。
+ *   本插件凭据文档中的 expiresAt 以秒计，导入和导出时执行单位换算。
  *   导出时 `auth_raw` 直接携带本插件 vault 文档的 `{auth, account}` 双键块，
  *   与桌面认证文件同构，供写入桌面认证文件的工具原样读取。
  *

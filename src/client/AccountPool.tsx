@@ -2,9 +2,9 @@ import { IconStylePreference } from './plugin-icon.tsx'
 /**
  * The account pool's card section.
  *
- * 参考：`WorkBuddyCard.tsx` 的既有写法 —— 草稿态 + dirty 标记 + 「保存/放弃」、
- *   60 秒轮询、`writeField` 验证写入，全部沿用；样式类名继续用
- *   `dsm-workbuddy-*` 前缀，好让这一块与卡片其余部分共用同一套外观语言。
+ * 沿用 WorkBuddyCard.tsx 的草稿、dirty 标记、保存和放弃操作，
+ * 以及 60 秒轮询和 writeField 写入验证。样式类名使用 dsm-workbuddy-* 前缀，
+ * 与卡片其他区块保持一致。
  * 改动：把「账号池」这一整块独立成模块。原因是它有三条别的区块没有的规则，
  *   放在卡片里会被淹没：
  *
@@ -226,7 +226,7 @@ export interface AccountPoolProps {
    * 设备头档位与每账号覆盖值（`src/client/device-profile.ts`）。
    *
    * 四个一起可选：一个没有挂 `/device-profile` 路由的 Host 不会传它们，这时
-   * 切换项与齿轮整块都不渲染——显示一个点不动的控件，比不显示更糟。
+   * 同时隐藏切换项和编辑按钮，避免展示当前无法使用的控件。
    */
   deviceMode?: WorkBuddyDeviceMode
   deviceProfiles?: Readonly<Record<string, WorkBuddyDeviceProfile>>
@@ -314,8 +314,8 @@ export function AccountPool(props: AccountPoolProps): ReturnType<typeof h> | nul
   const { t, region, pool, settingsScope, siblingBusy, onBusyChange, onSaved, onRefresh, onRescan, rescanning, onSelectAccount, selectingAccount, accountTools } = props
   const { deviceMode, deviceProfiles, deviceDerived, onDeviceModeChange, onSaveDeviceProfile, realTier } = props
   /**
-   * 「真实值」能不能用。`undefined`（老 Host 没这一项）必须落到 `true`——读不到就
-   * 禁用等于替用户取消一个可能可用的功能。
+   * 本机设备模式是否可用。旧版 DSH 未返回此字段时按 true 处理，
+   * 保留可能可用的功能；明确报告不可用时才禁用选项。
    */
   const realTierUsable = realTier === undefined ? true : realTier.state === 'available'
   /** 当前正停在「真实值」但它已经不可用：把说明换成"用不了"，而不是宣传语。 */
@@ -348,8 +348,7 @@ export function AccountPool(props: AccountPoolProps): ReturnType<typeof h> | nul
    * 设备头编辑器：哪个账号、是否在保存、上一次失败的原因。
    *
    * `undefined` = 弹窗关着。分开存 `saving`/`error` 而不是塞进同一个对象，是因为
-   * 保存失败时弹窗必须**保持打开**并保留用户填的值——关掉再重开一次，填写内容
-   * 就全没了。
+   * 保存失败时保留弹窗及用户输入，避免关闭后重新打开导致内容丢失。
    */
   const [deviceEditing, setDeviceEditing] = useState<{ accountId: string, name: string } | undefined>(undefined)
   const [deviceSaving, setDeviceSaving] = useState(false)
@@ -1556,12 +1555,10 @@ export function AccountPool(props: AccountPoolProps): ReturnType<typeof h> | nul
       // 设置」, below everything actionable (see `orderRules`).
 
       // 设备头档位：它同时决定"这台机器对外声称自己是谁"和每一行那个齿轮能不能
-      // 用，所以必须贴着账号表——埋进「更多设置」会让齿轮看起来时好时坏。
+      // 用，因此将模式选择放在账号表旁，便于理解编辑按钮是否可用。
       //
-      // 「真实值」在已知取不到 token 的平台上**禁用**：一个能点、点了没用、只能靠
-      // 无法取值、只能改用预设设备参数的选项比不提供更差——用户以为切过去了，状态行却一直空着。判定由
-      // Host 给（`realTier`），界面不猜平台：mac 上 SDK 能发现、probe 也答 ready，
-      // 坏的是取 token 那一环，光看平台名判断不出"装了没装"。
+      // DSH 通过 realTier 报告本机设备模式是否可用。无法获取设备凭据时，
+      // 界面禁用该选项并说明原因。仅发现 SDK 或 probe 返回 ready，仍不足以证明能够获取 token。
       deviceMode === undefined || onDeviceModeChange === undefined
         ? null
         : h('div', { className: 'dsm-workbuddy-device-mode' },
@@ -1585,7 +1582,7 @@ export function AccountPool(props: AccountPoolProps): ReturnType<typeof h> | nul
               }),
             ),
             h('span', { className: 'dsm-workbuddy-hint' },
-              // 禁用时说的是"用不了以及为什么"，而不是当前档位的宣传语——后者会让
+              // 禁用时需说明不可用的原因。若仍描述正常功能，会使
               // 用户以为点一下就好了。
               modeHintBlocked
                 ? t('row.deviceModeRealUnsupported')

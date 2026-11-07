@@ -121,11 +121,11 @@ export function installPluginStatusRoutes(webCtx: Parameters<typeof registerWork
      */
     const withDerived = async (settings: WorkBuddyDeviceSettings): Promise<WorkBuddyDeviceSettings> => {
       // 派生值只是"给用户看"的附加物：列举账号时的一次 IO 失败不该让整条设置
-      // 路由 500——那会让档位开关和齿轮一起打不开，而它们本来是可以用的。
+      // 路由返回 500，否则会连带影响仍可使用的档位开关和编辑按钮。
       //
       // `realTier` 与派生值不同：它**永远**要带上，包括派生值算失败的那条路径。
       // 少了它，界面就退回"不禁用任何东西"，于是 mac 上那个点不动的「真实值」
-      // 又会重新变得可点——而这正是这次要消掉的状态。
+      // 又会恢复为可点状态，导致用户能够选择实际不可用的档位。
       try {
         const derived = await describeDerivedDevices(await deviceAccounts())
         return derived === undefined
@@ -156,8 +156,8 @@ export function installPluginStatusRoutes(webCtx: Parameters<typeof registerWork
     /**
      * 设备头设置（「虚拟值 / 真实值」+ 每账号覆盖参数）。
      *
-     * uid 由 Host 自己解：卡片只认识 accountId，而构头时需要 uid——让浏览器把
-     * uid 传上来，等于把账号在网关侧的身份交给前端，没有必要。
+     * 卡片提供 accountId，DSH 从凭据库解析构造请求头所需的 uid。
+     * 这样无需向浏览器暴露网关侧的账号标识。
      *
      * 每次响应都带一份 `derived`：**留空时真正会发出去的那一对 id**。弹窗把它
      * 显示在空输入框下面，于是"自动派生"不再是句承诺，而是一个能核对的值。
@@ -191,7 +191,7 @@ export function installPluginStatusRoutes(webCtx: Parameters<typeof registerWork
       /**
        * 总开关走插件配置（`Config.deviceSdkEnabled`），不走设备设置文件。
        *
-       * `read` 取的是 `current()`——也就是 DSH 交给 `apply()` 的那份活的引用，
+       * read 使用 current()，读取 DSH 交给 apply() 的配置引用，
        * 所以 `ctx.settings.update` 写完它就能读到新值（`asVolatile` 会就地改）。
        * 回 `undefined` 让卡片把开关标成不可用，而不是把它画成"关"。
        */

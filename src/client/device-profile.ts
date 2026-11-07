@@ -1,10 +1,7 @@
 /**
- * 设备头设置在浏览器侧的读写（「虚拟值 / 真实值」+ 每账号覆盖参数）。
- *
- * 本模块读取 DSH 的设备设置、保存修改，并为弹窗的“一键随机”操作生成格式正确的标识。**它不做任何本地持久化**——设置的真源在
- * DSH 的 `$DSH_HOME/.workbuddy-device-profiles.json`，浏览器内存里存一份副本
- * 只为了让弹窗有内容可编辑。
- *
+ * 在浏览器侧读取和编辑设备设置，并为随机生成操作提供格式正确的标识。
+ * 设置由 DSH 保存到 $DSH_HOME/.workbuddy-device-profiles.json；
+ * 浏览器仅保留供弹窗编辑的内存副本，不另行持久化。
  * @module dsh-connect-workbuddy/client/device-profile
  */
 

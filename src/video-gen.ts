@@ -61,9 +61,8 @@ export const VIDEO_ASPECT_RATIOS: readonly string[] = ['16:9', '9:16', '1:1']
 export const DEFAULT_VIDEO_ENABLE_AUDIO = true
 
 /**
- * 本插件认作「媒体模型」的全部标签（与 `src/image-gen.ts` 的 `MEDIA_TAGS` 同源，
- * 这里重新声明一份，避免视频层反向依赖 image 层导致循环引用问题；两者必须保持
- * 一致——`fetchMediaModels` 只读一次就返回全部媒体条目）。
+ * 媒体模型标签与 image-gen.ts 的 MEDIA_TAGS 保持一致。
+ * 本地声明以避免循环依赖；fetchMediaModels 一次读取全部媒体模型，再按标签分类。
  */
 export const MEDIA_TAGS: readonly string[] = [
   'text-to-image',
@@ -82,14 +81,10 @@ export interface WorkBuddyVideoModelConfig {
 }
 
 /**
- * 产品配置 `data.models` 里的一个媒体模型条目。
- *
- * 实测上游媒体条目只有 `{"id","name","tags"}` 三个字段（见 `image-gen.ts` 的
- * 模块注释）；`videoGeneration` 是**模型级**配置，随条目下发时才有。这里只做
- * 原样传递：下游将它作为时长和分辨率约束；工具层还可用最近一次拒绝响应中的时长范围覆盖目录值。缺少范围时交给上游校验。
- *
- * `image-gen.ts` 的同名接口带同一个可选字段——两边读的是同一份目录，
- * `fetchMediaModels` 只会返回一种形状（见该文件的 `WorkBuddyMediaVideoGeneration`）。
+ * 产品配置中的媒体模型条目。
+ * videoGeneration 为可选的模型级配置，用于约束时长和分辨率；缺少范围时交由上游校验。
+ * 工具层可使用最近一次拒绝响应中的时长范围覆盖目录值。
+ * 与 image-gen.ts 的同名接口保持一致，两处读取同一份目录。
  */
 export interface WorkBuddyMediaModel {
   readonly id: string
@@ -173,11 +168,8 @@ function asFiniteNumber(value: unknown): number | undefined {
 }
 
 /**
- * 把目录条目上的 `videoGeneration` 读成已知字段的配置对象。
- *
- * 只搬我们真的会用的字段（分辨率清单、默认值、时长上下限），缺哪个就是 undefined
- * ——尤其是 `minSeconds`/`maxSeconds`：**没有就不校验**，把判断交给上游，而不是
- * 猜一个区间去拦用户。
+ * 读取 videoGeneration 中的分辨率、默认值和时长上下限。
+ * 缺失字段保留为 undefined；缺少 minSeconds 或 maxSeconds 时，不自行推测范围。
  */
 export function readVideoGeneration(raw: unknown): WorkBuddyVideoModelConfig | undefined {
   if (typeof raw !== 'object' || raw === null) return undefined
@@ -373,9 +365,8 @@ export function resolveVideoParams(
   const maxSeconds = config?.maxSeconds
   let seconds = request.seconds ?? config?.defaultSeconds ?? DEFAULT_VIDEO_SECONDS
   if (request.seconds !== undefined) {
-    // 只有拿到该模型的 videoGeneration 配置才做"不支持自定义时长"的断言——
-    // 否则我们根本不知道它支不支持，盲拒会让所有自定义时长都失败。拿不到配置时
-    // 直接原样传递，交给上游校验。
+    // 只有目录提供 videoGeneration 时才判断是否支持自定义时长。
+    // 缺少配置时原样转发时长，交由上游校验。
     if (minSeconds !== undefined && maxSeconds !== undefined
       && (seconds < minSeconds || seconds > maxSeconds)) {
       throw new WorkBuddyVideoError(
@@ -392,15 +383,11 @@ export function resolveVideoParams(
   if (request.resolution !== undefined) {
     const requested = request.resolution
     if (resolutions.length === 0) {
-      // 目录没给 resolutions（或这条条目压根没有 videoGeneration）：我们并不知道
-      // 上游认不认这个值，盲回落会把调用方显式给的分辨率**静默丢掉**——于是
-      // 「resolution: 1080P」从来没到达过上游，日志里却只留一条「改用 上游默认」的
-      // 告警。这里原样转发，认不认交给上游判，与秒数的「拿不到区间就不拦」一致。
+      // 目录未提供 resolutions 时，原样转发调用方指定值，交由上游校验。
+      // 不以默认值覆盖指定分辨率，以免丢失用户要求。
       resolution = requested
     } else {
-      // 目录里的拼写可能与调用方给的只差大小写（官方 CLI 的默认档位是
-      // `["720P","1080P"]`，而工具描述举的例子是 `720p`/`1080p`）。命中的话采纳
-      // **目录的拼写**——上游认的是它自己那一份，不是调用方写的那份。
+      // 分辨率按忽略大小写的方式匹配，匹配后使用目录提供的拼写。
       const matched = resolutions.includes(requested)
         ? requested
         : resolutions.find(one => one.toLowerCase() === requested.toLowerCase())
@@ -477,22 +464,10 @@ export function parseVideoTask(payload: unknown): {
   videos: readonly string[]
   credit?: number | undefined
   /**
-   * 失败（或任何非完成态）时，`data` 里那些**我们认不出、但上游确实发了**的字段。
-   *
-   * ## 为什么是"原样带出来"而不是解析某个名字
-   *
-   * issue #187 的文生视频现象是：task 建成功、扣了积分、轮询返回 `status: "failed"`，
-   * 而插件只报「生视频任务失败（task …）」——没有任何原因。用户因此无法判断是
-   * 提示词、模型不支持、还是上游自己的问题。
-   *
-   * 但当前**没有任何一份上游响应样例**能证明那个原因字段叫什么
-   * （`docs/VIDEO_GEN.md` 只记了 `status` / `data[]` / `credit`）。猜一个
-   * `fail_reason` 去读，猜错就是永久静默；而人工写死一份"猜测清单"下次上游换个
-   * 名字又失配。
-   *
-   * 所以这里把 `data` 中除已知键以外的内容**原样**附上（深层对象做 JSON 截断）。
-   * 代价是报错文案多几十个字符；收益是下一次报错时，issue 里能直接看到上游到底
-   * 发了什么，从而一次取证就把字段名钉死——那时再把它提成结构化字段才是有依据的。
+   * 保留任务非完成状态下 data 中的未知字段，用于展示上游返回的失败信息。
+   * issue #187 中任务失败时只显示 task id，无法判断具体原因。现有响应样例尚不能确定原因字段名，
+   * 因此不猜测 fail_reason 等固定名称，而是附上未知字段的 JSON 摘要，并限制长度。
+   * 待取得实际样例后，再将已确认字段解析为结构化信息。
    */
   detail?: string | undefined
 } {
@@ -534,13 +509,8 @@ export function parseVideoTask(payload: unknown): {
 }
 
 /**
- * `data` 里除已知键以外的内容，序列化成一行短文本。
- *
- * 已知键：`status`（状态变化规则自己用）、`data`（成品 URL 列表）、`usage`（扣费）。
- * 其余全部带上——那正是"上游说了原因但我们没读"的地方（issue #187）。
- *
- * 深层结构做 JSON 序列化并截断到 400 字符：一轮报错不该因为上游回了一棵大树而
- * 变成几 KB。空对象返回 `undefined`，好让调用方不拼一个空的「（上游未给出原因）」。
+ * 将 data 中除 status、data 和 usage 以外的字段序列化为单行摘要，见 issue #187。
+ * JSON 截断到 400 字符，避免过长错误；无额外字段时返回 undefined。
  */
 function describeUnknownTaskFields(data: Record<string, unknown>): string | undefined {
   const known = new Set(['status', 'data', 'usage'])
@@ -601,10 +571,8 @@ export function describeVideoFailure(
       'NO_ROUTE',
     )
   }
-  // 提交阶段的其他 4xx：上游在**创建任务之前**就把请求退回了（典型是参数不合它的
-  // 规则，例如 `unsupported video duration: 1 seconds`）。未取得 task id，无法进入轮询，
-  // 所以归成 REJECTED 而不是 UPSTREAM——「UPSTREAM 一律进冷却」会让一次参数写错
-  // 白等一分钟，正是「上游返回这种错误，也要等半天」的来源。
+  // 提交阶段的其他 4xx 未返回 task id，无法继续轮询，归为 REJECTED。
+  // 这类拒绝不进入 UPSTREAM 错误的冷却流程；该分类本身不证明上游未计费。
   if (phase === 'submit' && status >= 400 && status < 500) {
     const range = parseSupportedSecondsRange(detail)
     return new WorkBuddyVideoError(

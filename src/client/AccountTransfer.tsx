@@ -3,7 +3,7 @@
  * stored credentials, in the file format shared with sibling credential
  * managers for the same upstream.
  *
- * 参考：扫码登录小节（OAuthSignIn）的组件形态 —— 单个 section、就地管理
+ * 沿用 OAuthSignIn 的单区块组件结构，在区块内管理
  *   全部状态（busy / 结果行 / 错误）、零跨组件往返。导出弹框的交互（多选
  *   账号 → 下载 JSON）与导入弹框（选文件 → 脱敏预览 → 勾选 → 导入）沿用
  *   通行实现的步骤划分。预览响应只含展示字段与 hasToken 布尔量；

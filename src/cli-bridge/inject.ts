@@ -237,7 +237,7 @@ export function injectOutcome(agent: BridgeAgent | undefined, input: {
  * them is how a silent failure goes unnoticed for a week.
  */
 export function formatInjection(outcome: InjectionOutcome): string {
-  if (!outcome.ok) return `[未能通知模型继续：${outcome.code} — ${outcome.error}]`
+  if (!outcome.ok) return `[未能通知模型继续：${outcome.code}，${outcome.error}]`
   return outcome.woke
     ? '[已将 CodeBuddy 结果发送给会话模型]'
     : '[结果已排队，将在下一步骤或下次请求时发送给模型]'

@@ -158,7 +158,7 @@ function describeDeviceLines(device: WorkBuddyDeviceReport, accounts: number): s
    *
    * 退回生效时用户设的是 real、线上发的是 virtual。只印 `device.tier` 会让这一行
    * 与后头的头名清单互相打脸（"real values: X-Machine-ID, X-Session-ID" 读起来像
-   * bug）。所以分岔时就把它明写出来，并说出为什么——退回是用户自己开的开关。
+   * bug）。发生回退时，应说明实际使用的模式及用户设置的回退条件。
    */
   const tierWords = device.tierSent === undefined
     ? `${device.tier} values`
@@ -189,8 +189,7 @@ function describeDeviceLines(device: WorkBuddyDeviceReport, accounts: number): s
         + ` — ${device.token.path}`
   const sdk = device.sdk === undefined
     ? []
-    // path 为空串是"没发现本机装有桌面端 SDK"，直接打出来是一行 `(win32-x64 — )`
-    // 的悬空破折号——换成一句人话。
+    // path 为空表示未发现桌面端 SDK，应直接说明未发现，避免输出缺少路径的状态行。
     : [`Device SDK: ${device.sdk.state}${device.sdk.reason === undefined ? '' : `: ${device.sdk.reason}`} (${device.sdk.bundle} — ${device.sdk.path === '' ? 'no installed SDK found' : device.sdk.path})`
         + `; token ${device.sdk.token.state}`
         + `${device.sdk.token.length === 0 ? '' : ` (${device.sdk.token.length} chars)`}`
@@ -410,7 +409,7 @@ async function doctor(jsonOutput: boolean): Promise<number> {
   /**
    * 外部设备 token（P2）。
    *
-   * `doctor` 读不到插件配置，只能读环境变量——所以路径只有一种写法时两侧才一致
+   * doctor 只读取环境变量。使用同一配置来源，才能使诊断结果与插件实际使用的路径一致
    * （见 `WORKBUDDY_DEVICE_TOKEN_FILE_ENV` 的注释）。没设就**不去猜**：报告里
    * 明确写"这里没查"，而不是假装"没有 token"。
    */
@@ -449,7 +448,7 @@ async function doctor(jsonOutput: boolean): Promise<number> {
    *
    * 只打**名字**，从不打值：这份输出是要贴进 issue 的，而头里混着令牌、会话 id
    * 与派生设备 id。chat 与 billing 成对出现，是因为它们同 token 同分钟却曾经声称
-   * 两种客户端（审计 §1.3 的 D2）——能被看见才谈得上验证"现在统一了"。
+   * 两种客户端，便于核对审计 §1.3 的 D2 所要求的一致性。
    */
   const probeCredential = deviceCredentials[0]
   const tracedHeaders = process.env[HEADER_TRACE_ENV] === '1' && probeCredential !== undefined

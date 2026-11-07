@@ -11,14 +11,14 @@
  *   本实现改为扫描整个 auth 目录，按 uin 去重为多个可选账号。跟随 App
  *   当前登录（live 文件）仍是默认行为；用户显式选择的账号被严格绑定，
  *   不因积分多少而切换，失效时也不会静默改选其他账号。
- *   另：store 可按区域（cn | global）限定可见账号 —— 国内版与国际版各持
+ *   store 按 cn 或 global 区域筛选可见账号，国内版与国际版分别持有
  *   一个 store，账号、刷新、选择完全隔离；插件自有刷新副本也按区域分
  *   文件（`.workbuddy-auth.<region>.json`），双账号同时在线互不覆盖，
  *   旧的单文件 `.workbuddy-auth.json` 作为迁移源保留读取。
  *   另（issue #15）：`resolve()` 不再把「没登录」与「有登录但凭据读不出来」
  *   合并成同一句话。后者（加密字段 + 取不到密钥）改为抛
  *   `WorkBuddyEncryptedCredentialError`，给出「装 App / 用
- *   WORKBUDDY_APP_EXECUTABLE 指定」这条**可执行**的建议——对已登录的用户说
+ *   WORKBUDDY_APP_EXECUTABLE 指定」的操作建议。对于已登录用户，
  *   「请重新登录一次」指向的是唯一无效的动作。判定只在失败路径上跑一次
  *   `diagnose()`，健康路径不付任何代价。
  *

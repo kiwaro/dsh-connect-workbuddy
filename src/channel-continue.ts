@@ -1,5 +1,5 @@
 /**
- * 「被网关渠道校验拦截」时自动再发一次「继续」——可选、有上限。
+ * 渠道校验拦截后，可按配置自动发送「继续」，发送次数受上限限制。
  *
  * ## 这条功能要解决的那一次失败
  *
@@ -57,7 +57,7 @@
  *   这些「重发也拿同一句回答」的失败不该续）、**收件箱忙就不插队**（`inboxBusy`），
  *   以及用 `user/message` 的 `source.kind` 区分「真人介入」与「插件自己发的」，以免
  *   自己的回显把上限清零。
- * 改动：本项目相对两者都是**收窄**，不是扩展——（a）只认 `channel_reject` 这一种
+ * 本项目仅处理以下情况：（a）只识别 channel_reject 类型的
  *   失败，两套参考实现都是「除永久码外一律续」；（b）不做原地重试、不做换号、不做
  *   等待后重试，因为这一类失败换谁、隔多久都是同一份请求；（c）计数状态只活在进程里、不
  *   写入文件（参考实现有持久化文件），因为「刚刚这一串失败」本来就是即时的事实；（d）把
@@ -117,7 +117,7 @@ export interface ChannelContinueSettings {
  *
  * 两处「防御」都是有意为之：`enabled` 只认显式 `true`（这条功能会花真实请求，
  * 缺失或畸形必须读成「关」），`maxConsecutive` 与 `text` 越界时退回默认值，
- * 因为一个 `0`/`NaN`/空白文本会让功能变成静默空转——那比关着更难查。
+ * 0、NaN 或空白文本会使功能无法发送有效请求，因此需要校验这些值。
  *
  * @param enabled - 配置里的开关标量。
  * @param max - 配置里的上限标量。
@@ -146,7 +146,7 @@ export function channelContinueSettingsOf(
  * 己的话（连同 JSON 里的 `channel_reject`）一定在 `message` 里。
  *
  * 于是判断刻意「够宽但锚得准」：命中插件自己的 kind 字面量或它自己的那句中文说明，
- * 就算这一类；其余一切（配额、限流、审核、网络、模型不可用）都不算——它们各有
+ * 归入此类；配额、限流、审核、网络和模型不可用等错误分别采用
  * 自己的处置，重发「继续」只会多花一次真实请求。
  *
  * @param failure - `turn/end` 的 `reason.error`，形状按 `LlmFailure` 读。
@@ -343,7 +343,7 @@ export function createChannelContinue(host: ChannelContinueHost): ChannelContinu
 
       if (type === 'user/message') {
         const kind = record?.data?.source?.kind
-        // 只有真人文本清零。我们自己发的、其他插件添加的都不算「用户介入」——
+        // 仅用户输入的文本清零计数。自动发送和其他插件添加的文本保留当前计数。
         // 否则我们发的这条会把计数清掉，上限就永远不会生效。
         if (kind === 'user') {
           cancelPending(state)

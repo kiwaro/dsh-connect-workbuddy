@@ -118,7 +118,7 @@ export const OPENHARMONY_USER_HOME = '/storage/Users/currentUser'
  * folder backup, enterprise policy) still resolves. macOS has no equivalent
  * env variable; the single Application Support path is used as-is.
  *
- * 鸿蒙（issue #190）没有 `homedir()` 可用——它返回应用沙箱，所以那条分支用
+ * 鸿蒙中的 homedir() 返回应用沙箱，无法定位用户目录，因此 issue #190 对应分支使用
  * 系统固定挂载点。Linux 会同时看 XDG 的 data 与 config 两套目录。
  *
  * `platform`, `home`, and `env` are injectable so the platform branches are
@@ -143,13 +143,12 @@ export function defaultDesktopAuthDirs(
   /**
    * 鸿蒙（issue #190）。
    *
-   * 走 XDG 的 `~/.local/share` 形状，但 `~` **不能**用 `homedir()`——那是
+   * 采用 XDG 的 ~/.local/share 目录结构。其中 ~ 不能取 homedir() 的值，因为该值指向
    * 沙箱路径。用系统固定挂载点，并允许 `WORKBUDDY_USER_HOME` 覆盖（未来的
    * 多用户或不同发行版挂法）。
    *
    * 没有这个分支时落到 `return []`，卡片连一个候选路径都扫不到，账号池恒为 0，
-   * 而 `doctor` 只会说"no platform default; set WORKBUDDY_AUTH_FILE"——
-   * 把一个本该自动完成的事推给用户。
+   * 此时 doctor 只能提示设置 WORKBUDDY_AUTH_FILE，用户需要手动补充本可自动发现的路径。
    */
   if (platform === 'openharmony') {
     const root = nonEmptyEnv(env['WORKBUDDY_USER_HOME']) ?? OPENHARMONY_USER_HOME

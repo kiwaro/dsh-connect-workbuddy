@@ -47,8 +47,7 @@
 `context-menu-target`、`forge-git-permissions`、`forge-worktree-entry`、`fs-observation-policy-default-off`、
 `projection-event-frames`、`projection-released-checkpoint`、`projection-snapshot-scope`、
 `schedule-agent-tools`、`schedule-remote-host-tasks`、`sdk-run-commands`、`cordis-loader-entry-trees`、
-`llm-request-purpose-declarations`、`pi-ai-request-image-count`。其中后两份与本插件的两个「看似相关」的点有关——
-结论同样是「不需要改」，但值得写下为什么，见 §2.1 / §2.2。
+`llm-request-purpose-declarations`、`pi-ai-request-image-count`。其中后两份涉及请求目的和图片数量。核对后均不需要修改，原因见 §2.1 和 §2.2。
 
 ### 2.1 `llm-request-purpose-declarations` 为什么不影响本插件
 
@@ -57,7 +56,7 @@
 **请求体模板**（`src/shim.ts` 的 `rewriteSessionTitleModel` 匹配单 user 消息的固定模板），不是这个
 字段。`grep -rn "session-title\|purpose" src/` 命中的都是注释与 `sessionTitle` 选项名，没有一处读
 `GenerateOptions.purpose`。所以类型收窄只是编译期的变化，本插件的 wire 判据不受影响；而且该判据
-本来就是 fail-closed——宿主改模板，改写静默停止、回到原计费。
+仅在模板匹配时改写。DSH 修改模板后，插件停止改写，请求按原模型计费。
 
 ### 2.2 `pi-ai-request-image-count` 为什么不影响本插件
 
@@ -74,7 +73,7 @@
 ...imageOffloadCountQuantum === void 0 ? {} : { countQuantum: imageOffloadCountQuantum }
 ```
 
-所以本插件的 route 仍然只有字节预算、没有张数上限——与 rc.5 **行为完全一致**。宿主给**它自己**的
+因此本插件仍只有字节预算，图片张数处理与 rc.5 相同。宿主给**它自己**的
 pi-ai 路由默认 50 张，不会波及本插件。
 
 ## 三、逐面核对（本机实测）
@@ -120,8 +119,8 @@ react                     18.3.1  OK  (^18.2.0)
 `sidebarPanelEnabled: false` 未注册，与设计一致。
 
 客户端能加载本身就是 `dsh.client.inject` 四项（`dsh-client-ui-settings`、`dsh-client-ui-slots`、
-`dsh-client-ui-settings-plugins`、`dsh-client-locale`）在 0.2.2 模块注册表里全部可解析的证据——
-少任何一项，整张卡会是「依赖失败」，而不是账本里出现 `dsh-connect-workbuddy-client`。
+`dsh-client-ui-settings-plugins`、`dsh-client-locale`）在 0.2.2 模块注册表里均可解析的证据。
+缺少任何一项时，整张卡会是「依赖失败」，而不是账本里出现 `dsh-connect-workbuddy-client`。
 
 ### 3.3 Web 路由：宿主契约未变，本机全绿
 
@@ -137,8 +136,7 @@ react                     18.3.1  OK  (^18.2.0)
 | `POST …/media-models?region=cn` | **200** |
 | `POST …/pool?region=cn` | **200**（`{"error":"action must be checkin, test, or remove"}` 是参数校验，路由本身通） |
 
-另一处相关改动是 `webserver/index-inject` 事件多了第二个参数 `peer`——本插件**不监听**该事件，
-无影响。
+另一处相关改动是 `webserver/index-inject` 事件新增第二个参数 peer。本插件不监听该事件，因此不受影响。
 
 ### 3.4 LLM 适配器面：三处加法，零处破坏
 
@@ -169,7 +167,7 @@ react                     18.3.1  OK  (^18.2.0)
 | `PiAiAdapter` 的 `resolveModel` / `prepareCall` / `stream` | 签名未变；只新增可选 `prepareHeaders` |
 
 本插件的 `EffortNormalizingAdapter` 覆写的正是这三个方法，`super.*` 调用照旧。`prepareHeaders` 与
-`llm-pi-ai/request-headers` 瀑布本插件不参与——它的鉴权走 `resolveApiKey` → 共享密钥 →
+本插件不参与 llm-pi-ai/request-headers 事件，其鉴权通过 `resolveApiKey` → 共享密钥 →
 `Authorization: Bearer`，宿主新增的 header 钩子在 `attributionHeaders()` 之前执行，不会覆盖它。
 
 `ResolvedPiAiProviderProfile` 新增的两个必填字段见 §5.2。
@@ -177,12 +175,11 @@ react                     18.3.1  OK  (^18.2.0)
 同一包里还有一处容易误读的改动：`DEFAULT_CONTEXT_WINDOW` 从 262144 提到 **1000000**、
 `DEFAULT_MAX_TOKENS` 从 32768 提到 **128000**。这两个默认值只作用于「配置没写、目录也没给」的模型；
 本插件的 `toPiModel` 对每个模型都显式写 `contextWindow` / `maxTokens`（来自上游目录，schema 要求
-`min(1)`，见 `src/index.ts` 的模型 schema），所以不落在这条默认值上——不会出现「模型没声明窗口就被
-当成 1M」的情况。
+`min(1)`，见 `src/index.ts` 的模型 schema），因此不会采用这些默认值，也不会把缺少窗口声明的模型当作 1M。
 
 ### 3.6 settings / 投影 / 附件 / 客户端
 
-- **`dsh-settings`**：`.d.ts` 未变；`index.js` 的三处改动都是 Cordis 4.1 的适配——
+- **`dsh-settings`**：`.d.ts` 未变；index.js 中的三处修改用于适配 Cordis 4.1：
   `configure(presentation, owner = this.ctx.fiber)` 内部改为 `owner.ctx.fiber`，`entries()` 改为读
   `fiber.effectiveConfig`。本插件 `ctx.effect(() => settings.configure({ auto: true }, ctx.fiber))`
   传的是 `ctx.fiber`，而 `Fiber.ctx.fiber` 就是它自己，键身份不变，行为不变。本机插件已加载、
@@ -209,8 +206,8 @@ react                     18.3.1  OK  (^18.2.0)
 `packages/client/ui-theme/src/styles/design-platform.css` 的定义集从 190 项增到 201 项，新增
 `--dsw-alias-illustration-*`、`--dsw-alias-state-done-primary`、`--dsw-static-*` 等；删除仅
 `--dsw-specific-sidebar-nav-item-hover` 一项，本插件未使用。本插件用到的 29 个 token 名里 17 个有定义，
-其余 12 个（含 `--dsw-alias-` 这个模板拼接残片）在 `styles.ts` 里带 fallback——与 rc.5 相比**没有
-新增缺口**。
+其余 12 个名称（包括动态拼接前缀 --dsw-alias-）在 styles.ts 中有默认值。与 rc.5 相比，
+没有新增缺失项。
 
 ## 四、逐包比对（rc.5 → 0.2.2-rc.1）
 
@@ -305,7 +302,7 @@ imageOffloadCountQuantum: number    // 默认 min(10, maxRequestImages)
 
 - **`LlmModelInfo.badge`**：宿主 0.2.2 起允许 provider 在目录里给每个模型带一个
   `{ text: LocalizedText, tone }` 徽章，由模型选择器自己渲染。这正是本插件
-  `conversation.input.model.label` 槽在做的事——而那个槽是 `single`，本插件与 qoder/trae 抢同一格
+  conversation.input.model.label 插槽已用于显示类似信息。该插槽为 single，本插件与 qoder、trae 存在占位冲突
   （`-0.5` 输给 qoder 的 `-1`，徽章在选 qoder 时静默消失）。若将来愿意，可以把「积分倍率」改由
   `badge` 发布，既不用抢槽、又能跟随语言。**注意**：这会让徽章出现在**所有** WorkBuddy 模型行上，
   与现在「只在选中 WorkBuddy 模型时由 gate 渲染」的语义不同，属于产品决策，不是兼容性修复。
@@ -357,5 +354,5 @@ rc.5 那轮把 `@deepseek-ai/dsh*` 全量 alias 到 rc.5 产物跑了一遍夹�
    （值要有依据，见 §5.2）。两件都不需要单独发版。
 4. **可选增强不进待办**：`LlmModelInfo.badge` 与 `llm/models-updated` 是产品选择，不是兼容性缺口。
 5. **下一道围栏仍是 `0.3.0-0`。** 0.2.2-rc.1 在声明范围内，`0.3.0-rc.1` 被明确挡住，实算已复验。
-6. **复核路径不变**：下次宿主升级仍按 `RELEASING.md` 的「宿主范围核对」走——先跑闸门实算，再跑
+6. **复核路径不变**：下次宿主升级仍按 RELEASING.md 的“宿主范围核对”执行：先计算兼容范围，再检查
    槽位账本与路由探针，最后按 §4 逐包比对确认直接依赖有没有动。

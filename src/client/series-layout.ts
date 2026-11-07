@@ -20,9 +20,9 @@ ${u} .dsm-btn{box-sizing:border-box;font:inherit;font-size:13px;line-height:20px
 ${u} .dsm-btn-outline{background:transparent;border-color:var(--dsw-alias-border-l2,#777);color:var(--dsw-alias-label-secondary,#999)}
 ${u} ${p}-tabs{display:flex;gap:8px}
 ${u} ${p}-tab-cell{flex:1;min-width:0;padding:8px 12px;border-radius:10px}
-${u} ${p}-panels{position:sticky;top:var(--dsm-series-sticky-top,0px);z-index:2;display:flex;gap:2px;margin:4px 0 0;padding:8px 0 0;border-bottom:1px solid var(--dsw-alias-border-l1,#777);background:var(--dsw-alias-bg-layer-2,#24262c)}
+${u} ${p}-panels{position:sticky;top:var(--dsm-series-sticky-top,0px);z-index:2;display:flex;gap:2px;margin:0;padding:0;border-bottom:1px solid var(--dsw-alias-border-l1,#777);background:var(--dsw-alias-bg-layer-2,#24262c)}
 /* 吸顶背景覆盖卡片两侧内边距，顶部偏移抵消滚动容器的顶部内边距。 */
-${p}-page-body ${u} ${p}-panels{margin-inline:0;padding:8px 0;border:0;border-bottom:1px solid var(--dsw-alias-border-l2,#777);border-radius:0;background:var(--dsw-alias-bg-layer-3,#202126)}
+${p}-page-body ${u} ${p}-panels{margin-inline:0;padding:0 0 8px;border:0;border-bottom:1px solid var(--dsw-alias-border-l2,#777);border-radius:0;background:var(--dsw-alias-bg-layer-3,#202126)}
 ${p}-page[data-tabs-stuck="true"] ${p}-panels{margin-inline:-20px;padding-inline:20px;border-top:1px solid var(--dsw-alias-border-l2,#777);box-shadow:0 3px 6px rgba(0,0,0,.06)}
 ${u} ${p}-panel-tab{font-size:13px;font-weight:600;line-height:20px;padding:7px 11px}
 ${u} ${p}-panel{margin-top:0;min-width:0}
@@ -31,6 +31,8 @@ ${u} ${p}-free-quota-warn{font-weight:600}
 /* 说明段落的间距由容器统一控制，避免与卡片的纵向 gap 叠加。 */
 ${u} ${p}-region-summary{display:flex;flex-direction:column;gap:2px}
 ${u} ${p}-region-summary ${p}-models-summary{margin:0}
+/* 说明与页签之间保留 8px，抵消外层 16px 间隔中多出的部分。 */
+${u} ${p}-region-summary+${p}-panels{margin-top:-8px}
 /* 页签底边已经分隔账号区，不在账号池顶部重复画线。 */
 ${u} #dsm-${plugin}-panel-accounts ${p}-pool{border-top:0;padding-top:0}
 

@@ -205,13 +205,13 @@ function staticChecks() {
       + `　另有 ${hit.report.mentions} 次只是在讨论/引用它，不计入`)
   }
   if (emissions === 0) {
-    console.log('  （没有找到真实发出的记录——如果这是新机器/新配置，说明还没复现过）')
+    console.log('  未找到实际发送的记录。新机器或新配置可能尚未触发此问题。')
   }
   const unrouted = emissions - emissionsWithCall
   console.log(`  合计：正文里发出 ${emissions} 次，其中 ${unrouted} 次**没有**任何工具调用块`
     + `（这些必然被当正文渲染）`)
-  console.log(`  另有 ${mentions} 条只是在讨论/引用它（写在代码块里），已单独计数、不计入上面——`
-    + `把它们算进去会把问题夸大成好几倍。`)
+  console.log(`  另有 ${mentions} 条记录仅在代码块中讨论或引用该标记，已单独计数。`
+    + `上述发送次数不包含这些引用记录。`)
   if (hits[0]) {
     const sample = hits[0].report.sample
     const tool = hits[0].report.sampleTool ?? '?'
@@ -252,7 +252,7 @@ function staticChecks() {
   if (unrouted > 0 && recoveryWired) {
     console.log(`  → 记录证明泄漏真实发生过（${unrouted} 次调用无法被路由）。`)
     console.log('    响应路径现已被接管：泄漏在被交给客户端之前就会尝试转换，能恢复的变成真正的')
-    console.log('    调用，不能恢复的（例如工具名被写坏的那一类）原样作为正文显示——两种都不会丢内容。')
+    console.log('    调用；无法恢复的内容会原样显示为正文，例如工具名称损坏时。两种处理均保留原内容。')
     console.log('    要量"客户端最终看到什么"，跑 --live N --through-shim；直接 --live 量的是模型本身，')
     console.log('    它会绕过转换，对已经能恢复的泄漏给出"仍在泄漏"的假结论。')
   } else if (unrouted > 0) {
@@ -382,7 +382,7 @@ async function liveChecks(rounds, throughShim) {
     if (verdict.markup) {
       console.log(`      ${redact(verdict.markup.excerpt).slice(0, 200)}`)
       if (shim !== undefined) {
-        console.log('      ↑ 标记在【经过 shim 之后】仍然出现在正文里——这一轮没有被转换过来。')
+        console.log('      ↑ 经过 shim 后正文仍含该标记，本轮未完成转换。')
       }
     }
   }
@@ -398,9 +398,9 @@ async function liveChecks(rounds, throughShim) {
     console.log('    若正文里本应有一个合法的 invoke 块，那才是转换的问题。')
   } else if (shapes['markup-in-content'] > 0) {
     console.log(`  → 复现了：这一次模型把调用写进了正文。`)
-    console.log('    注意：这是直连上游的结果，绕过了 shim 的转换——它量的是模型，不是客户端看到的东西。')
+    console.log('    注意：本次直连上游，结果反映模型原始输出。客户端经过 shim 转换后的内容需另行检查。')
   } else if (shapes['native-tool-call'] > 0) {
-    console.log('  → 本次没复现。注意：这个模型在两种形态之间摇摆，一次干净**不能**证明问题消失——多跑几轮才有效。')
+    console.log('  → 本次未复现。模型可能返回两种输出形式，仍需多次观察才能判断问题是否持续。')
   } else {
     console.log('  → 本次没有得到可用结果（既没有标记也没有原生调用），不能作为证据。')
   }

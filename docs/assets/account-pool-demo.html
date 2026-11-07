@@ -103,7 +103,7 @@ body{
 
 /* 注意：这里原本有一条「手动 / 自动冲突提示」样式块（含只读下拉的置灰样式）。
    新版删掉了「按积分自动轮换」这个设置，于是「手动还是自动」不再是二选一，那一整套冲突状态
-   （置灰下拉 + 告警块 + 解锁按钮）不复存在，故整块删除 —— 留着一套没人使用的警告样式，
+   （置灰下拉 + 告警块 + 解锁按钮）不复存在，故整块删除。保留不再使用的警告样式，
    只会让人以为还有这个状态。
    目前的关系是：开启账号池时由池子的排序决定谁服务，你保存的选择不被改写；关闭后它立刻完全生效。 */
 
@@ -614,7 +614,7 @@ function renderCurrent(){
   }
   el.querySelector('.pool-bar-dot').style.background = 'var(--dsw-alias-state-success-primary)';
   el.querySelector('.pool-bar-name').textContent = `当前使用：${cur.name} · ${cur.masked}`;
-  // 这里说的是「下一个请求从谁开始」，而不是「上一次请求谁服务了」——
+  // 此处显示下一次请求首先使用的账号。
   // 换号只为一次请求借用额度，不写回选择，所以这两者在换号发生后会不同。
   // 演示里如实区分，免得把「当前使用」误解成「上一条请求的计费方」。
   const bits = [`积分 ${fmt(cur.credits)}`, `${$('selModel').value === 'auto' ? '免费目标模型' : $('selModel').value} 可用性：${probeText(cur.probe)}`];
@@ -770,7 +770,7 @@ function persistRuntime(note){
 
 /* ---- 目标测试模型：按区域 catalog 自动挑倍率为 0 的 ---- */
 /* 演示用的两套区域目录（真实值取自 src/catalog.ts 的静态 fallback 与 live 形态）。
-   注意国内版静态 fallback 不带 creditMultiplier —— 免费模型要刷新后才知道。 */
+   国内版静态目录不带 creditMultiplier，需刷新目录后才能判断免费模型。 */
 const REGION_CATALOG = {
   cn: [
     { id:'auto',                 name:'Auto',                 contextWindow:168000, creditMultiplier:undefined },
@@ -840,7 +840,7 @@ async function runSimulatedRequest(){
   await sleep(450);
 
   if (!$('swEnabled').checked){
-    // 池关闭：不换号，如实报错 —— 这正是开关关闭时的承诺。
+    // 账号池关闭时返回当前账号的错误，不尝试其他账号。
     addLog(`账号池已关闭：${primary ? primary.name : '当前账号'} 失败即报错，不尝试池内其他账号`, 'log-err');
     if (primary) primary.note = '上游：429（账号池已关闭，未换号）';
     render();

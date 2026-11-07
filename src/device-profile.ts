@@ -48,7 +48,7 @@ export interface WorkBuddyDeviceSettings {
   /**
    * accountId → 该账号当前自动派生的值。
    *
-   * 缺席（而不是 `{}`）表示"这次没有算"——盐不可用、或调用方没有传账号列表。
+   * 字段缺失表示未计算派生值，原因可能是盐不可用或调用方未传账号列表。
    * 空对象则表示"算过，但这个池子里没有一个能算"。两者在界面上要说不同的话：
    * 前者是"本机没有设备盐"，后者是"这些账号没有 uid"。
    */
@@ -58,8 +58,7 @@ export interface WorkBuddyDeviceSettings {
    *
    * 见 `index.ts` 的 `REAL_TIER_AVAILABILITY`：macOS 上 SDK 能被发现、`probe` 也答
    * `ready`，但取 token 那一环会 `dispatch_sync` 死锁，所以该档位始终无法取得设备凭据。
-   * 界面据此禁用档位按钮并说明原因——一个"能点、点了没用、取值失败后只能使用预设设备参数"的选项
-   * 比不提供更差。
+   * 界面据此禁用无法使用的档位，并说明原因，避免用户选择后仍无法获取设备凭据。
    */
   realTier?: {
     state: 'available' | 'broken' | 'unavailable'
@@ -78,7 +77,7 @@ export interface WorkBuddyDeviceSettings {
    * 真实值档取不到 token 时是否退回虚拟值。**默认开**（作者意见 #2）。
    *
    * 这个默认值与 P3 原先的取舍相反，而原先那个取舍有理由：静默退回会让界面写着
-   * 「真实值」、线上跑着虚拟值。所以退回必须**说出来**——`wireIdentity` 退回时把
+   * 「真实值」、请求却使用虚拟值。发生回退时，wireIdentity 将
    * 档位降成 `virtual`，卡片与 `doctor` 因此都照实显示"现在发的是虚拟值"。
    * 用户要的是「有总比没有好」，不是「别告诉我」。
    */
@@ -200,7 +199,7 @@ async function readStored(dir?: string, nowMs: number = Date.now(), fresh = fals
     // 在这里把非法路径丢掉，会让用户填错之后看到"自动发现的结果"，从而以为保存失败了。
     sdkDir: typeof record['sdkDir'] === 'string' ? record['sdkDir'].trim() : '',
     // 只有显式 `false` 才关：缺字段意味着「这个文件是回退功能上线前写的」，那时
-    // 的行为是无回退，但作者要求「默认开启」——所以缺字段取 true，不是取 false。
+    // 的行为是无回退。按作者要求，新选项默认开启，因此缺失字段按 true 读取。
     sdkFallbackToVirtual: record['sdkFallbackToVirtual'] !== false,
   }
   return remember(document)
@@ -236,8 +235,8 @@ export async function readDeviceSettings(options: { dir?: string } = {}): Promis
  * 结果，也无法判断两个账号是否被算成了同一台设备。把派生值摆出来，"留空"就从
  * 一句承诺变成了一个可核对的事实。
  *
- * `uid` 由调用方（DSH 的凭据库）提供——浏览器只知道 accountId，而**派生必须
- * 用 uid**，因为构头时 `deviceHeaders()` 手上只有 credential.uid。两边用同一种
+ * uid 由 DSH 凭据库提供，浏览器只持有 accountId。派生必须
+ * 用 uid，因为构头时 `deviceHeaders()` 手上只有 credential.uid。两边用同一种
  * 输入，界面显示的值才等于真正发出去的值。
  *
  * 盐不可用时返回 `undefined`（而不是空对象）：那一档一个设备头都不发，显示一个
@@ -291,7 +290,7 @@ export async function setDeviceMode(
   options: { dir?: string } = {},
 ): Promise<WorkBuddyDeviceSettings> {
   return withFileLock(deviceProfilePath(options.dir), async () => {
-    // `fresh`: 锁内必须读盘，不能用 5 秒缓存——另一个进程刚写过的值会被这条
+    // fresh 要求锁内重新读盘。使用 5 秒缓存会导致另一进程刚写入的值被旧
     // 缓存盖掉，而 read-merge-write 一旦基于旧文档就会把对方的改动抹平。
     const document = await readStored(options.dir, Date.now(), true)
     const next: StoredDocument = { ...document, mode }
@@ -303,13 +302,13 @@ export async function setDeviceMode(
 /**
  * Save the two SDK settings the card edits (作者意见 #1 与 #2).
  *
- * 两项都是**可选**参数，`undefined` 表示"不要动这一项"——与
+ * 两项均为可选参数，undefined 表示保留该项，与
  * {@link saveDeviceProfile} 同一条约定：卡片上有两个独立控件，其中一个的保存
  * 必须保留另一次操作刚保存的字段值。
  *
  * `sdkDir` 只做去空白，不做存在性校验：一个路径填错的正确反馈是「探不到 SDK」
- * （`probe` 会答 `missing` 或 `error` 并带上那个路径），而不是在这里拒绝保存——
- * 后者会让用户面对一个"保存没反应"的输入框，而他刚刚明明看见文件在那儿。
+ * （probe 会返回 missing 或 error，并带上路径）。保存时保留用户输入，
+ * 随后通过检测结果说明路径是否可用。
  */
 export async function saveDeviceSdkSettings(
   values: { sdkDir?: string, sdkFallbackToVirtual?: boolean },
@@ -373,8 +372,8 @@ export async function saveDeviceProfile(
 /**
  * DSH 端给卡片路由用的接口。
  *
- * `saveAccount` 只要 accountId：uid 由 Host 自己从凭据库解出来——**浏览器端永远
- * 不该把 uid 传上来**，那是账号在网关侧的身份，不是它需要知道的东西。
+ * saveAccount 只接收 accountId，DSH 从凭据库解析 uid。
+ * uid 用于标识网关账号，无需由浏览器提供。
  */
 export interface WorkBuddyDeviceSettingsPort {
   read(): Promise<WorkBuddyDeviceSettings>
@@ -398,7 +397,7 @@ export interface WorkBuddyDeviceProfileLookup {
   forUid(uid: string): Promise<WorkBuddyDeviceProfile | undefined>
   /**
    * 当前档位。真实值档成功取得 SDK token 时，`forUid` 的结果会被忽略（所有账号共用这台机器的真实
-   * 设备），但仍然要能读出来——构头时必须先知道自己在哪一档。
+   * 设备）。构造请求头前仍需读取当前档位，才能决定是否采用逐账号覆盖值。
    */
   mode(): Promise<WorkBuddyDeviceMode>
   /**

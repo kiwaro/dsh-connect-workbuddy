@@ -19,10 +19,10 @@
  * 已经能用的功能。修法不在本次范围（需要一个排空主队列的伴生原生模块）。
  *
  * `state`：
- *   - `available` —— 能取到 token，切成「真实值」就能用；
- *   - `broken` —— 这套 SDK 在本平台取不到 token，选择后也无法取得设备凭据，界面上应禁用
+ *   - available 表示可获取 token，能够使用本机设备模式；
+ *   - broken 表示当前平台的 SDK 无法获取 token，界面禁用对应选项，
  *     并说明原因；
- *   - `unavailable` —— 本平台未提供获取方式（不预期出现，用于报告暂不支持的情况）。
+ *   - unavailable 表示当前平台尚未提供获取方式，用于报告暂不支持的情况。
  */
 export function realTierAvailabilityFor(platform: string): {
   state: 'available' | 'broken' | 'unavailable'

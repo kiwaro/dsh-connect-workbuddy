@@ -8,15 +8,14 @@
  * 也无许可证，因此这个模块找的是**用户机器上已安装的那份**：环境变量
  * `WORKBUDDY_TURING_SDK_DIR` 显式指定优先，否则按桌面端的安装形状（Windows 卸载
  * 注册表 + 常见目录，macOS `/Applications` 与 `~/Applications` 的 bundle）现推
- * SDK 目录。找不到就是 `missing`——真实值档下发零个设备头，与从前"这个平台没有
- * 副本"都表示设备凭据不可用，用户能做的是装上桌面端或指定目录。
+ * SDK 目录。未找到时返回 missing，用户可安装桌面端或手动指定目录。
+ * 此时请求是否改用虚拟设备标识，由 sdkFallbackToVirtual 控制。
  *
  * ## 它补的是哪一格
  *
- * 「虚拟值」档的设备对（`X-Machine-ID` / `X-Session-ID`）是算出来的：稳定、按号
- * 隔离，但**任何一台机器都能算出同样的形状**。「真实值」档要的是这台机器上
- * 真的装着的那套东西——由 SDK 向风控服务换回的 `X-Device-Token`。两者互斥，不能
- * 叠加：真 token 内含设备信息，旁边再挂一对伪造 id 等于自证不一致。
+ * 虚拟设备模式根据账号和本机盐派生 X-Machine-ID 与 X-Session-ID。
+ * 本机设备模式则通过已安装的 SDK 获取 X-Device-Token。
+ * SDK token 已包含设备信息，成功获取后省略派生标识，避免同时发送来源不同的设备身份。
  *
  * ## 为什么要子进程
  *
@@ -30,13 +29,13 @@
  * token 是分钟级的东西、进程是小时级的，所以**绝不能只取一次**。内存 TTL 10 分钟，
  * 失败时回落到 24 小时内的旧值并标记 `stale`（设备 token 的有效期远长于它的
  * 刷新周期）。**只保存在内存中**：多一份 secret 文件换来的只是省掉一次 100 ms 的取数，
- * 不划算——这与 P2 的文件源是两种东西，那个读的是别人写的文件。
+ * 收益有限。P2 文件源读取外部程序写入的文件，本模块则不创建凭据缓存文件。
  *
  * ## 谁来决定"什么时候取"
  *
  * 请求路径只在**要发请求**时调 {@link TuringTokenSource.current}，所以一个空闲
- * 进程一辈子不会刷新 token——面板上永远是"已加载、没取过"，而用户无法把这句话
- * 与"SDK 坏了"区分开。插件 apply 时调 {@link TuringSdk.startAutoRefresh}：立刻
+ * 进程不会主动刷新 token，面板可能一直显示「已加载、没取过」，使用户难以
+ * 判断 SDK 是否正常。插件 apply 时调 {@link TuringSdk.startAutoRefresh}：立刻
  * 取一次，此后在 TTL 到期前自动换新；失败按 {@link TuringKeepAliveTiming.retryMs}
  * 重试，本机没有 SDK 则按 {@link TuringKeepAliveTiming.unavailableMs} 慢查。
  *
@@ -73,7 +72,7 @@ export const TURING_PRODUCT_VERSION_ENV = 'WORKBUDDY_TURING_PRODUCT_VERSION'
 
 /**
  * 传给桌面端 SDK `configure` 第 4 参 `keychainStorageEnabled` 的开关（`1`/`true`
- * 开启）。macOS 的 binding 要求它必须是 boolean——插件永远传布尔值，这个变量只
+ * 开启）。macOS 原生绑定要求 boolean，因此插件始终传布尔值，此变量仅
  * 决定传 `true` 还是 `false`；默认关。
  */
 export const TURING_KEYCHAIN_STORAGE_ENV = 'WORKBUDDY_TURING_KEYCHAIN_STORAGE'
@@ -82,8 +81,8 @@ export const TURING_KEYCHAIN_STORAGE_ENV = 'WORKBUDDY_TURING_KEYCHAIN_STORAGE'
  * 总开关的环境变量设置（`deviceSdkEnabled`）。
  *
  * 插件里这个开关是**配置项**（`cordis.patch.yml`），但 `doctor` 是一个独立的 CLI
- * 进程，读不到插件配置。没有这条变量，排障时会出现"卡片上说关了、doctor 却在探测
- * 并报 ready"这种自相矛盾——而 `doctor` 的全部价值就是如实回答"现在到底怎样"。
+ * 进程，读不到插件配置。因此诊断命令需通过环境变量单独设置总开关，
+ * 便于与插件实际配置保持一致。
  *
  * 仅 `1` 或 `true` 表示开启；其他值及未设置均为关闭。插件内仍以配置项为准，独立 doctor 进程需要单独设置环境变量。
  */
@@ -106,7 +105,7 @@ const PROBE_CACHE_MS = 60_000
  *
  * 这不是性能优化，是正确性：一次对话会并发打出十几条请求，如果每次失败都重试，
  * 一个 SDK 故障会变成"每轮十几个子进程 + 十几个 20 秒超时"。等待下一次重试期间直接返回上一枚
- * 可用值（没有就返回 `undefined`），而**手动「重新获取」绕过它**——用户点那个按钮，
+ * 可用值，没有旧值时返回 undefined。用户手动点击「重新获取」时绕过等待，
  * 就是要求现在再试一次。
  */
 const RETRY_BACKOFF_MS = 30_000
@@ -166,11 +165,11 @@ export function nextAutoRefreshDelayMs(input: {
     const remainMs = ttlMs - timing.leadMs - (nowMs - fetchedAtMs)
     return Math.max(remainMs, timing.minDelayMs)
   }
-  // 还没有 token：SDK 不在这台机器上就慢一点问——频繁重复相同探测收益有限；较慢的复查仍能发现用户后来安装或修复的 SDK。
+  // 尚无 token 时降低探测频率，后续仍定期复查，以发现用户新安装或修复的 SDK。
   return sdkState !== undefined && sdkState !== 'ready' ? timing.unavailableMs : timing.retryMs
 }
 
-/** 展示用的主机的三元组，`win32-x64` 之类。SDK 目录**不再**按它拼——见下方发现逻辑。 */
+/** 供展示的平台架构标识，例如 win32-x64。SDK 目录由下方发现逻辑确定。 */
 export function bundledSdkBundleId(platform: string = process.platform, arch: string = process.arch): string {
   return `${platform}-${arch}`
 }
@@ -179,7 +178,7 @@ export function bundledSdkBundleId(platform: string = process.platform, arch: st
  * 插件自带的 `native/turing-sdk` 根目录，包含 `worker.cjs` 和说明文档，不再有 SDK 副本（原生模块与厂商 DLL 是桌面端的构建产物，不随插件分发）。
  *
  * `import.meta.url` 指向 `lib/index.js`（构建产物）或 `src/turing-sdk.ts`（开发与
- * 测试），两者都在包根下一层，所以 `../native/...` 在两种形态下都成立——这是
+ * 测试），两者均位于包根下一层，因此 ../native/... 对两种运行形态都有效。这是
  * 不用 `process.cwd()` 的原因：cwd 是调用者的，不是插件的。
  */
 export function bundledSdkRoot(): string {
@@ -199,13 +198,13 @@ function workerPath(): string {
  * `<bundle>/Contents/Resources/app.asar.unpacked/native/turing-sdk`，里面有
  * `index.cjs` / `package.json` / `build/Release/turing_sdk.node`。
  * Windows 实测（A 级，2026-11-01，`F:\智能体安装路径\WorkBuddy`）：
- * `<install>\resources\app.asar.unpacked\native\turing-sdk` 同形状成立——
+ * 同样采用 <install>\resources\app.asar.unpacked\native\turing-sdk 路径结构。
  * `WorkBuddy.exe` → 该目录 → `hasTuringSdkBinding` 命中，doctor 报
  * `ready (win32-x64 — <install>\resources\app.asar.unpacked\native\turing-sdk)`
  * 并经桌面端自己的 SDK 副本取到 1174 字符真 token。另经 app.asar 解包核对：
  * `native/turing-sdk` 在 asar 头里标 `unpacked`，实际文件只在 `app.asar.unpacked`
  * 一侧，两条路径就是全部分布。注意 DSH Desktop / DSH NEXT 本身是另一种应用、
- * **不含**这份 SDK——发现的搜索对象是 WorkBuddy 桌面端，不是运行 DSH。
+ * 不包含该 SDK。因此应搜索 WorkBuddy 桌面端的安装目录。
  */
 function installedSdkDirFromExecutable(platform: string, executable: string): string | undefined {
   if (platform === 'win32') {
@@ -232,7 +231,7 @@ export function hasTuringSdkBinding(
   // `/`，测试传入的目录可能采用运行平台的路径格式（docs/WINDOWS.md 的路径规则，
   // `at-rest.ts` 曾因混用路径分隔符而无法定位文件）。
   //
-  // 失败后尝试的是「另一种分隔符」，不是「运行平台的 join」——这是两者在 Windows 运行平台上的
+  // 首次失败后尝试另一种路径分隔符，以覆盖两种路径来源在 Windows 上的
   // 全部区别：`process.platform === 'win32'` 时运行平台的 join 就是 `win32.join`，于是
   // 那句 `hostPath !== dataPath` 恒为假，失败后的处理分支被整个短路掉。结果是这个函数的
   // 行为随**跑它的机器**变化：同样的 `(dir, exists, 'win32')` 在 macOS 上会试
@@ -258,7 +257,7 @@ export function hasTuringSdkBinding(
  *
  * 各依赖可由调用方注入，测试无需依赖运行机器的真实安装（见 RELEASING.md §2.5）：
  * `exists` 决定"这份安装里有没有 SDK"，`readRegistryAppPath` 决定注册表答案；
- * 注册表只在 `platform === 'win32'` 时读——否则 macOS 上的单元测试会去 spawn
+ * 仅当 platform 为 win32 时读取注册表，避免 macOS 测试尝试启动
  * 一个本机根本不存在的 `reg.exe`。
  */
 export function discoverInstalledSdkDir(options: {
@@ -330,7 +329,7 @@ export interface TuringTokenReadout {
   length: number
   /** 这一枚 token 是什么时候取到的。 */
   fetchedAtMs?: number
-  /** 上一次**尝试**的时间，成功失败都记——"刚试过但失败了"与"还没试过"必须能分开。 */
+  /** 上次尝试时间，成功与失败均记录，用于区分尚未尝试和尝试失败。 */
   lastAttemptMs?: number
   /** `stale` / `unavailable` 的原因，结构化短语，不含 secret。 */
   reason?: string
@@ -551,12 +550,12 @@ export function createTuringSdk(options: {
   /**
    * 子进程脚本的路径。**只为测试存在**：真实调用永远用插件自带的那个，而这个参数
    * 让"缓存 / 重取 / 宽限期"这三条逻辑可以在不连 SDK、不发网络请求的前提下被
-   * 逐条验证——否则它们只能靠线上观察。
+   * 逐条验证，减少只能在实际运行中发现的问题。
    */
   worker?: string
   /**
    * 主机平台与架构，同样**只为测试存在**：`bundle` 只是展示用的主机三元组，
-   * 但不添加就没法在 Linux/macOS 的 CI 上断言"ready 时 bundle 是 win32-x64"——
+   * 添加此入口后，Linux/macOS 测试也可模拟并核对 ready 状态的 win32-x64 标识，
    * 那条断言会把"跑测试的机器是什么平台"钉进期望值（RELEASING.md §2.5）。
    * 发现链也读它：传入 `platform: 'win32'` 就是在测 Windows 的安装形状，而
    * 不需要一台 Windows。默认值保持真实主机，行为不变。
@@ -572,7 +571,7 @@ export function createTuringSdk(options: {
   /**
    * 桌面端 `configure` 的第 4 参 `keychainStorageEnabled`。macOS 的原生 binding
    * 会校验它必须是 boolean（缺了它直接报 `keychainStorageEnabled must be a
-   * boolean`），Windows 的老副本多收一个参数无害——所以这里**永远传布尔**。
+   * boolean`），Windows 旧版本可接受额外参数，因此此处统一传布尔值。
    * 默认 `false`：插件没有往钥匙串写设备缓存的设计意图，SDK 走自己的内存缓存。
    */
   keychainStorage?: boolean
@@ -620,7 +619,7 @@ export function createTuringSdk(options: {
   /**
    * SDK 目录的**解析器**，不是一个常量（作者意见 #1）。
    *
-   * 卡片上填一个目录、点保存，下一步就该看见 `ready`——所以目录必须在每次
+   * 用户保存目录后需立即重新检测，因此目录必须在每次
    * `probe` 时重新问一次，而不是在 `createTuringSdk` 时钉死。构造期钉死会让
    * "填了但没生效"成为唯一的可能结果，而用户没有任何办法判断是路径错了还是需要
    * 重启（后者在这条处理过程上根本不存在）。
@@ -685,7 +684,7 @@ export function createTuringSdk(options: {
     /**
      * 总开关先于一切：关掉时**不解析目录、不碰文件系统、不起子进程**。
      *
-     * 放在 `resolveDir()` 之前是刻意的——目录解析本身要读环境、可能读注册表（win32），
+     * 此检查先于 resolveDir() 执行，因为目录解析会读取环境，还可能读取 Windows 注册表，
      * 而关掉开关的人要的正是"这个插件别去碰桌面端"。
      */
     if (!isEnabled()) {
@@ -742,9 +741,8 @@ export function createTuringSdk(options: {
     const ageMs = at - cached.fetchedAtMs
     const expired = ageMs > ttlMs
     const tooOld = ageMs > TURING_TOKEN_STALE_MS
-    // 「上一枚还新鲜」不等于「一切正常」：如果最近一次尝试（晚于这枚 token 的取数
-    // 时间）失败了，用户刚点过重取却没成功——那必须显示成 stale，而不是一个和平
-    // 时无异的 ok。
+    // token 仍在有效期内，但较晚的一次刷新失败时，状态应显示 stale。
+    // 这样可以区分成功获取新值和刷新失败后继续使用旧值。
     const failedSinceFetch = lastFailure !== undefined
       && lastAttemptMs !== undefined
       && lastAttemptMs >= cached.fetchedAtMs
@@ -807,8 +805,8 @@ export function createTuringSdk(options: {
    * 预热一次：到期前换新，其余情况什么都不做。
    *
    * 与 {@link current} 的分工是这条需求的核心。`current()` 只在**请求要发出去**时
-   * 被调用，所以一个空闲的进程永远不会刷新 token——面板看到的永远是"已加载、
-   * 没取过"，而用户无法分辨那是"SDK 没工作"还是"还没轮到它工作"。预热在启动时
+   * 被调用，空闲进程因此不会自动刷新 token，面板会停留在「已加载、
+   * 没取过」，用户无法判断 SDK 是否正常。预热在启动时
    * 与每次到期前跑，让"现在这枚 token 是什么"随时可以回答。
    *
    * 重复调用时，缓存未过期或仍在失败等待期就直接返回；已有请求执行中则等待该请求。

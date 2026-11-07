@@ -10,9 +10,9 @@
  *   Bearer 调 `{API_PREFIX}/login/account` 拉取账号资料。三步的 URL 形态、
  *   响应字段双拼写（camelCase/snake_case）容错、以及「区域必须绑定会话」的
  *   约定均沿用该实现。
- * 改动：端点按本插件 `upstream.ts` 的区域约定路由 —— CN 为
- *   `https://www.codebuddy.cn`；国际版按凭据域分家（`workbuddy.ai` 与
- *   `codebuddy.ai` 两把钥匙各自签发，混用会被网关拒绝），插件发起登录时
+ * 端点按 upstream.ts 的区域约定路由。国内版使用
+ *   `https://www.codebuddy.cn`；国际版按凭据域区分（workbuddy.ai 与
+ *   codebuddy.ai 的凭据不能混用），插件发起登录时
  *   还没有凭据，因此由用户显式传基址，缺省 `https://www.workbuddy.ai`。
  *   登录结果不落独立账号库，而是由插件写入统一凭据库（`src/auth.ts` 的
  *   vault），与桌面端扫描到的账号共用一套发现/选择/刷新机制。

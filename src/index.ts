@@ -284,18 +284,11 @@ export const name = 'dsh-connect-workbuddy'
 export const inject = ['llm', 'settings']
 
 /**
- * Settings namespace for the plugin configuration card.
- *
- * (历史注记：0.1.5 线上插件自选命名空间并经 `installSection` 注册；自
- * 2.1.0 起只支持 0.1.7 线，该路径已移除。) 0.1.7 的 settings 服务自行推导
- * 命名空间 —— `describe()` 返回 `ns: entry.options.id`，即 Loader 条目 id
- * —— 因此插件不再能自选。此常量仅作为「DSH 不暴露条目 id」时的回落值；
- * 实际生效值来自 {@link settingsNamespaceOf}。
- *
- * 这个区分不是装饰性的。DSH 按**精确匹配**查表
- * （模型设置页的 `namespaces.get(entry.settingsNs)`），所以宣告
- * `workbuddy` 而 DSH 实际服务 `include:dsh-connect-workbuddy` 时，provider
- * 会被判为「未配置」：配置入口与模型发现双双静默失效。
+ * 设置卡片的配置命名空间。
+ * 早期通过 installSection 自选命名空间的路径已移除。DSH 0.1.7 的 settings 服务
+ * 通过 describe 返回 Loader 条目 id 作为命名空间，因此实际值由 settingsNamespaceOf 取得。
+ * 此常量仅用于 DSH 未暴露条目 id 时的默认值。
+ * DSH 按精确命名空间查表，值不一致会使 provider 被判为未配置，影响设置入口和模型发现。
  */
 
 /**
@@ -333,22 +326,11 @@ export function apply(ctx: Context, config: Config): void {
    */
   const deviceProfiles = createDeviceProfileLookup()
   /**
-   * 真实设备参数的获取流程（P3）。
-   *
-   * **启动即预热**：`startAutoRefresh()` 立刻取一次，此后在 10 分钟 TTL 到期前自动
-   * 换新。此前只有请求路径会调 `current()`，于是空闲进程的「SDK」分区永远停在
-   * "已加载、没取过"——那与"SDK 坏了"在界面上长得一样，而这正是用户反馈的现象。
-   *
-   * 每次实际获取都会启动子进程。成功后在缓存到期前刷新，失败时按重试间隔再试；`stopAutoRefresh()` 挂在
-   * `ctx.effect` 的清理上，插件卸载时定时器随之消失。
-   *
-   * `dirSource` 让卡片上填的目录**下一次观察就生效**（作者意见 #1）：句柄活到
-   * 卸载，而设置随时会变，所以目录每次 `probe` 现问一次。`deviceProfiles` 读盘有
-   * 5 秒缓存，保存会立即失效它。
-   *
-   * ⚠️ **总开关优先于预热**（`deviceSdkEnabled`）：关掉就不建定时器、不预取。
-   * 留着 `createTuringSdk()` 本身是因为端口（`createDeviceSdkPort`）仍要能回答
-   * "这个功能被关掉了"——它读到的是 `disabled` 状态，而不是一块空白面板。
+   * 管理真实设备参数的预热和定时刷新。
+   * 启用时 startAutoRefresh 立即获取一次，成功后在缓存到期前刷新，失败按重试间隔再试。
+   * 每次获取启动子进程，卸载时通过 ctx.effect 调用 stopAutoRefresh 清理定时器。
+   * 目录由 dirSource 在每次 probe 时读取；设备设置缓存为 5 秒，保存后立即失效。
+   * 关闭 deviceSdkEnabled 时不预取、不建定时器，但保留 SDK 端口，使界面可以显示 disabled 状态。
    */
   /**
    * 总开关：**默认关**（`default(false)`）。
@@ -408,18 +390,14 @@ export function apply(ctx: Context, config: Config): void {
     },
     {
       usageIdentity: unwrapVolatile(config.usageIdentity) === true,
-      // 未配置时由 upstream 的 DEFAULT_WIRE_PROFILE 决定（`balanced`），这里
-      // 不重复写一份默认值——两处默认值是它们开始分叉的方式。
+      // 未配置时使用 upstream 的 DEFAULT_WIRE_PROFILE，避免维护两份默认值。
       ...unwrapVolatile(config.wireProfile) === undefined
         ? {}
         : { profile: unwrapVolatile(config.wireProfile) },
     },
     (() => {
-      // 设备 token 的文件源（P2）。空路径 = 不启用；读取器在客户端内部按 TTL
-      // 重读，所以这里只传配置，不在这里读盘。
-      //
-      // 配置为空时回落到 `WORKBUDDY_DEVICE_TOKEN_FILE`——同一个值、两个读者
-      // （插件读配置，`doctor` 只能读环境变量），两种入口可共享该环境变量；插件配置非空时仍以配置为准。
+      // 将设备 token 文件源配置传给客户端，由读取器按 TTL 重读。
+      // 插件配置非空时优先，否则使用 WORKBUDDY_DEVICE_TOKEN_FILE；doctor 也读取该环境变量。
       const token = unwrapVolatile(config.deviceToken)
       const configured = typeof token?.file === 'string' ? token.file.trim() : ''
       const file = configured !== '' ? configured : (process.env[WORKBUDDY_DEVICE_TOKEN_FILE_ENV] ?? '').trim()
@@ -433,15 +411,10 @@ export function apply(ctx: Context, config: Config): void {
         // 认这一个源，虚拟值档完全不碰它（见 `wireIdentity`）。
         realDevice: turing.tokens,
         /**
-         * CN 网关覆盖（issue #220）：**每次请求现读**，不是一个采样值。
-         *
-         * `regions` 是 volatile 字段，用户保存后不重启插件；这里若在构造期采样
-         * 一次，改设置就只有重启才生效，而「填了没反应」正是本设置唯一的用途。
-         *
-         * 只对 CN 生效，且只有 `resolveCnGateway` 通过时才返回覆盖值：
-         * 校验失败一律退回内置网关并记一条 warn。**退回而不是抛**，因为这条
-         * 路径在每一请求上；但绝不静默——用户填了个不被接受的 host 却一直用着
-         * 默认网关，会让他继续怀疑是网络，而不是自己填错。
+         * 每次请求读取国内版网关配置，见 issue #220。
+         * regions 支持保存后即时更新，因此不能仅在构造客户端时读取一次。
+         * 只有国内版且 resolveCnGateway 校验通过时返回覆盖值。
+         * 无效配置使用默认网关并记录警告，避免每个请求都因配置错误抛出异常。
          */
         cnBase: () => {
           const live = current()
@@ -815,16 +788,10 @@ export function apply(ctx: Context, config: Config): void {
   let invalidateCatalog = (): void => {}
 
   /**
-   * 渠道门拒绝（`channel_reject` / 11128）之后的自动「继续」。
-   *
-   * 挂在这里而不是 adapter 里，理由是**它要的是一个新回合**：adapter 只看得到
-   * 一次请求，`channel_reject` 在同一个请求内已经跑完三级救援阶梯，再在那一层
-   * 重发就是把被拒的字节原样再送一遍。DSH 把这一轮判死之后才追加 `turn/end`，
-   * 而新回合会让 DSH 重新组装 surface —— 那才是 `docs/PINNED-11128-RETRY.md`
-   * 里「把这条消息再发一次」真正做的事。
-   *
-   * 会花真实请求，所以开关默认关闭，且只在用户显式打开后才读配置（见
-   * `channelContinueSettingsOf`：只有 `=== true` 算开启）。
+   * 在渠道校验拒绝后按设置发起新的继续回合。
+   * adapter 已在同一次请求中完成三级重试，继续原请求无法重新组装消息内容。
+   * 因此在 DSH 写入 turn/end 后发起新回合，由 DSH 重建请求内容，见 docs/PINNED-11128-RETRY.md。
+   * 此操作会产生真实请求，默认关闭，仅在配置显式为 true 时启用。
    */
   const disposeChannelContinue = installChannelContinue({
     // 活值：用户拨动开关之后，下一次失败立刻按新值处置，不必重载插件。
@@ -1288,25 +1255,12 @@ export function apply(ctx: Context, config: Config): void {
       })))
   }
 
-  // 生图工具：跟随**两个区**的开关，而不是在 apply 期判一次。
-  //
-  // 挂不挂由 `imageToolRegionOf` 决定：任一区「开着 + 用户显式打开了自主生图」
-  // 就注册。以前只挂国内区，因为 `text-to-image` 模型只出现在国内区的产品配置里
-  // （`hunyuan-image-alpha`）；2026-10-25 实测国际区也有一条
-  // （`hy-image-3.5`，同时带 `text-to-image` 与 `image-to-image`），国际区账号
-  // 因此能真画图，而不是一个每次调用都报「没有生图模型」的按钮。两区单价不同
-  // （国内区 5.71、国际区 0.03 积分/张），所以工具文案不再写死一张的价钱，
-  // 改为回报上游响应中的 `data.usage.credit`，该值未独立核对账单。
-  //
-  // `tools` 是 DSH 自己的服务（`class Tools extends Service`，服务名 `tools`），
-  // 用 `ctx.inject` 等它出现再注册，而不是 apply 期间 `ctx.get()` 采样一次：
-  // 采样会静默丢掉工具（同 webServer 的注释）。
-  //
-  // 开关是**注册与否**的门，必须读活值：`regions` 是 volatile 字段，用户拨动
-  // 国内区开关走的是 volatile-only 更新（loader 只发 `loader/volatile-update`，
-  // 不重新 apply），所以 `if (regionEnabled(...))` 只在 apply 期求值一次的话，
-  // 启动时关着的用户之后打开永远看不到这个工具，而启动时开着的用户关掉之后
-  // 工具还挂着、只在调用时报「未登录」——把「区域已关闭」说成「没登录」。
+  // 生图工具跟随两个区域的当前开关状态。任一区启用且允许自主生图时注册。
+  // 国内版和国际版均有可用媒体模型；2026-10-25 国际版实测为 hy-image-3.5。
+  // 两区费率不同，因此报告上游 data.usage.credit，不写死单价；该字段未独立核对账单。
+  // 通过 ctx.inject 等待 DSH 的 tools 服务，避免仅在 apply 时查找而漏掉稍后注册的服务。
+  // regions 支持 volatile 更新且不重新 apply，因此注册状态也须随配置更新，
+  // 避免开关打开后工具缺失，或关闭后仍显示工具并误报未登录。
   let imageTools: ToolsServiceLike | undefined
   let disposeImageTool: (() => void) | undefined
   const syncImageTool = (value: Config): void => {
@@ -2307,11 +2261,8 @@ export function apply(ctx: Context, config: Config): void {
   interface SettingsShapes {
     configure: (presentation: { auto?: boolean }, owner?: unknown) => () => void
     /**
-     * 写一个设置命名空间下的字段——卡片上那个 SDK 总开关用的就是它。
-     *
-     * 只在 0.1.7 起存在（`tests/settings-integration.spec.ts` 也是这么用的），
-     * 所以这里是可选：老 DSH 上卡片会退化成只读（开关置灰），而不是让整个面板
-     * 抛出。
+     * 写入指定设置命名空间中的字段，供卡片 SDK 总开关使用。
+     * DSH 0.1.7 起支持该服务；不支持时卡片显示只读状态，避免整页抛出异常。
      */
     update?: (ns: string, patch: Record<string, unknown>) => Promise<unknown>
   }
