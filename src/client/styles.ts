@@ -26,15 +26,7 @@ export const WORKBUDDY_CARD_CSS = `
 .dsm-icon-choices>button:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#cf795b);outline-offset:2px}
 .dsm-icon-save-error{flex-basis:100%;margin:0;color:var(--dsw-alias-state-error-primary,#c33);font-size:12px}
 
-/* 插件详情页将图标、名称说明和操作按钮放在同一行，只影响本插件。 */
-[data-plugin-detail="dsh-connect-workbuddy"][data-plugin-detail]{display:grid;grid-template-columns:48px minmax(0,1fr) auto;column-gap:16px;align-items:start}
-[data-plugin-detail="dsh-connect-workbuddy"][data-plugin-detail]>[class*="_detailTop"],[data-plugin-detail="dsh-connect-workbuddy"][data-plugin-detail] [class*="_detailHead"]{display:contents}
-[data-plugin-detail="dsh-connect-workbuddy"][data-plugin-detail] [class*="_crumb"]:not([class*="_crumbIcon"]){grid-column:1/-1;grid-row:1;justify-self:start;margin-bottom:28px}
-[data-plugin-detail="dsh-connect-workbuddy"][data-plugin-detail] [class*="_cardIcon"]{grid-column:1;grid-row:2;align-self:start}
-[data-plugin-detail="dsh-connect-workbuddy"][data-plugin-detail]>[class*="_detailMain"]{grid-column:2;grid-row:2;margin-top:0;min-width:0}
-[data-plugin-detail="dsh-connect-workbuddy"][data-plugin-detail] [class*="_detailActions"]{grid-column:3;grid-row:2;align-self:start}
-[data-plugin-detail="dsh-connect-workbuddy"][data-plugin-detail]>[class*="_detailSections"]{grid-column:1/-1;min-width:0}
-@media(max-width:640px){[data-plugin-detail="dsh-connect-workbuddy"][data-plugin-detail]{grid-template-columns:48px minmax(0,1fr)}[data-plugin-detail="dsh-connect-workbuddy"][data-plugin-detail] [class*="_detailActions"]{grid-column:2;grid-row:3;justify-self:start;margin-top:12px}}
+/* 插件详情页沿用宿主布局，图标独占一行，标题和说明位于其下。 */
 
 .dsm-plugin-card{border:1px solid var(--dsw-alias-border-l2,#36373b);background:var(--dsw-alias-bg-layer-3,#202126);border-radius:12px;list-style:none;transition:border-color .16s,background .16s}
 .dsm-plugin-card:hover{border-color:var(--dsw-alias-label-dimmed,#777)}
