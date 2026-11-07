@@ -111,15 +111,14 @@ export interface ComposerCreditsProps extends Partial<ComposerCreditsInjected> {
    */
   settingsScope?: WorkBuddyCardInjected['settingsScope']
   /**
-   * Open this plugin's settings page, or answer `false` when the host offers no
-   * route to it.
+   * Open this plugin's FULL page, or answer `false` when the host offers no route
+   * to it.
    *
-   * A CALLBACK rather than a panel id, for two reasons. The route is a Host
-   * service (`pluginNavigation`, falling back to `layout`) that only the entry
-   * can probe — this module must not import browser-only DSH packages. And the
-   * probe has to happen at PRESS time, not at registration time: the plugin
-   * providing it may apply after this one, so an answer captured in `apply`
-   * would be a dead button for the whole session (see `settings-route.ts`).
+   * A CALLBACK rather than a panel id, because the route is a Host service
+   * (`layout.selectPanel`) that only the entry may touch — this module must not
+   * import browser-only DSH packages. The target is the plugin's own `main`
+   * panel, so the call needs no other bundle's private key, and the entry
+   * registers that panel unconditionally for exactly this button.
    *
    * Absent means "no route known", and the button is not rendered at all: a menu
    * entry that cannot do what it says is worse than one that is not there.
@@ -188,6 +187,23 @@ export function hostCreditsShownOf(usage: WorkBuddyWebUsage | undefined): boolea
   if (usage === undefined || usage.status === 'error') return undefined
   const value = usage.showCreditsInMainUi
   return typeof value === 'boolean' ? value : undefined
+}
+
+/**
+ * Whether this region's usage document allows the "· N 新模型" segment.
+ *
+ * OPT-IN, so this is the mirror image of {@link hostCreditsShownOf}: absent
+ * means NO. "New" means first seen by this machine, not newly listed upstream,
+ * so on a fresh install it would announce the entire roster — a number that is
+ * true by construction and reads as a defect. See `showNewModelsInMainUi` in the
+ * schema for the full argument.
+ *
+ * The `error` variant answers `false` rather than `undefined`: with no document
+ * there is no roster, hence no new models, hence nothing to announce anyway.
+ */
+export function hostNewModelsShownOf(usage: WorkBuddyWebUsage | undefined): boolean {
+  if (usage === undefined || usage.status === 'error') return false
+  return usage.showNewModelsInMainUi === true
 }
 
 /**
@@ -282,12 +298,11 @@ export function ComposerCredits(props: ComposerCreditsProps) {
   const [testError, setTestError] = useState<string | undefined>(undefined)
   const [failed, setFailed] = useState(false)
   /**
-   * The settings button could not reach a page on this host.
+   * The full-page button could not reach the page on this host.
    *
    * Its own flag, not `failed`, because the two render DIFFERENT sentences: this
-   * one says the host offers no route to the settings page, which is not the same
-   * claim as "the credits read failed", and sharing a flag would print one over
-   * the other.
+   * one says the host offers no route to the page, which is not the same claim as
+   * "the credits read failed", and sharing a flag would print one over the other.
    */
   const [settingsFailed, setSettingsFailed] = useState(false)
   const [lastRefresh, setLastRefresh] = useState<number | undefined>(undefined)
@@ -608,7 +623,7 @@ export function ComposerCredits(props: ComposerCreditsProps) {
   }, [activeRegion, fetchUsage, fetchAccountCredits, t])
 
   /**
-   * The header's settings control: open this plugin's page, then close.
+   * The header's page control: open this plugin's full page, then close.
    *
    * CLOSING IS PART OF THE JOB. The panel is portaled to `document.body` and
    * floats over the composer; navigating the centre column does not remove it, so
@@ -667,7 +682,14 @@ export function ComposerCredits(props: ComposerCreditsProps) {
   // first saw inside the new-model window, as names. Rendered ONLY when
   // non-empty — a permanently-on "0 新模型" is background noise, and the value
   // is entirely in the rounds where there is something to say.
-  const newModelIds = newModelIdsOf(usage)
+  // GATED AT THE SOURCE, not at each render site: the pill segment, the panel
+  // section and the note all read these three values, so an empty list here
+  // turns the whole feature off in one place and leaves no surface able to
+  // disagree with another. `rosterSeenNote` is gated too — it exists only to
+  // explain the history behind this segment, so it is noise when the segment
+  // itself is off.
+  const newModelsShown = hostNewModelsShownOf(usage)
+  const newModelIds = newModelsShown ? newModelIdsOf(usage) : []
   const newModelNames = newModelIds.map(id => modelNameOf(signedIn?.models ?? [], id))
   // The trigger's hover answer: the first few names, then an ellipsis. Names,
   // not ids, because the count in the pill is a number and this is the one place
@@ -678,7 +700,7 @@ export function ComposerCredits(props: ComposerCreditsProps) {
   // Present only when the on-disk first-sighting history is in a version this
   // build cannot read, so "no new models" is never the story for a file that was
   // simply not read.
-  const rosterSeenNote = signedIn?.rosterSeenVersionNote
+  const rosterSeenNote = newModelsShown ? signedIn?.rosterSeenVersionNote : undefined
 
   /**
    * The table's rows: every account in this region, with its balance.
@@ -870,6 +892,12 @@ export function ComposerCredits(props: ComposerCreditsProps) {
                 )}
             </span>
           </div>
+          {settingsFailed
+            ? <p className="dsm-workbuddy-composer-panel-error" role="status">{t('composer.openSettingsFailed')}</p>
+            : null}
+          {testError === undefined
+            ? null
+            : <p className="dsm-workbuddy-composer-panel-error" role="status">{testError}</p>}
           {signedOut
             ? <p className="dsm-workbuddy-composer-panel-empty">{t('composer.signedOut')}</p>
             : rows.length === 0
@@ -1045,9 +1073,6 @@ export function ComposerCredits(props: ComposerCreditsProps) {
           {testError === undefined
             ? null
             : <p className="dsm-workbuddy-composer-panel-error" role="status">{testError}</p>}
-          {settingsFailed
-            ? <p className="dsm-workbuddy-composer-panel-error" role="status">{t('composer.openSettingsFailed')}</p>
-            : null}
         </div>,
         document.body,
       )}

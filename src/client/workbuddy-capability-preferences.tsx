@@ -270,7 +270,9 @@ export function createCapabilityPreferences({ t, activeRegionOn, imageToolOn, ac
    * plugin, not of one region, and a signed-out card can still turn it on.
    */
   const sidebarPanelPreference = (
-    <label className="dsm-workbuddy-pref" title={t('row.sidebarPanelHint')}>
+    <div className="dsm-workbuddy-prefs">
+      <span className="dsm-workbuddy-pref-hint">{t('row.sidebarPanelLead')}</span>
+      <label className="dsm-workbuddy-pref" title={t('row.sidebarPanelHint')}>
       <input
         type="checkbox"
         className="dsm-workbuddy-sidebar-panel-check"
@@ -284,7 +286,8 @@ export function createCapabilityPreferences({ t, activeRegionOn, imageToolOn, ac
         <span className="dsm-workbuddy-pref-label">{t('row.sidebarPanelLabel')}</span>
         <span className="dsm-workbuddy-pref-hint">{t('row.sidebarPanelHint')}</span>
       </span>
-    </label>
+      </label>
+    </div>
   )
 
   /**
@@ -481,6 +484,7 @@ export function createCapabilityPreferences({ t, activeRegionOn, imageToolOn, ac
    */
   const channelRejectContinuePreference = (
     <div className="dsm-workbuddy-prefs">
+      <span className="dsm-workbuddy-pref-hint">{t('row.channelRejectHint')}</span>
       <label
         className="dsm-workbuddy-pref dsm-workbuddy-upstream-pref"
         title={t('row.channelRejectContinueHint')}

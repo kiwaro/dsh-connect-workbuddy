@@ -33,6 +33,10 @@ export interface WorkBuddyRegionState {
    * written before this switch existed keeps whatever the default was.
    */
   showCreditsInMainUi?: boolean
+  /** 显示本机首次检测到的模型，默认关闭。 */
+  showNewModelsInMainUi?: boolean
+  /** 国内网关地址，保存和请求时均按官方域名白名单验证。 */
+  cnBase?: string
   /**
  * Whether models may call the image-generation tool in this region.
  * This is opt-in: an absent value means off, as with videoToolEnabled.
@@ -471,6 +475,8 @@ const poolConfig = z.object({
 })
 
 const regionStateConfig = z.object({
+  showNewModelsInMainUi: z.boolean().default(false).description('显示本机首次检测到的模型，默认关闭；不代表模型在上游的上架时间。'),
+  cnBase: z.string().default('').description('国内网关地址。留空使用默认网关；仅接受官方域名的 HTTPS 地址。'),
   enabled: z.boolean().default(true).description('Whether this region\'s provider is offered to DSH (opt-out; false withdraws it entirely)'),
   /**
    * Whether this region's credit line shows at the DSH sidebar foot.

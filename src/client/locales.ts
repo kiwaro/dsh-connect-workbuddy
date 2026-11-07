@@ -561,6 +561,16 @@ export const en = {
   'row.channelRejectContinueText': 'Text sent:',
   'row.cliBridgeLabel': 'Let the local CodeBuddy CLI do the work',
   'row.cliBridgeHint': 'Adds the codebuddy_ask tool and the /codebuddy command. Each call spends CodeBuddy quota. injectResult only affects /codebuddy — its result is injected back into the session, costing one DSH turn when the session is idle; tool calls never read it. Rate-limited: 6 turns per session per hour, 20 per process per hour, one turn at a time. Off by default.',
+  'row.cnBaseLabel': 'CN gateway host',
+  'row.cnBaseHint': 'Leave empty to use copilot.tencent.com. Set it only if your network resets that host by TLS SNI (connection fails in milliseconds while the WorkBuddy desktop app still works) — the app itself falls back to wb.tencentbuddy.com. Accepted hosts: any subdomain of copilot.tencent.com, tencentbuddy.com, workbuddy.cn or codebuddy.cn, over https. Chat, billing, catalog and check-in all follow it; your account and region do not change.',
+  'row.cnBasePlaceholder': 'https://wb.tencentbuddy.com',
+  'row.cnBaseInvalidMalformed': 'That is not a full URL. Include https:// and the host, e.g. https://wb.tencentbuddy.com',
+  'row.cnBaseInvalidInsecure': 'Only https is accepted — a plaintext host would send your token in the clear.',
+  'row.cnBaseInvalidHost': 'That host is not one of the CN brands. Use a subdomain of copilot.tencent.com, tencentbuddy.com, workbuddy.cn or codebuddy.cn.',
+  'row.cnBaseSaved': 'CN gateway saved. New requests use it; originals/CORS headers keep naming the CN web app.',
+  'row.cnBaseCleared': 'Back to the built-in CN gateway.',
+  'row.diagCnBase': 'CN gateway',
+  'row.diagCnBaseDefault': 'built-in (copilot.tencent.com)',
   'row.sidebarPanelLabel': 'Show WorkBuddy in the sidebar',
   'row.sidebarPanelHint': 'Adds a WorkBuddy row to the DSH sidebar that opens this card as a full page. Off by default: the row takes a global sidebar slot shared by every installed plugin, and the Plugins page already reaches the same content. Takes effect on the click — no Save needed — and switching it off while the page is open returns you to the conversation.',
   // The three quick-adjust pins of the route: which model and which reasoning
@@ -628,6 +638,13 @@ export const en = {
   // creditPositionHintInline, which explains the picker beside it — one
   // sentence per control.
   'row.showCreditsHintInline': 'The balance for the account currently serving this tab. Click for per-account balances; it also refreshes every 5 minutes.',
+  // The new-model segment (opt-IN, off by default). The wording has to carry
+  // the one thing that makes "new" honest: it is FIRST SEEN BY THIS MACHINE, not
+  // newly listed upstream. On a fresh install every id is first-seen, so the
+  // switch is off until someone asks for it.
+  'row.showNewModels': 'Show newly seen models',
+  'row.showNewModelsHint': 'Adds a "· N new models" segment beside the credit readout, and a "new" mark on those rows in the model picker. "New" means this machine recorded the model id for the first time — it says nothing about when the upstream listed it. Off by default: on a new install the whole roster is "new".',
+  'row.showNewModelsHintInline': 'First seen by this machine, not newly listed upstream. Off by default — on a new install the whole roster counts as new.',
   // The supplement to a quota failure (issue #63), rendered as an INLINE
   // PARENTHETICAL in the conversation — one short clause, no dialog, no button.
   // The plugin no longer claims the `shell.quota-notice` chain seat, so this is
@@ -664,8 +681,8 @@ export const en = {
   // title onto two lines. The panel is unmistakably this plugin's, and the
   // tooltip names the page, so nothing is lost by the short word.
   'composer.openSettings': 'Settings',
-  'composer.openSettingsHint': 'Open this plugin\'s settings page (accounts, models, switches)',
-  'composer.openSettingsFailed': 'This host offers no route to the plugin settings page',
+  'composer.openSettingsHint': 'Open this plugin\'s full page (accounts, models, switches)',
+  'composer.openSettingsFailed': 'This host offers no route to the plugin page',
   // The header's REFRESH control (left of settings). Named for what the reader
   // gets — this table brought up to date — rather than for the mechanism, which
   // is a probe batch. The hint has to say the mechanism out loud, because
@@ -709,6 +726,10 @@ export const en = {
   'cliLive.lastTool': 'last: {tool}',
   'cliLive.chars': '{count} chars',
   'cliLive.aria': 'A CodeBuddy turn is running: {detail}',
+  'row.poolRetryUnknown': 'The upstream gave no time for when this frees up',
+  'row.modelToolsHint': 'Configure credit display, new-model notices and model tools for this region. Tool switches take effect after saving.',
+  'row.channelRejectHint': 'This option can send an additional request after a channel rejection. Review the retry conditions before enabling it.',
+  'row.sidebarPanelLead': 'Choose whether WorkBuddy appears in the DSH sidebar. This setting affects navigation.',
 } as const
 
 export type WorkBuddySettingsKey = keyof typeof en
@@ -1309,7 +1330,7 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   'composer.switchedNotice': '已切换至「{account}」，后续请求使用此账号。',
   'composer.noAccounts': '该区域暂无账号',
   'composer.signedOut': '未登录',
-  // 面板里通往本插件自身设置的入口。措辞取短（「设置」而不是「WorkBuddy 设置」）：
+  // 面板里通往本插件自身页面的入口。措辞取短（「设置」而不是「WorkBuddy 设置」）：
   // 这个浮层只有约 250px 宽，头部还要放区域标题和一键测试，长标签会把标题挤成
   // 两行。面板本身就只属于这个插件，去处由 tooltip 说明，短词不丢信息。
   'composer.openSettings': '设置',
@@ -1351,4 +1372,21 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   'cliLive.lastTool': '最近：{tool}',
   'cliLive.chars': '{count} 字',
   'cliLive.aria': "CodeBuddy 正在执行任务：{detail}",
+  'row.poolRetryUnknown': '上游未给出何时恢复',
+  'row.modelToolsHint': '设置本区域的积分显示、新模型提示和模型工具权限。工具开关保存后生效。',
+  'row.channelRejectHint': '开启前请阅读重试条件。遇到渠道拒绝时，此选项可能额外发送一次请求。',
+  'row.sidebarPanelLead': '选择是否在 DSH 侧边栏显示 WorkBuddy。此设置只影响导航入口。',
+  'row.cnBaseLabel': 'CN 网关主机',
+  'row.cnBaseHint': '留空即用 copilot.tencent.com。只有当你的网络按 TLS SNI 重置这个域名时才需要填（连接在毫秒级就失败，而同一台机器上的 WorkBuddy 桌面端正常——客户端自己会退回 wb.tencentbuddy.com）。可填 copilot.tencent.com、tencentbuddy.com、workbuddy.cn、codebuddy.cn 任一域名下的子域，且必须是 https。聊天、计费、模型目录、签到都会跟着走；账号与区域不会变。',
+  'row.cnBasePlaceholder': 'https://wb.tencentbuddy.com',
+  'row.cnBaseInvalidMalformed': '这不是一个完整 URL。请带上 https:// 与主机名，例如 https://wb.tencentbuddy.com',
+  'row.cnBaseInvalidInsecure': '只接受 https——明文主机会把你的 token 裸发出去。',
+  'row.cnBaseInvalidHost': '这个主机不在 CN 品牌里。请用 copilot.tencent.com、tencentbuddy.com、workbuddy.cn、codebuddy.cn 下的子域。',
+  'row.cnBaseSaved': 'CN 网关已保存，新请求即刻使用它；Origin/Referer 仍然自称 CN 网页端。',
+  'row.cnBaseCleared': '已回到内置 CN 网关。',
+  'row.diagCnBase': 'CN 网关',
+  'row.diagCnBaseDefault': '内置（copilot.tencent.com）',
+  'row.showNewModels': '显示新出现的模型',
+  'row.showNewModelsHint': '在积分读数旁多加一段「· N 新模型」，并在模型选择器里给这些行标一个「新」。这里的「新」指**本机首次记到这个模型 id**，与上游何时上架无关。默认关闭：全新安装时整个目录都算「新」，那个数字说明不了任何事。',
+  'row.showNewModelsHintInline': '指本机首次见到，不是上游新上架。默认关闭——全新安装时整个目录都算新。',
 }

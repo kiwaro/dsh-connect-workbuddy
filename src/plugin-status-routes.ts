@@ -266,6 +266,7 @@ export function installPluginStatusRoutes(webCtx: Parameters<typeof registerWork
      * mirror goes stale for this namespace on the affected 0.1.7 deployments,
      * which made the switch look unable to turn the line off ("关闭不了").
      */
+    showNewModelsInMainUi: region => regionStateOf(dependencies.current(), region).showNewModelsInMainUi === true,
     showCreditsInMainUi: region => regionStateOf(dependencies.current(), region).showCreditsInMainUi !== false,
     /**
      * Whether the model may call the image tool here. Read from the committed

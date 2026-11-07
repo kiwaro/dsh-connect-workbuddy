@@ -2283,3 +2283,18 @@ describe('registerWorkBuddyStatusRoute re-mount (issue #86)', () => {
  */
 
 })
+
+
+describe('新模型提示的状态投影', () => {
+  it.each([false, true])('已登录时返回当前区域的开关值 %s', async shown => {
+    const status = await workBuddyWebStatus(deps({ showNewModelsInMainUi: region => region === 'cn' && shown }), 'cn')
+    expect(status.status).toBe('signed-in')
+    expect(status).toHaveProperty('showNewModelsInMainUi', shown)
+  })
+
+  it('旧配置未提供开关时保持关闭', async () => {
+    const status = await workBuddyWebStatus(deps(), 'cn')
+    expect(status.status).toBe('signed-in')
+    expect(status).toHaveProperty('showNewModelsInMainUi', false)
+  })
+})

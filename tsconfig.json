@@ -19,6 +19,7 @@
     "tests/plugin-icon.spec.tsx",
     "src/client",
     "tests/pool-render-helpers.tsx",
+    "tests/settings-jump.spec.tsx",
     "tests/pool-render.spec.tsx",
     "tests/account-tools-placement.spec.tsx",
     "tests/pool-card-render.spec.tsx",
@@ -52,6 +53,7 @@
     "tests/promo-card.spec.tsx",
     "tests/promo-badge.spec.ts",
     "tests/card-panels.spec.tsx",
+    "tests/card-settings-surface.spec.tsx",
     "tests/cli-bridge-card-switch.spec.tsx",
     "tests/busy-icon-card.spec.tsx",
     "tests/model-label-slot.spec.tsx",
@@ -64,6 +66,8 @@
     "tests/sidebar-panel-page.spec.tsx",
     "tests/sidebar-panel-optin.spec.tsx",
     "tests/device-profile-dialog.spec.tsx",
-    "tests/issue215-context-budget-radio.spec.tsx"
+    "tests/issue215-context-budget-radio.spec.tsx",
+    "tests/cn-base-card.spec.tsx",
+    "tests/capabilities-layout.spec.tsx"
   ]
 }

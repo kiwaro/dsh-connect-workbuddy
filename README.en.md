@@ -17,7 +17,7 @@
 
 English | [简体中文](README.md)
 
-A [DeepSeek Harness (DSH)](https://github.com/deepseek-ai/deepseek-harness) bundle plugin that connects locally signed-in WorkBuddy models to the DSH model picker — **both the CN app and the international WorkBuddy AI app are supported** — with an account pool, selectable model management, and a set of read-only capabilities built around credits: **every catalog refresh reads each model's credit multiplier from upstream** (the `x0.79` figure comes entirely from the upstream catalog; the plugin neither hard-codes it nor guesses), image input is toggled per model, multiple accounts can be switched or fail over automatically through the pool, and daily check-in plus read-only credit overviews shown as compact pills on the card and in the composer. **The CN and international sides are two parallel providers (`workbuddy` / `workbuddy-global`) that can be used at the same time**; the settings card separates them with tabs for convenient management. All it needs is a WorkBuddy sign-in on this machine — or **one sign-in from the browser**.
+A [DeepSeek Harness (DSH)](https://github.com/deepseek-ai/deepseek-harness) bundle plugin that connects locally signed-in WorkBuddy models to the DSH model picker — **both the CN app and the international WorkBuddy AI app are supported** — with an account pool, selectable model management, and a set of read-only capabilities built around credits: **every catalog refresh reads each model's credit multiplier from upstream** (the `x0.79` figure comes entirely from the upstream catalog; the plugin neither hard-codes it nor guesses), image input is toggled per model, multiple accounts can be switched or fail over automatically through the pool, and daily check-in plus read-only credit overviews shown as compact pills on the card and in the composer. **The CN and international sides are two parallel providers (`workbuddy` / `workbuddy-global`) that can be used at the same time**; the settings page separates them with tabs for convenient management. All it needs is a WorkBuddy sign-in on this machine — or **one sign-in from the browser**.
 
 <a id="risk-notice"></a>
 
@@ -167,7 +167,7 @@ Measurements, cooldowns and the account currently serving are runtime records st
 >
 > ⚠️ **Do not treat the marketplace's "latest" as the schedule — it reads an index that lags.** The community marketplace serves a periodically built snapshot, collected per package: at the 2026-10-30 15:00 observation this plugin still listed only 5.13.1 while npm `latest` was already 5.14.1, and a desktop host separately flags any release under 24 hours old as "waiting". Trust `npm view dsh-connect-workbuddy version` and [Releases](https://github.com/dingminhua/dsh-connect-workbuddy/releases), and follow [Update](#update) below (pin the **exact version**); or hand [`docs/PINNED-UPGRADE-LAG.md`](docs/PINNED-UPGRADE-LAG.md) §3 to an AI and let it run.
 >
-> The other thing that stops people from upgrading: **pnpm's 24-hour release-age window** (`minimumReleaseAge`) **silently resolves a floating range back to the previous version**. When you need this fixed right now, pin the **exact version**: `dsh-connect-workbuddy@5.15.1`.
+> The other thing that stops people from upgrading: **pnpm's 24-hour release-age window** (`minimumReleaseAge`) **silently resolves a floating range back to the previous version**. When you need this fixed right now, pin the **exact version**: `dsh-connect-workbuddy@5.20.2`.
 
 <a id="supported-host-range"></a>
 
@@ -231,7 +231,7 @@ Restart the DSH process after install/update/uninstall.
 > | exact `5.14.1` + `minimumReleaseAgeExclude: [dsh-connect-workbuddy]` in the profile's `pnpm-workspace.yaml` | **5.14.1** ✅ |
 > | setting absent (pnpm default) | floating `^5.13.1` → **5.14.1** ✅ |
 >
-> To pick up a new release right away, pin it: `dsh plugin --profile desktop add dsh-connect-workbuddy@5.15.1`; if the window refuses it, see [`docs/PINNED-UPGRADE-LAG.md`](docs/PINNED-UPGRADE-LAG.md) §2 for the two routes (wait out the window, or add that exclude line). A floating range catches up once the window elapses.
+> To pick up a new release right away, pin it: `dsh plugin --profile desktop add dsh-connect-workbuddy@5.20.2`; if the window refuses it, see [`docs/PINNED-UPGRADE-LAG.md`](docs/PINNED-UPGRADE-LAG.md) §2 for the two routes (wait out the window, or add that exclude line). A floating range catches up once the window elapses.
 
 The plugin also runs under **Web** and **TUI**; pick the command matching your profile:
 
@@ -250,7 +250,7 @@ dsh plugin --profile dsh-tui add dsh-connect-workbuddy # TUI
 **Manual update**: first query `npm view dsh-connect-workbuddy version`, then install that exact version. The 5.15.1 command below is a historical example:
 
 ```sh
-dsh plugin --profile desktop add dsh-connect-workbuddy@5.15.1
+dsh plugin --profile desktop add dsh-connect-workbuddy@5.20.2
 dsh plugin --profile desktop exec dsh-connect-workbuddy doctor   # first line carries the version
 ```
 
@@ -538,7 +538,7 @@ pnpm run check   # typecheck + test + build
 Local dev via a `link:` install to the desktop profile (restart DSH Desktop after editing):
 
 ```sh
-dsh plugin --profile desktop add /Users/dmh2002/DshProject/dsh-connect-workbuddy
+dsh plugin --profile desktop add /Users/<you>/DshProject/dsh-connect-workbuddy
 ```
 
 <a id="a-link-install-must-be-built-first-or-dsh-refuses-to-load-it"></a>

@@ -613,7 +613,7 @@ CLI 使用凭据库中的账号，账号级限制 `11140` 同样适用；客户�
 先运行 `npm view dsh-connect-workbuddy version` 查询上游发布版本，再按完整版本号安装，并用 doctor 检查实际版本。以下 5.15.1 是原说明中的历史命令示例，执行时应换成查询到的版本：
 
 ```sh
-dsh plugin --profile desktop add dsh-connect-workbuddy@5.15.1
+dsh plugin --profile desktop add dsh-connect-workbuddy@5.20.2
 dsh plugin --profile desktop exec dsh-connect-workbuddy doctor   # 第一行就是版本
 ```
 
@@ -1048,7 +1048,7 @@ dsh plugin --profile desktop add D:/projects/dsh-connect-workbuddy
 路径按实际目录调整。原说明中的 macOS 目录安装示例保留如下：
 
 ```sh
-dsh plugin --profile desktop add /Users/dmh2002/DshProject/dsh-connect-workbuddy
+dsh plugin --profile desktop add /Users/<you>/DshProject/dsh-connect-workbuddy
 ```
 
 <a id="link-安装与构建入口"></a>

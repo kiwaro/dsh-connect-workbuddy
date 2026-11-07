@@ -63,6 +63,8 @@ import {
   WORKBUDDY_PROVIDER_DISPLAY_NAMES,
   WORKBUDDY_PROVIDERS,
 } from './adapter.ts'
+import { resolveCnGateway } from './cn-gateway.ts'
+import type { CnGatewayRejection } from './cn-gateway.ts'
 import { createContextRescue } from './context-rescue.ts'
 import type { RescueAgents, RescueCompaction, RescueTokenMeter } from './context-rescue.ts'
 import {
@@ -369,6 +371,37 @@ export function apply(ctx: Context, config: Config): void {
   })
   if (deviceSdkEnabled) turing.startAutoRefresh()
   ctx.effect(() => () => { turing.stopAutoRefresh() })
+
+  /**
+   * Announce a CN gateway override, ONCE per distinct value / failure.
+   *
+   * The reader runs on every CN request, so logging unconditionally would turn
+   * one misconfiguration into a warn per request. Keyed on the VALUE rather than
+   * a plain boolean, so fixing the setting and breaking it again both get said —
+   * a user who is iterating on hosts needs to see each attempt acknowledged.
+   */
+  let announcedCnBase: string | undefined
+  let announcedCnBaseFailure: string | undefined
+  const warnCnBaseOnce = (base: string): void => {
+    if (announcedCnBase === base) return
+    announcedCnBase = base
+    // Per-request failure text is deliberately part of it: an ECONNRESET here is
+    // the whole point of the setting, and naming the host is what tells the user
+    // which of their attempts is in force.
+    ctx.logger.warn(`dsh-connect-workbuddy: CN gateway overridden to ${base} (issue #220). Chat, billing, catalog and check-in follow it; Origin/Referer still name the CN web app.`)
+  }
+  const warnCnBaseInvalidOnce = (reason: CnGatewayRejection, value: string): void => {
+    const key = `${reason}:${value}`
+    if (announcedCnBaseFailure === key) return
+    announcedCnBaseFailure = key
+    const why = reason === 'malformed'
+      ? 'it is not an absolute URL'
+      : reason === 'insecure'
+        ? 'only https is accepted (a plaintext base would put the bearer token on the wire in clear)'
+        : 'its host is not one of the CN brands (copilot.tencent.com, wb.tencentbuddy.com, workbuddy.cn, codebuddy.cn)'
+    ctx.logger.warn(`dsh-connect-workbuddy: ignoring regions.cn.cnBase "${value}" — ${why}. Using the built-in CN gateway.`)
+  }
+
   const client = new WorkBuddyUpstreamClient(
     message => {
       ctx.logger.warn(`dsh-connect-workbuddy: ${message}`)
@@ -399,6 +432,28 @@ export function apply(ctx: Context, config: Config): void {
         // 真实值档的 token 源。档位由 `deviceProfiles.mode()` 决定：真实值档只
         // 认这一个源，虚拟值档完全不碰它（见 `wireIdentity`）。
         realDevice: turing.tokens,
+        /**
+         * CN 网关覆盖（issue #220）：**每次请求现读**，不是一个采样值。
+         *
+         * `regions` 是 volatile 字段，用户保存后不重启插件；这里若在构造期采样
+         * 一次，改设置就只有重启才生效，而「填了没反应」正是本设置唯一的用途。
+         *
+         * 只对 CN 生效，且只有 `resolveCnGateway` 通过时才返回覆盖值：
+         * 校验失败一律退回内置网关并记一条 warn。**退回而不是抛**，因为这条
+         * 路径在每一请求上；但绝不静默——用户填了个不被接受的 host 却一直用着
+         * 默认网关，会让他继续怀疑是网络，而不是自己填错。
+         */
+        cnBase: () => {
+          const live = current()
+          const raw = regionStateOf(live, 'cn').cnBase
+          const resolved = resolveCnGateway(raw)
+          if (resolved.ok) {
+            if (resolved.overridden) warnCnBaseOnce(resolved.base)
+            return resolved.overridden ? resolved.base : ''
+          }
+          warnCnBaseInvalidOnce(resolved.reason, resolved.value)
+          return ''
+        },
       }
     })(),
   )

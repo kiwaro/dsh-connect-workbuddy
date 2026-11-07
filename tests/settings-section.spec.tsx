@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-/** Both the dedicated settings page and plugin detail configuration stay available. */
+/** The settings page has one configuration entry. */
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -25,7 +25,7 @@ function stubUsage(): void {
   vi.stubGlobal('fetch', async () => new Response(JSON.stringify({
     status: 'signed-in',
     accountId: 'account-1',
-    accountName: 'LaoDing',
+    accountName: '账号A',
     tokenExpiresAtMs: Date.now() + 3_600_000,
     region: 'cn',
     accounts: [],
@@ -89,7 +89,7 @@ async function boot(plugins: PluginShape[]): Promise<Context> {
   return ctx
 }
 
-describe('the client entry exposes settings and plugin detail configuration', () => {
+describe('the client entry registers a single settings page', () => {
   it('registers settings.section and its glyph under the SAME id', async () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
     const ctx = await boot([Slots, Locale, ConfigForms])
@@ -105,9 +105,9 @@ describe('the client entry exposes settings and plugin detail configuration', ()
     expect(icon?.id).toBe(section?.id)
 
     expect(slots.registrations.filter(entry => entry.name === 'plugins.bundle.config').map(entry => entry.id))
-      .toEqual(['dsh-connect-workbuddy', 'include:dsh-connect-workbuddy'])
+      .toEqual([])
     expect(slots.registrations.filter(entry => entry.name === 'plugins.row.config').map(entry => entry.id))
-      .toEqual(['dsh-connect-workbuddy#dsh-connect-workbuddy', 'include:dsh-connect-workbuddy#include:dsh-connect-workbuddy'])
+      .toEqual([])
 
     spy.mockRestore()
     await ctx.fiber.dispose()
@@ -144,7 +144,7 @@ describe('the client entry exposes settings and plugin detail configuration', ()
     await ctx.fiber.dispose()
   })
 
-  it('keeps plugin details usable when the host has no settings.section slot', async () => {
+  it('avoids duplicate configuration cards when the host has no settings.section slot', async () => {
     class DetailOnlySlots extends Slots {
       override inject(name: string, callback: () => void | (() => void)): () => void {
         if (name.startsWith('settings.section')) return () => {}
@@ -155,7 +155,7 @@ describe('the client entry exposes settings and plugin detail configuration', ()
     const fiber = ctx.plugin(clientEntry as unknown as PluginShape)
     await vi.waitFor(() => { expect(fiber.state).toBe(2) })
     const slots = ctx.get('slots') as unknown as Slots
-    expect(slots.registrations.filter(entry => entry.name.startsWith('plugins.'))).toHaveLength(4)
+    expect(slots.registrations.filter(entry => entry.name.startsWith('plugins.'))).toHaveLength(0)
     expect(slots.registrations.some(entry => entry.name === 'settings.section')).toBe(false)
     await ctx.fiber.dispose()
   })

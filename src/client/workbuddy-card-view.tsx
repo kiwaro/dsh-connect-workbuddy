@@ -45,7 +45,7 @@ export interface WorkBuddyCardInjected {
  */
 export type WorkBuddyCardProps =
   Partial<WorkBuddyCardInjected>
-  & { view?: string; surface?: 'card' | 'page' | 'section'; backToConversation?: () => void }
+  & { view?: string; surface?: 'card' | 'page' | 'section' | 'settings'; backToConversation?: () => void }
 
 export const POLL_INTERVAL_MS = 60_000
 

@@ -1,3 +1,5 @@
+import { regionNewModelsShownOf, nextRegionNewModelsShown } from '../status-paths.ts'
+import { writeRegionNewModelsShown } from './account-selection.ts'
 /** 从 WorkBuddyCard.tsx 按职责提取；来源及许可证说明见原文件头与 THIRD_PARTY_NOTICES.md。 */
 import { useCallback, useEffect, useRef, useState } from 'react'
 
@@ -22,7 +24,7 @@ export function useWorkBuddyCardState({ t, settingsScope, view, surface, backToC
   // collapse button is not rendered in page mode, so `setCardOpen` is unused there
   // — keeping a single `open` value lets the polling effects stay untouched.
   const [cardOpen, setCardOpen] = useState(view === 'page')
-  const open = pageSurface || surface === 'section' || cardOpen
+  const open = pageSurface || surface === 'section' || surface === 'settings' || cardOpen
   /** The region whose tab is on screen; each tab is its own provider stack. */
   const [activeRegion, setActiveRegion] = useState<WorkBuddyWebRegion>('cn')
   /**
@@ -601,6 +603,13 @@ export function useWorkBuddyCardState({ t, settingsScope, view, surface, backToC
    * turn off ("关闭不了"). The Host is the authority; the mirror is only a
    * fallback for a Host line that predates the field.
    */
+  const [togglingNewModels, setTogglingNewModels] = useState<WorkBuddyWebRegion | undefined>(undefined)
+  const newModelsShownOn = (item: WorkBuddyWebRegion): boolean => {
+    const usage = statusByRegion[item] as { showNewModelsInMainUi?: unknown } | undefined
+    if (typeof usage?.showNewModelsInMainUi === 'boolean') return usage.showNewModelsInMainUi
+    return regionNewModelsShownOf(settingsScope?.getSnapshot().value, item)
+  }
+
   const creditsShownOn = (item: WorkBuddyWebRegion): boolean => {
     const usage = statusByRegion[item] as { showCreditsInMainUi?: unknown } | undefined
     const fromHost = usage?.showCreditsInMainUi
@@ -750,6 +759,29 @@ export function useWorkBuddyCardState({ t, settingsScope, view, surface, backToC
       if (mounted.current) setAccountError(error instanceof Error ? error.message : t('row.requestFailed'))
     } finally {
       if (mounted.current) setTogglingCredits(undefined)
+    }
+  }
+
+  const toggleNewModels = async (item: WorkBuddyWebRegion, shown: boolean): Promise<void> => {
+    if (settingsScope === undefined) return
+    setTogglingNewModels(item)
+    try {
+      const regions = nextRegionNewModelsShown(settingsScope.getSnapshot().value, item, shown) as Record<string, unknown>
+      const slot = regions[item]
+      await writeRegionNewModelsShown(
+        settingsScope,
+        item,
+        shown,
+        typeof slot === 'object' && slot !== null ? slot as Record<string, unknown> : {},
+      )
+      // Re-read for the same measured reason as `toggleCredits`: the checkbox
+      // renders the Host's answer, and the browser mirror is stale for this
+      // namespace on the affected deployments.
+      await refreshUsage(item)
+    } catch (error: unknown) {
+      if (mounted.current) setAccountError(error instanceof Error ? error.message : t('row.requestFailed'))
+    } finally {
+      if (mounted.current) setTogglingNewModels(undefined)
     }
   }
 
@@ -1680,5 +1712,5 @@ export function useWorkBuddyCardState({ t, settingsScope, view, surface, backToC
       if (mounted.current) setSaving(false)
     }
   }
-  return { status, activeRegion, refreshUsage, activeRegionOn, creditPositionOn, togglingCredits, canWrite, saving, poolBusy, changeCreditPosition, imageToolOn, toggleImageTool, videoToolOn, toggleVideoTool, mediaByRegion, preferredVideoModelOf, pinningVideoModel, pinVideoModel, mediaBusy, setMediaBusy, loadMediaModels, mounted, mediaError, cliBridgeSwitchedOn, cliBridgeBusy, toggleCliBridge, sidebarPanelSwitchedOn, sidebarPanelBusy, toggleSidebarPanel, cliBridgeModelValue, visibleModels, cliBridgeEffortValue, cliBridgeRegionOrderValue, cliBridgeModelBusy, cliBridgeEffortBusy, cliBridgeRegionOrderBusy, pickCliBridgeModel, pickCliBridgeEffort, pickCliBridgeRegionOrder, usageIdentityValue, usageIdentityBusy, setUsageIdentityOn, keepPromptLastValue, keepPromptLastBusy, setKeepPromptLastOn, sessionTitleValue, sessionTitleBusy, setSessionTitleOn, toggleUpstreamSwitch, extraInjectedPrefixes, channelRejectContinueValue, channelRejectContinueBusy, creditsShownOn, toggleCredits, pageSurface, statusByRegion, regionOn, setActiveRegion, setAccountError, togglingRegion, toggleRegion, signedIn, panel, setPanel, accountError, switchingAccount, switchAccount, rescanAccounts, busy, setPoolBusy, deviceSettings, changeDeviceMode, saveDeviceProfile, dirty, activeEnabledIds, refreshModels, sweeping, sweepEnabledModels, sweepAllModels, tpsSweeping, tpsBusy, sweepTpsEnabledModels, probeError, sweepSummary, toggleModel, busyLevels, activeImageIds, toggleImage, offBlocked, activeOffIds, toggleOff, activeContextBudgets, setContextBudget, probing, probeModels, tpsProbing, measureTpsFor, activeDefaultEfforts, setDefaultThinkingEffort, probes, tpsResults, tpsMeasuredAt, saveError, discardModels, saveModels, loading, statusRetries, open, setCardOpen, cardOpen }
+  return { newModelsShownOn, toggleNewModels, togglingNewModels, status, activeRegion, refreshUsage, activeRegionOn, creditPositionOn, togglingCredits, canWrite, saving, poolBusy, changeCreditPosition, imageToolOn, toggleImageTool, videoToolOn, toggleVideoTool, mediaByRegion, preferredVideoModelOf, pinningVideoModel, pinVideoModel, mediaBusy, setMediaBusy, loadMediaModels, mounted, mediaError, cliBridgeSwitchedOn, cliBridgeBusy, toggleCliBridge, sidebarPanelSwitchedOn, sidebarPanelBusy, toggleSidebarPanel, cliBridgeModelValue, visibleModels, cliBridgeEffortValue, cliBridgeRegionOrderValue, cliBridgeModelBusy, cliBridgeEffortBusy, cliBridgeRegionOrderBusy, pickCliBridgeModel, pickCliBridgeEffort, pickCliBridgeRegionOrder, usageIdentityValue, usageIdentityBusy, setUsageIdentityOn, keepPromptLastValue, keepPromptLastBusy, setKeepPromptLastOn, sessionTitleValue, sessionTitleBusy, setSessionTitleOn, toggleUpstreamSwitch, extraInjectedPrefixes, channelRejectContinueValue, channelRejectContinueBusy, creditsShownOn, toggleCredits, pageSurface, statusByRegion, regionOn, setActiveRegion, setAccountError, togglingRegion, toggleRegion, signedIn, panel, setPanel, accountError, switchingAccount, switchAccount, rescanAccounts, busy, setPoolBusy, deviceSettings, changeDeviceMode, saveDeviceProfile, dirty, activeEnabledIds, refreshModels, sweeping, sweepEnabledModels, sweepAllModels, tpsSweeping, tpsBusy, sweepTpsEnabledModels, probeError, sweepSummary, toggleModel, busyLevels, activeImageIds, toggleImage, offBlocked, activeOffIds, toggleOff, activeContextBudgets, setContextBudget, probing, probeModels, tpsProbing, measureTpsFor, activeDefaultEfforts, setDefaultThinkingEffort, probes, tpsResults, tpsMeasuredAt, saveError, discardModels, saveModels, loading, statusRetries, open, setCardOpen, cardOpen }
 }

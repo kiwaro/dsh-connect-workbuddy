@@ -697,6 +697,38 @@ export function nextRegionEnabled(
 }
 
 /**
+ * Build the next `regions` FIELD carrying one region's CN gateway override
+ * (issue #220).
+ *
+ * Same whole-slot merge as every other helper here: only `cnBase` changes, so
+ * setting a host cannot drop the model directory, the pool preferences or the
+ * switches that share this slot. An empty string is written as-is rather than
+ * deleting the key — it means "back to the built-in gateway", which must survive
+ * a read-back, and `resolveCnGateway('')` already reads both the same way.
+ */
+export function nextRegionCnBase(
+  value: unknown,
+  region: WorkBuddyWebRegion,
+  cnBase: string,
+): Record<string, unknown> {
+  return nextRegionSlots(regionsMapOf(value), region, { ...regionSlotOf(value, region), cnBase })
+}
+
+/**
+ * Read one region's saved CN gateway override, or `''` when it has none.
+ *
+ * Deliberately tolerant of a non-string: the settings mirror can hold whatever a
+ * previous version wrote, and throwing here would take out the whole capabilities
+ * panel over one malformed field. A value that is not a string is treated as
+ * "not configured", which is exactly how `resolveCnGateway` treats it.
+ */
+export function regionCnBaseOf(value: unknown, region: WorkBuddyWebRegion): string {
+  const slot = regionSlotOf(value, region)
+  const raw = slot['cnBase']
+  return typeof raw === 'string' ? raw : ''
+}
+
+/**
  * The per-region account SELECTIONS map (`Config.accounts`), as plain data.
  *
  * `value` may be the whole settings SECTION or the `accounts` FIELD: `describe()`
@@ -909,6 +941,35 @@ export function nextRegionCreditsShown(
     ...regionSlotOf(value, region),
     showCreditsInMainUi: shown,
   })
+}
+
+/**
+ * Build the next `regions` settings value for the new-model-segment opt-in.
+ *
+ * Same merge rule as everything else here: ONLY the target region's flag
+ * changes, so the directory, the model selection, the credit switches and the
+ * sibling region all survive the write.
+ */
+export function nextRegionNewModelsShown(
+  value: unknown,
+  region: WorkBuddyWebRegion,
+  shown: boolean,
+): Record<string, unknown> {
+  return nextRegionSlots(regionsMapOf(value), region, {
+    ...regionSlotOf(value, region),
+    showNewModelsInMainUi: shown,
+  })
+}
+
+/**
+ * Read the new-model-segment opt-in: ON only when explicitly `true`.
+ *
+ * The mirror image of {@link regionCreditsShownOf}, and deliberately so. That
+ * one is opt-OUT (`!== false`), this one is opt-IN (`=== true`), because
+ * announcing "N new models" on a fresh install announces the entire roster.
+ */
+export function regionNewModelsShownOf(value: unknown, region: WorkBuddyWebRegion): boolean {
+  return regionSlotOf(value, region)['showNewModelsInMainUi'] === true
 }
 
 /**
@@ -1225,6 +1286,7 @@ export type WorkBuddyWebUsage =
      * "关闭不了" report.
      */
     showCreditsInMainUi?: boolean
+    showNewModelsInMainUi?: boolean
     /**
      * Whether the model may call the image-generation tool here (opt-in).
      *
@@ -1374,6 +1436,12 @@ export type WorkBuddyWebUsage =
      * settings mirror.
      */
     showCreditsInMainUi?: boolean
+    /**
+     * Whether this region's composer pill shows its "· N 新模型" segment
+     * (opt-IN; absent means off). See the signed-out variant above for why
+     * this travels on the Host's answer rather than the settings mirror.
+     */
+    showNewModelsInMainUi?: boolean
     /**
      * Whether the model may call the image-generation tool here (opt-in).
      *
@@ -2076,30 +2144,44 @@ export const WORKBUDDY_SETTINGS_NAMESPACE_CANDIDATES: readonly string[] = [
 ]
 
 /**
- * The `<package name>` keys under which the card registers itself in the
- * Plugins panel.
+ * The `id` of this plugin's page in the Settings panel's left-hand navigation.
  *
- * `plugins.bundle.config` and `plugins.row.config` are KEYED slots: the page
- * renders them with `entryKey: pkg.name`, and it decides whether to render the
- * section at all from `ledger.bundles.has(pkg.name)` — a `Set` of exactly the
- * `key` values registered on that slot, compared against the plugin-manager
- * inventory's own package name. Both halves of that comparison are EXACT and
- * neither side is the settings namespace: the inventory name comes from the
- * profile's package list, while a deployment may mount the same code under a
- * different Loader entry id.
+ * ## Why the configuration moved here (5.19.0)
  *
- * That is the whole of issue #55. A deployment whose inventory name is
- * `dsh-connect-workbuddy` and whose card registered only under
- * `include:dsh-connect-workbuddy` gets NO card and NO error: the keyed lookup
- * finds nothing, the section is simply not rendered, and `apply()` finished
- * happily. Since the keys live in separate cells (one entry per `key` per
- * priority), registering under every spelling at once is a shadowing-free
- * duplicate rather than a conflict, and is strictly safer than betting on one.
+ * It used to live ONLY in the Plugins page's `plugins.bundle.config` /
+ * `plugins.row.config` keyed slots, looked up by `<package name>`. That is a
+ * KEYED slot: the page renders it with `entryKey: pkg.name` and gates the whole
+ * section on `ledger.bundles.has(pkg.name)`, an EXACT string comparison against
+ * the plugin-manager inventory's package name while a deployment is free to
+ * mount the same code under a different Loader entry id. Two spellings had to
+ * be registered to cover it (issue #55), and a spelling nobody predicted
+ * rendered nothing at all — no section, no placeholder, no error.
  *
- * The bare package name is FIRST because it is the common case — a profile that
- * installs the package by name mounts it under that name.
+ * `settings.section` is a LIST slot keyed by an id **this plugin owns**. There
+ * is no inventory name to match, so the whole class of mismatch disappears,
+ * and the user finds the configuration where every other preference lives.
+ *
+ * ## The id is also the icon's address
+ *
+ * The shell renders `settings.section.icon` with `{ only: row.id }`, so the
+ * glyph must register under this same string. Both registrations come from one
+ * `inject` callback so the pairing is structural rather than a convention.
+ *
+ * Deliberately the bare, unnamespaced plugin name and NOT one of
+ * {@link WORKBUDDY_SETTINGS_NAMESPACE_CANDIDATES}: those are Loader entry ids
+ * the Host happens to serve, while this id is ours and must be stable across
+ * deployments.
  */
-export const WORKBUDDY_CARD_KEYS: readonly string[] = [
-  'dsh-connect-workbuddy',
-  'include:dsh-connect-workbuddy',
-]
+export const WORKBUDDY_SETTINGS_SECTION_ID = 'dsh-connect-workbuddy'
+
+/**
+ * Nav position of this section.
+ *
+ * The shipped sections are account -10, general 0, models 10, plugins 15,
+ * agent-presets 20; other third-party pages observed on the live profile sit at
+ * 20 (opencode-go), 30 (subagent-default-model), 40 (market), 45
+ * (archive-manager) and 100 (better-sidebar). 35 places WorkBuddy after the
+ * other connector-ish pages and before the market, without colliding with a
+ * built-in or another installed plugin.
+ */
+export const WORKBUDDY_SETTINGS_SECTION_ORDER = 35

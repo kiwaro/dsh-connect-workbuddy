@@ -48,14 +48,14 @@ const SRC = fileURLToPath(new URL('src/', repoRoot))
  * thing the first case below refuses.
  */
 const CLAIMED_SLOTS: Record<string, string> = {
+  'settings.section': 'the configuration page itself (list slot, id owned by this plugin, order 35)',
+  'settings.section.icon': 'that page\'s nav glyph, addressed by the SAME id (unmatched ids never render)',
   'conversation.input.right': 'composer-row credit capsule (order 4, before the model picker)',
   'conversation.input.model.label': 'load badge in the model picker (single, priority -0.5)',
   'conversation.composer.dock': 'stats credits row (order 10) and CLI live row (order 11)',
   'shell.quota-notice': 'frame-wide quota notice chain contributor',
   'sidebar.panellist': 'sidebar nav row (order 2) that opens the WorkBuddy full page',
   'main': 'centre-column full page keyed to the sidebar row',
-  'settings.section': 'dedicated WorkBuddy page in DSH settings, independent of sidebar opt-in',
-  'settings.section.icon': 'settings navigation icon with the same id as the WorkBuddy section',
 }
 
 /**
@@ -199,6 +199,19 @@ describe('the plugin claims a closed, documented set of host slots', () => {
 })
 
 describe('the rc.5 review stays reachable from the code that depends on it', () => {
+  it('keeps the 0.2.2 review, and it names the deprecation and the type gap', () => {
+    // Same POLICY idea as the rc.5 case below: the 0.2.2 review concludes "no
+    // change needed" and records the two things a future upgrade must not
+    // forget — the deprecated `stateOf` read and the two profile fields the
+    // 0.2.2 type surface made required. If the document disappears, the only
+    // place that says so goes with it.
+    const doc = readFileSync(fileURLToPath(new URL('docs/DSH-0.2.2-RC1-FOLLOWUP.md', repoRoot)), 'utf8')
+    expect(doc).toContain('无需改动')
+    expect(doc).toContain('stateOf')
+    expect(doc).toContain('maxRequestImages')
+    expect(doc).toContain('snapshot(session, [\'workingDirectory\'])')
+  })
+
   it('keeps the rc.5 follow-up document, and it names the reasoning-body change', () => {
     // POLICY assertion, not a behaviour one: nothing fails at runtime if the
     // review is deleted, so the only way it stays findable is that something
@@ -209,5 +222,76 @@ describe('the rc.5 review stays reachable from the code that depends on it', () 
     expect(doc).toContain('conversation.chat.reasoning.body')
     // The conclusion has to be legible without reading the whole document.
     expect(doc).toContain('无需改动')
+  })
+})
+
+/**
+ * THE WIDE PAGE AND THE SIDEBAR ROW ARE INDEPENDENT.
+ *
+ * They used to share one lifetime, both owned by `syncPanelRegistration`, so the
+ * page existed only while the optional sidebar nav row was switched on. The row
+ * claims a GLOBAL nav seat and defaults to OFF, so on a default install the page
+ * was unreachable — which is what made the composer readout's button impossible
+ * to ship (there was nothing to open).
+ *
+ * The page is what the readout's button opens, via `layout.selectPanel(key)`;
+ * that call THROWS for an unregistered key. So the invariant is: `main` is
+ * registered unconditionally, and only the nav row is conditional.
+ */
+describe('the full page is registered independently of the optional sidebar row', () => {
+  const source = read('client/index.tsx')
+
+  it('registers main from the always-on slot list', () => {
+    // The always-on set is the array literal returned by `registerAllSlots`.
+    // If `registerMainPage()` is not in it, the page is back behind the opt-in
+    // switch and the readout's button would throw on press.
+    const list = /const registerAllSlots = \(\): Array<\(\) => void> => \[([\s\S]*?)\]\.filter/u.exec(source)?.[1] ?? ''
+    expect(list, 'registerAllSlots not found').not.toBe('')
+    expect(list, 'the full page must be registered unconditionally')
+      .toContain('registerMainPage()')
+    expect(list, 'the nav ROW must stay conditional, owned by syncPanelRegistration')
+      .not.toContain('registerPanelRow()')
+  })
+
+  it('registers the nav row only from the opt-in switch', () => {
+    const sync = /const syncPanelRegistration = \(\): void => \{([\s\S]*?)\n    \}/u.exec(source)?.[1] ?? ''
+    expect(sync, 'syncPanelRegistration not found').not.toBe('')
+    expect(sync, 'the opt-in gate must still guard the row').toContain('if (!sidebarPanelWanted()) return')
+    expect(sync, 'the gated half is the ROW, not the page').toContain('registerPanelRow()')
+    expect(sync, 'the page must NOT be re-registered with the row').not.toContain('registerMainPage()')
+  })
+
+  it('opens the page through the host layout service, guarding its throw', () => {
+    // `layout.selectPanel` throws when the key is unregistered (a trimmed
+    // profile). The catch must be INSIDE the entry: a click handler that throws
+    // is a broken button with a console error, not an honest "cannot".
+    const fn = /const openFullPage = \(\): boolean => \{([\s\S]*?)\n    \}/u.exec(source)?.[1] ?? ''
+    expect(fn, 'openFullPage not found').not.toBe('')
+    expect(fn, 'must ask the layout service').toContain('selectPanel(PANEL_ID)')
+    expect(fn, 'must survive a refused key').toContain('catch')
+    expect(fn, 'must report failure rather than throwing').toContain('return false')
+  })
+
+  it('gives BOTH readout seats the same settings opener', () => {
+    // The two seats render the SAME component, so a prop wired into one and not
+    // the other makes a control appear or vanish depending on a setting that
+    // has nothing to do with it. (That is exactly how the button went missing
+    // once: the composer seat had it and the stats seat did not.)
+    const wired = source.match(/onOpenSettings: openSettingsSection/gu) ?? []
+    expect(wired, 'both the composer and stats seats must wire the opener').toHaveLength(2)
+    expect(source, 'the readout must be given the settings opener')
+      .not.toContain('onOpenSettings: openFullPage')
+  })
+
+  it('never leaves the opener undefined, because the button renders only when it exists', () => {
+    // A host service probed with `ctx.get` at registration time is `undefined`
+    // on a profile whose provider applies later, and the renderer caches
+    // `inject()` results by entry identity — so a `undefined` captured then is
+    // permanent. The opener must therefore be a value that EXISTS from the
+    // start, which is why it drives the shell's chrome instead of a service.
+    const decl = /const openSettingsSection = \(\): boolean =>/u.exec(source)
+    expect(decl, 'the opener must be a function value, not a late-assigned let').not.toBeNull()
+    expect(source, 'the opener must not depend on a probed service to exist')
+      .toMatch(/const openSettingsSection = \(\): boolean => openWorkBuddySettingsSection\(\{/u)
   })
 })

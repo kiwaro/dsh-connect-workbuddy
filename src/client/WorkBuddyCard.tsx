@@ -1,3 +1,7 @@
+import { useState } from 'react'
+import { resolveCnGateway } from '../cn-gateway.ts'
+import { regionCnBaseOf, nextRegionCnBase } from '../status-paths.ts'
+import { writeRegionCnBase } from './account-selection.ts'
 import { updateStickyTabs } from './series-layout.ts'
 import { createCapabilityPreferences } from './workbuddy-capability-preferences.tsx'
 import { useWorkBuddyCardState } from './use-workbuddy-card-state.tsx'
@@ -147,7 +151,109 @@ export function WorkBuddyCard(props: WorkBuddyCardProps) {
 function WorkBuddyCardBody(props: WorkBuddyCardProps) {
   const { t, settingsScope, view, surface, backToConversation } = props
   if (t === undefined) throw new Error('WorkBuddy plugin card requires its translation function')
-  const { status, activeRegion, refreshUsage, activeRegionOn, creditPositionOn, togglingCredits, canWrite, saving, poolBusy, changeCreditPosition, imageToolOn, toggleImageTool, videoToolOn, toggleVideoTool, mediaByRegion, preferredVideoModelOf, pinningVideoModel, pinVideoModel, mediaBusy, setMediaBusy, loadMediaModels, mounted, mediaError, cliBridgeSwitchedOn, cliBridgeBusy, toggleCliBridge, sidebarPanelSwitchedOn, sidebarPanelBusy, toggleSidebarPanel, cliBridgeModelValue, visibleModels, cliBridgeEffortValue, cliBridgeRegionOrderValue, cliBridgeModelBusy, cliBridgeEffortBusy, cliBridgeRegionOrderBusy, pickCliBridgeModel, pickCliBridgeEffort, pickCliBridgeRegionOrder, usageIdentityValue, usageIdentityBusy, setUsageIdentityOn, keepPromptLastValue, keepPromptLastBusy, setKeepPromptLastOn, sessionTitleValue, sessionTitleBusy, setSessionTitleOn, toggleUpstreamSwitch, extraInjectedPrefixes, channelRejectContinueValue, channelRejectContinueBusy, creditsShownOn, toggleCredits, pageSurface, statusByRegion, regionOn, setActiveRegion, setAccountError, togglingRegion, toggleRegion, signedIn, panel, setPanel, accountError, switchingAccount, switchAccount, rescanAccounts, busy, setPoolBusy, deviceSettings, changeDeviceMode, saveDeviceProfile, dirty, activeEnabledIds, refreshModels, sweeping, sweepEnabledModels, sweepAllModels, tpsSweeping, tpsBusy, sweepTpsEnabledModels, probeError, sweepSummary, toggleModel, busyLevels, activeImageIds, toggleImage, offBlocked, activeOffIds, toggleOff, activeContextBudgets, setContextBudget, probing, probeModels, tpsProbing, measureTpsFor, activeDefaultEfforts, setDefaultThinkingEffort, probes, tpsResults, tpsMeasuredAt, saveError, discardModels, saveModels, loading, statusRetries, open, setCardOpen, cardOpen } = useWorkBuddyCardState(props)
+  const { newModelsShownOn, toggleNewModels, togglingNewModels, status, activeRegion, refreshUsage, activeRegionOn, creditPositionOn, togglingCredits, canWrite, saving, poolBusy, changeCreditPosition, imageToolOn, toggleImageTool, videoToolOn, toggleVideoTool, mediaByRegion, preferredVideoModelOf, pinningVideoModel, pinVideoModel, mediaBusy, setMediaBusy, loadMediaModels, mounted, mediaError, cliBridgeSwitchedOn, cliBridgeBusy, toggleCliBridge, sidebarPanelSwitchedOn, sidebarPanelBusy, toggleSidebarPanel, cliBridgeModelValue, visibleModels, cliBridgeEffortValue, cliBridgeRegionOrderValue, cliBridgeModelBusy, cliBridgeEffortBusy, cliBridgeRegionOrderBusy, pickCliBridgeModel, pickCliBridgeEffort, pickCliBridgeRegionOrder, usageIdentityValue, usageIdentityBusy, setUsageIdentityOn, keepPromptLastValue, keepPromptLastBusy, setKeepPromptLastOn, sessionTitleValue, sessionTitleBusy, setSessionTitleOn, toggleUpstreamSwitch, extraInjectedPrefixes, channelRejectContinueValue, channelRejectContinueBusy, creditsShownOn, toggleCredits, pageSurface, statusByRegion, regionOn, setActiveRegion, setAccountError, togglingRegion, toggleRegion, signedIn, panel, setPanel, accountError, switchingAccount, switchAccount, rescanAccounts, busy, setPoolBusy, deviceSettings, changeDeviceMode, saveDeviceProfile, dirty, activeEnabledIds, refreshModels, sweeping, sweepEnabledModels, sweepAllModels, tpsSweeping, tpsBusy, sweepTpsEnabledModels, probeError, sweepSummary, toggleModel, busyLevels, activeImageIds, toggleImage, offBlocked, activeOffIds, toggleOff, activeContextBudgets, setContextBudget, probing, probeModels, tpsProbing, measureTpsFor, activeDefaultEfforts, setDefaultThinkingEffort, probes, tpsResults, tpsMeasuredAt, saveError, discardModels, saveModels, loading, statusRetries, open, setCardOpen, cardOpen } = useWorkBuddyCardState(props)
+
+  const [cnBaseDraft, setCnBaseDraft] = useState<string | undefined>(undefined)
+  const [cnBaseSaving, setCnBaseSaving] = useState(false)
+  const [cnBaseError, setCnBaseError] = useState<string | undefined>(undefined)
+  const [cnBaseNotice, setCnBaseNotice] = useState<string | undefined>(undefined)
+  const settingsSurface = surface === 'settings'
+  const cnBaseSaved = regionCnBaseOf(settingsScope?.getSnapshot().value, 'cn')
+  const cnBaseDraftValue = cnBaseDraft ?? cnBaseSaved
+  const cnBaseDirty = cnBaseDraft !== undefined && cnBaseDraft.trim() !== cnBaseSaved.trim()
+  const cnBasePreview = resolveCnGateway(cnBaseDraftValue)
+
+  const saveCnBase = async (): Promise<void> => {
+    if (settingsScope === undefined || cnBaseSaving) return
+    const resolved = cnBasePreview
+    if (!resolved.ok) {
+      // Worded per rule, in the block itself: a single "invalid" would leave the
+      // user guessing which of the three checks their value failed.
+      setCnBaseError(
+        resolved.reason === 'malformed'
+          ? t('row.cnBaseInvalidMalformed')
+          : resolved.reason === 'insecure' ? t('row.cnBaseInvalidInsecure') : t('row.cnBaseInvalidHost'),
+      )
+      return
+    }
+    setCnBaseSaving(true)
+    setCnBaseError(undefined)
+    try {
+      const next = resolved.overridden ? resolved.base : ''
+      await writeRegionCnBase(
+        settingsScope,
+        'cn',
+        next,
+        nextRegionCnBase(settingsScope.getSnapshot().value, 'cn', next),
+      )
+      if (mounted.current) {
+        setCnBaseDraft(undefined)
+        setCnBaseNotice(t(next === '' ? 'row.cnBaseCleared' : 'row.cnBaseSaved'))
+      }
+      await refreshUsage('cn')
+    } catch (error: unknown) {
+      if (mounted.current) setCnBaseError(error instanceof Error ? error.message : t('row.requestFailed'))
+    } finally {
+      if (mounted.current) setCnBaseSaving(false)
+    }
+  }
+
+  const cnBasePreference = activeRegion !== 'cn'
+    ? null
+    : (
+      <div className="dsm-workbuddy-cnbase" title={t('row.cnBaseHint')}>
+        <label className="dsm-workbuddy-cnbase-row">
+          <span className="dsm-workbuddy-pref-copy">
+            <span className="dsm-workbuddy-pref-label">{t('row.cnBaseLabel')}</span>
+            <span className="dsm-workbuddy-pref-hint">{t('row.cnBaseHint')}</span>
+          </span>
+          <input
+            type="url"
+            className="dsm-workbuddy-cnbase-input"
+            value={cnBaseDraftValue}
+            placeholder={t('row.cnBasePlaceholder')}
+            disabled={!canWrite || saving || cnBaseSaving}
+            spellCheck={false}
+            autoComplete="off"
+            onChange={(event: { target: { value: string } }) => {
+              setCnBaseDraft(event.target.value)
+              setCnBaseError(undefined)
+              setCnBaseNotice(undefined)
+            }}
+          />
+        </label>
+        {cnBaseError !== undefined
+          ? <p className="dsm-workbuddy-cnbase-error" role="alert">{cnBaseError}</p>
+          : null}
+        {cnBaseError === undefined && cnBaseNotice !== undefined
+          ? <p className="dsm-workbuddy-cnbase-notice" role="status">{cnBaseNotice}</p>
+          : null}
+        {/* The Save pair appears only while there is something to save: a
+            permanently visible pair of buttons under a field nobody edited turns
+            a settings row into a form, and the section's own note says the other
+            controls here commit on the click. */}
+        {cnBaseDirty
+          ? <div className="dsm-workbuddy-cnbase-actions">
+              <button
+                type="button"
+                className="dsm-btn dsm-btn-outline"
+                disabled={cnBaseSaving}
+                onClick={() => { setCnBaseDraft(undefined); setCnBaseError(undefined); setCnBaseNotice(undefined) }}
+              >
+                {t('row.poolDiscard')}
+              </button>
+              <button
+                type="button"
+                className="dsm-btn dsm-btn-primary"
+                disabled={cnBaseSaving}
+                onClick={() => { void saveCnBase() }}
+              >
+                {cnBaseSaving ? t('row.poolSaving') : t('row.poolSaved')}
+              </button>
+            </div>
+          : null}
+      </div>
+    )
 
   const title = t('row.title')
   /**
@@ -324,6 +430,7 @@ function WorkBuddyCardBody(props: WorkBuddyCardProps) {
   const { cliBridgePreference, cliBridgePickers, imageToolPreference, videoToolPreference, videoModelPreference, mediaModelsPreference, upstreamSwitches, channelRejectContinuePreference, sidebarPanelPreference } = createCapabilityPreferences({ t, activeRegionOn, imageToolOn, activeRegion, togglingCredits, canWrite, saving, poolBusy, toggleImageTool, videoToolOn, toggleVideoTool, mediaByRegion, preferredVideoModelOf, pinningVideoModel, pinVideoModel, mediaBusy, setMediaBusy, loadMediaModels, mounted, mediaError, cliBridgeSwitchedOn, cliBridgeBusy, toggleCliBridge, sidebarPanelSwitchedOn, sidebarPanelBusy, toggleSidebarPanel, cliBridgeModelValue, visibleModels, cliBridgeEffortValue, cliBridgeRegionOrderValue, cliBridgeModelBusy, cliBridgeEffortBusy, cliBridgeRegionOrderBusy, pickCliBridgeModel, pickCliBridgeEffort, pickCliBridgeRegionOrder, usageIdentityValue, usageIdentityBusy, setUsageIdentityOn, keepPromptLastValue, keepPromptLastBusy, setKeepPromptLastOn, sessionTitleValue, sessionTitleBusy, setSessionTitleOn, toggleUpstreamSwitch, extraInjectedPrefixes, channelRejectContinueValue, channelRejectContinueBusy })
   const creditPreferences = (
     <div className="dsm-workbuddy-prefs">
+      <span className="dsm-workbuddy-pref-hint">{t('row.modelToolsHint')}</span>
       <label
         className="dsm-workbuddy-pref"
         title={activeRegion === 'cn' ? t('row.showCreditsCnHint') : t('row.showCreditsGlobalHint')}
@@ -347,6 +454,29 @@ function WorkBuddyCardBody(props: WorkBuddyCardProps) {
           <span className="dsm-workbuddy-pref-hint">{t('row.showCreditsHintInline')}</span>
         </span>
       </label>
+      <label
+        className="dsm-workbuddy-pref"
+        title={t('row.showNewModelsHint')}
+      >
+        {/* A DISTINCT class, not `dsm-workbuddy-pref-check`: the credit-switch
+            suite uses that class as its "the one per-region credit switch"
+            selector, so a second element carrying it would make every
+            single-checkbox selector in that suite resolve wrongly. Same rule
+            the CLI bridge switch follows (see its own comment). */}
+        <input
+          type="checkbox"
+          className="dsm-workbuddy-new-models-check"
+          checked={activeRegionOn ? newModelsShownOn(activeRegion) : false}
+          disabled={!activeRegionOn || togglingNewModels === activeRegion || !canWrite || saving || poolBusy}
+          onChange={(event: { target: { checked: boolean } }) => {
+            void toggleNewModels(activeRegion, event.target.checked)
+          }}
+        />
+        <span className="dsm-workbuddy-pref-copy">
+          <span className="dsm-workbuddy-pref-label">{t('row.showNewModels')}</span>
+          <span className="dsm-workbuddy-pref-hint">{t('row.showNewModelsHintInline')}</span>
+        </span>
+      </label>
       {/* Indented to the checkbox's LABEL (15px box + 10px row gap), not to the
           card edge: the picker is a property of the switch above it, and an
           unindented row would read as a third, unrelated setting. */}
@@ -364,12 +494,29 @@ function WorkBuddyCardBody(props: WorkBuddyCardProps) {
           </span>
         </span>
       </label>
+
+      {imageToolPreference}
+      {videoToolPreference}
+      {videoModelPreference}
+      {mediaModelsPreference}
+      {cliBridgePreference}
+      {cliBridgeSwitchedOn() ? cliBridgePickers : null}
+
     </div>
   )
 
-  const pageHead = pageSurface ? (
-    <div className="dsm-workbuddy-page-head">
-      {backToConversation !== undefined
+  /**
+   * The page header: the sidebar panel's own page, and the Settings section.
+   *
+   * Both are "a page about WorkBuddy" rather than a row in someone else's list,
+   * so both say what this is in one line. They differ in exactly one control:
+   * the sidebar page needs a way back to the conversation, while the Settings
+   * section is inside a dialog the shell closes for you — a back arrow there
+   * would point at a place the reader did not come from.
+   */
+  const pageHead = pageSurface || settingsSurface ? (
+    <div className={settingsSurface ? 'dsm-workbuddy-page-head dsm-workbuddy-settings-head' : 'dsm-workbuddy-page-head'}>
+      {pageSurface && backToConversation !== undefined
         ? (
             <button type="button" className="dsm-workbuddy-page-back" onClick={backToConversation}>
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -426,6 +573,31 @@ function WorkBuddyCardBody(props: WorkBuddyCardProps) {
                   )
                 })}
               </div>
+              {/* What the two cells above ARE, stated once, directly under them.
+                  It used to sit inside the accounts panel — below the section
+                  tabs — where it read as a caption for 「账号 / 模型 / 能力」,
+                  the row that is not what it describes. A description of the
+                  region pair belongs against the region pair; and because it
+                  now lives outside every panel it stays readable from all five
+                  sections instead of disappearing with the first one. */}
+              <p className="dsm-workbuddy-models-summary dsm-workbuddy-tab-hint">{t('row.tabHint')}</p>
+              {/* Its OWN paragraph rather than a clause appended to the hint
+                  above: this one is BOLD and is the only sentence here that
+                  corrects a wrong assumption rather than describing a fact.
+                  Appending it in the same grey run is what let the ×0 tiers
+                  read as "unlimited" in the first place (issue #56's reporter
+                  lost 30 minutes to exactly that reading).
+
+                  It belongs HERE, with the region pair and its explanation, and
+                  not inside the accounts panel where it used to sit: the two
+                  sentences answer the same question ("what am I looking at, and
+                  what are its limits"), and separating them by the section tabs
+                  put a rule and three tabs between a statement and its caveat.
+                  Living outside every panel also keeps it readable from the
+                  model section, which is where the ×0 tiers actually appear. */}
+              <p className="dsm-workbuddy-models-summary dsm-workbuddy-free-quota-warn">
+                {t('row.tabFreeQuotaWarn')}
+              </p>
               {/* THE CARD'S THREE SECTIONS. Above them, the region pair is the
                   SCOPE (which provider's data this whole panel is about) and
                   scrolls with the content like any other header row. */}
@@ -506,16 +678,6 @@ function WorkBuddyCardBody(props: WorkBuddyCardProps) {
                    state the user cannot see or change. */
                 hidden={signedIn && panel !== 'accounts'}
               >
-              <p className="dsm-workbuddy-models-summary">{t('row.tabHint')}</p>
-              {/* Its OWN paragraph rather than a clause appended to the hint
-                  above: this one is BOLD and is the only sentence here that
-                  corrects a wrong assumption rather than describing a fact.
-                  Appending it in the same grey run is what let the ×0 tiers
-                  read as "unlimited" in the first place (issue #56's reporter
-                  lost 30 minutes to exactly that reading). */}
-              <p className="dsm-workbuddy-models-summary dsm-workbuddy-free-quota-warn">
-                {t('row.tabFreeQuotaWarn')}
-              </p>
               {!activeRegionOn
                 ? <p className="dsm-workbuddy-tab-off-notice">{t('row.tabOffNotice')}</p>
                 : null}
@@ -842,88 +1004,51 @@ function WorkBuddyCardBody(props: WorkBuddyCardProps) {
                                     looks saved but cannot take effect (issue #83). */}
                                 {offBlocked(model) ? <span className="dsm-workbuddy-model-off-flag">{t('row.modelOffRefused')}</span> : null}
                               </label>
-                              <fieldset className="dsm-workbuddy-context-budget" aria-label={t('row.contextBudget')}>
-                                {/* ISSUE #215: the radios describe the EFFECTIVE
-                                    tier, and the effective tier comes from
-                                    `effectiveContextBudget()` — the same
-                                    function the backend's window is derived
-                                    from. The 200K radio used to read
-                                    `(activeContextBudgets[id] ?? 200_000) ===
-                                    200_000`, which lit it up for a model with
-                                    NO stored budget even though
-                                    `applyContextBudgets` kept the native 1M
-                                    window. The card therefore claimed a cap it
-                                    had not taken, and — because the radio
-                                    looked already chosen — a user who wanted
-                                    the default had nothing to click.
+                              {/* ONE SELECT, NOT A ROW OF RADIOS (requested).
+                                  It was three radios — 200K / 500K / native —
+                                  wrapping to a second line on a narrow column
+                                  and reading as three independent switches when
+                                  they are one choice.
 
-                                    Each tier is now matched against the
-                                    effective value, so exactly ONE radio is
-                                    lit and it is the one DSH is actually
-                                    told. */}
+                                  THE CORRECTNESS RULE IS UNCHANGED (issue #215).
+                                  The selected option is still computed from
+                                  `effectiveContextBudget()` — the same function
+                                  the backend's window is derived from — so the
+                                  control cannot claim a cap the host did not
+                                  take. Only the SHAPE changed: three clickable
+                                  targets became one, and the tiers stay exactly
+                                  the ones the model can actually use. */}
+                              <select
+                                className="dsm-workbuddy-context-budget"
+                                aria-label={t('row.contextBudget')}
+                                value={String(effectiveContextBudget(model.nativeContextWindow, activeContextBudgets[model.id]))}
+                                disabled={!canWrite || saving}
+                                onChange={event => {
+                                  const picked = Number(event.target.value)
+                                  // Native is stored as `undefined`, not as the
+                                  // window's number: storing the number would
+                                  // stop following the model if the upstream
+                                  // raises its window, and would make "native"
+                                  // indistinguishable from a cap that happens to
+                                  // equal it.
+                                  setContextBudget(model.id, picked === model.nativeContextWindow ? undefined : picked)
+                                }}
+                              >
+                                {/* Tiers are gated on the model's REAL window so
+                                    an option above it is never offered: a 192K
+                                    model would otherwise show a 500K choice that
+                                    silently lowers nothing. Same gates as the
+                                    radios had. */}
                                 {model.nativeContextWindow > 200_000
-                                  ? <label>
-                                      <input
-                                        type="radio"
-                                        name={`context-${model.id}`}
-                                        checked={effectiveContextBudget(model.nativeContextWindow, activeContextBudgets[model.id]) === 200_000}
-                                        disabled={!canWrite || saving}
-                                        onChange={() => { setContextBudget(model.id, 200_000) }}
-                                      />
-                                      <span>200K</span>
-                                    </label>
+                                  ? <option value={200_000}>200K</option>
                                   : null}
-                                {/* Half-meg tier. Gated on `> 500_000` rather than
-                                    `> 200_000` so it never offers a cap ABOVE a
-                                    model's real window: a 192K model (hy3) and a
-                                    300K one would otherwise get a button that
-                                    silently lowers nothing and misrepresents the
-                                    window. The upstream ladder is 300K/600K/960K
-                                    or 1M, so 500K is a deliberate convenience
-                                    point, not an upstream limit — hence a plain
-                                    literal here, like the 200K label above. */}
                                 {model.nativeContextWindow > 500_000
-                                  ? <label>
-                                      <input
-                                        type="radio"
-                                        name={`context-${model.id}`}
-                                        checked={effectiveContextBudget(model.nativeContextWindow, activeContextBudgets[model.id]) === 500_000}
-                                        disabled={!canWrite || saving}
-                                        onChange={() => { setContextBudget(model.id, 500_000) }}
-                                      />
-                                      <span>500K</span>
-                                    </label>
+                                  ? <option value={500_000}>500K</option>
                                   : null}
-                                {/* The native tier: "no cap". Choosing it CLEARS
-                                    the budget rather than storing the window's
-                                    number, so it keeps following the model if
-                                    the upstream raises the window — and so
-                                    "native" cannot be confused with a stored
-                                    budget that merely happens to equal it.
-                                    Always checked when the window is at or
-                                    below 200K, where it is the only tier. */}
-                                {model.nativeContextWindow > 200_000
-                                  ? <label>
-                                      <input
-                                        type="radio"
-                                        name={`context-${model.id}`}
-                                        checked={effectiveContextBudget(model.nativeContextWindow, activeContextBudgets[model.id]) === model.nativeContextWindow}
-                                        disabled={!canWrite || saving}
-                                        onChange={() => { setContextBudget(model.id, undefined) }}
-                                      />
-                                      <span>{formatCapacity(model.nativeContextWindow, t('row.modelUnknown'))}</span>
-                                    </label>
-                                  : <label>
-                                      <input
-                                        type="radio"
-                                        name={`context-${model.id}`}
-                                        checked
-                                        disabled
-                                        onChange={() => {}}
-                                      />
-                                      <span>{formatCapacity(model.nativeContextWindow, t('row.modelUnknown'))}</span>
-                                    </label>}
-                              </fieldset>
+                                <option value={model.nativeContextWindow}>
+                                  {formatCapacity(model.nativeContextWindow, t('row.modelUnknown'))}
+                                </option>
+                              </select>
                                 <div className="dsm-workbuddy-model-actions-buttons">
                                 {/* Test button. Deliberately NOT gated on `canWrite`
                                     or `saving`: a probe writes no settings, so it
@@ -1121,16 +1246,14 @@ function WorkBuddyCardBody(props: WorkBuddyCardProps) {
                 hidden={signedIn && panel !== 'capabilities'}
               >
                 <p className="dsm-workbuddy-panel-note">{t('row.panelCapabilitiesHint')}</p>
+                {/* The CN gateway override, first: it is the only control here
+                    that a user reaches for when NOTHING works, and burying it
+                    under four switches is how the reporter of issue #220 spent a
+                    day on the wrong layer. */}
+                {cnBasePreference}
                 {creditPreferences}
                 {sidebarPanelPreference}
-                <div className="dsm-workbuddy-prefs">
-                  {imageToolPreference}
-                  {videoToolPreference}
-                  {videoModelPreference}
-                  {mediaModelsPreference}
-                  {cliBridgePreference}
-                  {cliBridgeSwitchedOn() ? cliBridgePickers : null}
-                </div>
+
                 {upstreamSwitches}
                 {channelRejectContinuePreference}
               </div>
@@ -1165,6 +1288,27 @@ function WorkBuddyCardBody(props: WorkBuddyCardProps) {
                               : status.domain}
                           </span>
                         </div>
+                        {/* WHICH GATEWAY IS ACTUALLY IN FORCE (issue #220).
+                            The row reports the RESOLVED value, not the saved
+                            string: a saved value that failed validation still
+                            routes to the built-in gateway, and a diagnostics
+                            panel that echoed the unvalidated text would tell a
+                            user their override is live when it is not. Only on
+                            the CN tab — the international gateways follow the
+                            credential's brand and have no override. */}
+                        {status.region === 'cn'
+                          ? <div className="dsm-workbuddy-diag-row">
+                              <span className="dsm-workbuddy-diag-label">{t('row.diagCnBase')}</span>
+                              <span className="dsm-workbuddy-diag-value dsm-workbuddy-diag-mono">
+                                {(() => {
+                                  const resolved = resolveCnGateway(regionCnBaseOf(settingsScope?.getSnapshot().value, 'cn'))
+                                  return resolved.ok && resolved.overridden
+                                    ? resolved.base
+                                    : t('row.diagCnBaseDefault')
+                                })()}
+                              </span>
+                            </div>
+                          : null}
                         <div className="dsm-workbuddy-diag-row">
                           <span className="dsm-workbuddy-diag-label">{t('row.diagAccount')}</span>
                           <span className="dsm-workbuddy-diag-value">{nameOf(status.accountName)}</span>
@@ -1328,6 +1472,15 @@ function WorkBuddyCardBody(props: WorkBuddyCardProps) {
           <p className="dsm-workbuddy-section-desc">{t('row.desc')}</p>
         </div>
         {cardBody}
+      </div>
+    )
+  }
+
+  if (settingsSurface) {
+    return (
+      <div className="dsm-workbuddy-settings">
+        {pageHead}
+        <div className="dsm-workbuddy-page-body">{cardBody}</div>
       </div>
     )
   }
