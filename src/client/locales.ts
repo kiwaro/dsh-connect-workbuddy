@@ -24,7 +24,7 @@ export const en = {
   'row.collapse': 'Collapse',
   'row.tabCn': 'Domestic',
   'row.tabGlobal': 'Global',
-  "row.tabHint": "Domestic and global providers can be enabled together, with accounts, credits and model lists managed separately. The region of the model selected in a conversation determines which accounts are used.",
+  "row.tabHint": "Domestic and global versions can be enabled together. Use the version tabs above to view and manage each version's accounts, credits and models.",
   // A zero catalog multiplier does not imply unlimited requests. Historical
   // size and load refusals do not establish a universal quota mechanism.
   'row.tabFreeQuotaWarn': 'Free models can still encounter upstream request limits or busy responses.',
@@ -404,7 +404,7 @@ export const en = {
   'row.poolLogTestRowMalformed': '{accountName}: the host returned no result for this account',
   'row.poolRegionNote': 'The domestic and international pools are fully independent: accounts, switches, intervals, and target models never affect each other.',
   'row.poolMembersTitle': 'Accounts in this pool',
-  'row.poolMembersHint': 'Only checked accounts rotate, get checked in, and get tested.',
+  "row.poolMembersHint": "Select the accounts to add to the pool below, then click Save.",
   'row.poolSelectAll': 'Select all',
   'row.poolSelectNone': 'Clear all',
   'row.poolSelectedCount': '{count} of {total} selected',
@@ -748,7 +748,7 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   'row.collapse': '收起',
   'row.tabCn': '国内版',
   'row.tabGlobal': '国际版',
-  'row.tabHint': "国内版和国际版可同时启用，两者的账号、积分和模型列表分别管理。在会话中选择模型时，模型所属区域决定使用哪一组账号。",
+  "row.tabHint": "国内版和国际版可同时启用。切换上方版本页签，可分别查看和管理各版本的账号、积分和模型。",
   // 免费（×0）模型**不是无限量**：上游按**单次请求体积**限流（6004，实测约 25k token
   // 通过、约 30k 被拒）并按**模型侧负载**限流（14003）。两者都不是插件能读到的
   // 「时间段内累计 token 定额」——上游没有这个字段——所以这句只说限制存在，不声称
@@ -1099,7 +1099,7 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   'row.poolLogTestRowMalformed': "{accountName}：服务端未返回测试结果",
   'row.poolRegionNote': "国内版和国际版各有独立的账号池设置。切换区域后，请分别设置并保存。",
   'row.poolMembersTitle': "账号池成员",
-  'row.poolMembersHint': "请勾选账号并保存。插件使用这些账号执行自动选号、批量签到和测试。",
+  "row.poolMembersHint": "在下方勾选要加入账号池的账号，然后点击「保存」。",
   'row.poolSelectAll': '全选',
   'row.poolSelectNone': '全不选',
   'row.poolSelectedCount': '已选 {count} / {total}',

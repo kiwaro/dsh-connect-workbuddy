@@ -450,6 +450,7 @@ export const WORKBUDDY_CARD_CSS = `
  * margin:2px 0 0 was tuned to sit under a section heading, and here the line
  * follows a row of boxed cells and needs more air, plus it precedes the section
  * tabs whose own top margin would otherwise crowd it. */
+.dsm-workbuddy-region-summary{min-width:0}
 .dsm-workbuddy-tab-hint{margin:10px 0 0;color:var(--dsw-alias-label-tertiary,#999);font-size:12px;line-height:18px}
 /* Every model is laid out in full — NO inner scroll box.
  *

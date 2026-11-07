@@ -2,7 +2,6 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import ts from 'typescript'
-import { WORKBUDDY_CARD_CSS } from '../src/client/styles.ts'
 
 /**
  * Regression suite for two defects that shipped together and share one root
@@ -90,7 +89,7 @@ function cardCss(): string {
   const source = readFileSync(fileURLToPath(new URL('src/client/styles.ts', repoRoot)), 'utf8')
   const match = /export const WORKBUDDY_CARD_CSS\s*=\s*`([\s\S]*?)`/.exec(source)
   if (match?.[1] === undefined) throw new Error('WORKBUDDY_CARD_CSS template literal not found in src/client/styles.ts')
-  return WORKBUDDY_CARD_CSS
+  return match[1]
 }
 
 /** The bare package name a client specifier names, or undefined for a subpath/relative one. */
