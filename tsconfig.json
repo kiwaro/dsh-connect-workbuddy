@@ -16,6 +16,7 @@
   },
   "include": ["src", "tests"],
   "exclude": [
+    "tests/plugin-icon.spec.tsx",
     "src/client",
     "tests/pool-render-helpers.tsx",
     "tests/pool-render.spec.tsx",

@@ -1,3 +1,5 @@
+import { seriesLayoutCss } from './series-layout.ts'
+
 /**
  * Client styles for the WorkBuddy plugin card.
  *
@@ -14,6 +16,26 @@
  */
 
 export const WORKBUDDY_CARD_CSS = `
+
+.dsm-icon-preference{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;color:var(--dsw-alias-label-primary,#e6e6e6)}
+.dsm-icon-preference-copy{display:flex;flex-direction:column;gap:4px;flex:1;min-width:180px;font-size:13px}
+.dsm-icon-preference-copy>span{font-size:12px;line-height:1.5;color:var(--dsw-alias-label-tertiary,#999)}
+.dsm-icon-choices{display:flex;flex-wrap:wrap;gap:6px}
+.dsm-icon-choices>button{appearance:none;display:inline-flex;align-items:center;gap:8px;font:inherit;font-size:12px;line-height:20px;color:inherit;background:transparent;border:1px solid var(--dsw-alias-border-l2,#777);border-radius:8px;padding:7px 10px;cursor:pointer}
+.dsm-icon-choices>button[aria-checked="true"]{border-color:var(--dsw-alias-brand-primary,#cf795b);background:var(--dsw-alias-bg-layer-2,#25262b)}
+.dsm-icon-choices>button:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#cf795b);outline-offset:2px}
+.dsm-icon-save-error{flex-basis:100%;margin:0;color:var(--dsw-alias-state-error-primary,#c33);font-size:12px}
+
+/* 插件详情页将图标、名称说明和操作按钮放在同一行，只影响本插件。 */
+[data-plugin-detail="dsh-connect-workbuddy"][data-plugin-detail]{display:grid;grid-template-columns:48px minmax(0,1fr) auto;column-gap:16px;align-items:start}
+[data-plugin-detail="dsh-connect-workbuddy"][data-plugin-detail]>[class*="_detailTop"],[data-plugin-detail="dsh-connect-workbuddy"][data-plugin-detail] [class*="_detailHead"]{display:contents}
+[data-plugin-detail="dsh-connect-workbuddy"][data-plugin-detail] [class*="_crumb"]:not([class*="_crumbIcon"]){grid-column:1/-1;grid-row:1;justify-self:start;margin-bottom:28px}
+[data-plugin-detail="dsh-connect-workbuddy"][data-plugin-detail] [class*="_cardIcon"]{grid-column:1;grid-row:2;align-self:start}
+[data-plugin-detail="dsh-connect-workbuddy"][data-plugin-detail]>[class*="_detailMain"]{grid-column:2;grid-row:2;margin-top:0;min-width:0}
+[data-plugin-detail="dsh-connect-workbuddy"][data-plugin-detail] [class*="_detailActions"]{grid-column:3;grid-row:2;align-self:start}
+[data-plugin-detail="dsh-connect-workbuddy"][data-plugin-detail]>[class*="_detailSections"]{grid-column:1/-1;min-width:0}
+@media(max-width:640px){[data-plugin-detail="dsh-connect-workbuddy"][data-plugin-detail]{grid-template-columns:48px minmax(0,1fr)}[data-plugin-detail="dsh-connect-workbuddy"][data-plugin-detail] [class*="_detailActions"]{grid-column:2;grid-row:3;justify-self:start;margin-top:12px}}
+
 .dsm-plugin-card{border:1px solid var(--dsw-alias-border-l2,#36373b);background:var(--dsw-alias-bg-layer-3,#202126);border-radius:12px;list-style:none;transition:border-color .16s,background .16s}
 .dsm-plugin-card:hover{border-color:var(--dsw-alias-label-dimmed,#777)}
 .dsm-plugin-card-open{background:var(--dsw-alias-bg-layer-2,#25262b);border-color:var(--dsw-alias-label-dimmed,#777)}
@@ -773,7 +795,7 @@ export const WORKBUDDY_CARD_CSS = `
  * edit real used to sit at its very bottom — off-screen at the moment the user
  * finished editing, and invisible entirely in a screenshot. Opaque, because
  * content scrolls under it. */
-.dsm-workbuddy-pool-save-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;border-top:1px solid var(--dsw-alias-border-l2,#36373b);padding-top:12px;position:static;padding-bottom:8px;background:var(--dsw-alias-bg-layer-3,#2a2c33)}
+.dsm-workbuddy-pool-save-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;border-top:1px solid var(--dsw-alias-border-l2,#36373b);padding-top:12px;position:sticky;bottom:0;z-index:2;padding-bottom:8px;background:var(--dsw-alias-bg-layer-3,#2a2c33)}
 .dsm-workbuddy-pool-save-buttons{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex:none}
 .dsm-workbuddy-pool-conflict{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:11px 13px;border-radius:10px;background:rgba(245,158,11,.08);border:1px solid var(--dsw-alias-state-warn-primary,#f59e0b)}
 .dsm-workbuddy-pool-pending{flex:none;align-self:center;font-size:12px;line-height:17px;color:var(--dsw-alias-state-warn-primary,#f59e0b)}
@@ -921,13 +943,13 @@ export const WORKBUDDY_CARD_CSS = `
 .dsm-workbuddy-section-desc{margin:0;font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary,#999)}
 .dsm-workbuddy-page{box-sizing:border-box;height:100%;display:flex;flex-direction:column;align-items:center;gap:20px;padding:28px clamp(24px,4vw,48px) 48px;overflow:auto;color:var(--dsw-alias-label-primary,#e6e6e6)}
 .dsm-workbuddy-page>*{width:100%;max-width:860px}
-.dsm-workbuddy-page-head{display:flex;flex-direction:column;gap:6px}
-.dsm-workbuddy-page-back{appearance:none;font:inherit;cursor:pointer;border:1px solid var(--dsw-alias-border-l2,#36373b);background:var(--dsw-alias-bg-layer-1,#17181b);color:var(--dsw-alias-label-secondary,#c7c7c7);border-radius:8px;padding:5px 12px;display:inline-flex;align-items:center;gap:6px;align-self:flex-start;font-size:13px;line-height:20px}
+.dsm-workbuddy-page-head{display:grid;grid-template-columns:40px minmax(0,1fr);column-gap:12px;row-gap:6px;align-items:center}
+.dsm-workbuddy-page-back{grid-column:1/-1;grid-row:1;justify-self:start;margin-bottom:14px;appearance:none;font:inherit;cursor:pointer;border:1px solid var(--dsw-alias-border-l2,#36373b);background:var(--dsw-alias-bg-layer-1,#17181b);color:var(--dsw-alias-label-secondary,#c7c7c7);border-radius:8px;padding:5px 12px;display:inline-flex;align-items:center;gap:6px;align-self:flex-start;font-size:13px;line-height:20px}
 .dsm-workbuddy-page-back:hover{color:var(--dsw-alias-label-primary,#e6e6e6);border-color:var(--dsw-alias-label-dimmed,#777)}
 .dsm-workbuddy-page-back svg{flex:none}
-.dsm-workbuddy-page-icon{width:40px;height:40px;border-radius:9px;align-self:flex-start;margin-top:14px}
-.dsm-workbuddy-page-title{margin:0;font-size:20px;font-weight:600;line-height:1.4}
-.dsm-workbuddy-page-desc{margin:0;font-size:13px;line-height:1.5;color:var(--dsw-alias-label-tertiary,#999)}
+.dsm-workbuddy-page-icon{grid-column:1;grid-row:2;width:40px;height:40px;border-radius:9px;align-self:center;margin:0}
+.dsm-workbuddy-page-title{grid-column:2;grid-row:2;min-width:0;margin:0;font-size:20px;font-weight:600;line-height:1.4}
+.dsm-workbuddy-page-desc{grid-column:2;grid-row:3;min-width:0;margin:0;font-size:13px;line-height:1.5;color:var(--dsw-alias-label-tertiary,#999)}
 .dsm-workbuddy-page-body .dsm-workbuddy-usage{padding:20px 20px 8px;border:1px solid var(--dsw-alias-border-l2,#36373b);background:var(--dsw-alias-bg-layer-3,#202126);border-radius:12px}
 .dsm-workbuddy-panel-icon{display:block;border-radius:4px;flex:none}
 /* ---- 设备头档位与逐账号参数弹窗 ------------------------------------------
@@ -1070,7 +1092,7 @@ export const WORKBUDDY_CARD_CSS = `
   border:1px solid var(--dsw-alias-border-l2,#3a3d45);
 }
 
-`
+` + seriesLayoutCss('workbuddy')
 /**
  * Composer credit readout styles, injected by the readout component itself.
  *

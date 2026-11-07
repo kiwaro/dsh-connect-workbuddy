@@ -718,3 +718,5 @@ Model discovery keeps the original local first-seen timestamp when a model leave
 ## 18. License
 
 This project is licensed under the [MIT License](LICENSE). Copyright: **Copyright (c) 2026 LaoDing**.
+
+Under More settings → Icon style, choose Claude style line icons or the default icon. Claude style is the default. Changes take effect immediately and are saved separately for each plugin in the current browser.

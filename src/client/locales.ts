@@ -12,14 +12,19 @@
 
 export const en = {
   'nav.panel': 'WorkBuddy',
+  'row.iconStyleLabel': 'Icon style',
+  'row.iconStyleHint': 'Updates the sidebar and page icons immediately. Saved separately for this plugin in this browser.',
+  'row.iconStyleClaude': 'Claude style',
+  'row.iconStyleOriginal': 'Default icon',
+  'row.iconStyleSaveFailed': 'The browser could not save the icon preference. Please check site storage permissions.',
   'nav.back': 'Back to conversation',
-  'row.title': 'WorkBuddy credits & models (dsh-connect-workbuddy)',
-  'row.desc': 'Use WorkBuddy models in DSH: each refresh reads every model\'s credit multiplier from the upstream catalog, image input is toggled per model, several accounts can be switched or failed over automatically, and daily check-in plus your remaining credits are one click away. The domestic and international sides are two independent providers, each with its own account — use both at the same time.',
+  'row.title': 'WorkBuddy credits & models',
+  "row.desc": "Use WorkBuddy domestic and global models in DSH. Manage accounts, select models, view credits and claim daily check-in rewards. Refreshing the model catalog also updates credit multipliers.",
   'row.expand': 'Expand',
   'row.collapse': 'Collapse',
   'row.tabCn': 'Domestic',
   'row.tabGlobal': 'Global',
-  'row.tabHint': 'Each tab is a separate provider (workbuddy / workbuddy-global) with its own account, credits, and models. Both sides are live at once: different sessions can pick from either side, and changes on one tab never touch the other.',
+  "row.tabHint": "Domestic and global providers can be enabled together, with accounts, credits and model lists managed separately. The region of the model selected in a conversation determines which accounts are used.",
   // A zero catalog multiplier does not imply unlimited requests. Historical
   // size and load refusals do not establish a universal quota mechanism.
   'row.tabFreeQuotaWarn': 'Free models can still encounter upstream request limits or busy responses.',
@@ -97,7 +102,7 @@ export const en = {
   // registration) rather than pick an account, and because every one of them is
   // due sub-options that a flat list under the tab bar had no room for.
   'row.panelCapabilities': 'Capabilities',
-  'row.panelCapabilitiesHint': 'What the plugin may do on your behalf. Each switch takes effect on the click — there is no Save button in this section.',
+  "row.panelCapabilitiesHint": "Feature switches take effect immediately.",
   'row.panelDiag': 'Diagnostics',
   'row.panelAria': 'Card sections',
   'row.diagHint': 'What this card actually read, so a report can quote it. Nothing here changes a setting.',
@@ -360,7 +365,7 @@ export const en = {
   'row.poolModeManual': 'you pick',
   'row.poolManualAccountLabel': 'Account in use',
   'row.poolManualAccountNone': 'No account in effect',
-  'row.poolTargetLabel': 'Test model (whole pool)',
+  'row.poolTargetLabel': 'Account test model',
   'row.poolTargetHint': "Batch tests use this model. Auto selects this region's free model with the largest context window. Selecting a paid model spends credits from every account tested.",
   'row.poolTargetAutoOption': "Auto-select a free model",
   'row.poolProbeSizeLabel': 'Test request size',
@@ -377,7 +382,7 @@ export const en = {
   // says what it DOES rather than naming the feature: "automatic check-in" alone
   // does not tell a user that a background job will write to their account.
   'row.poolAutoCheckin': 'Check in automatically each day',
-  'row.poolAutoCheckinHint': 'On: the plugin claims the daily check-in for the accounts checked into this pool, once a day, in the background. It reads first and never re-claims an account already checked in, so a restart cannot double-claim. Off: nothing runs until you press the button. A missed day resets the streak.',
+  "row.poolAutoCheckinHint": "Enable and save to claim daily rewards for selected domestic personal accounts while DSH is running. After a restart, the plugin checks today's progress before processing remaining accounts. Failed attempts retry automatically.",
   'row.poolAutoCheckinToday': 'Today: {done} of {total} checked in',
   'row.poolAutoCheckinDone': 'Today: all {total} checked in',
   'row.poolAutoCheckinPending': '{count} still to retry',
@@ -428,7 +433,7 @@ export const en = {
   'row.poolGhostRemoveUnnamed': 'Remove {account} from this pool. No name was ever recorded for this account, so what you see is the start of its id.',
   'row.poolSelectAria': 'Include {accountName} in this region\'s account pool',
   'row.poolCurrentBadge': 'In use',
-  'row.poolCurrentHeader': 'In use: {account}',
+  'row.poolCurrentHeader': 'Billing now: {account}',
   'row.poolNotMember': 'Not in pool',
   'row.poolNotMemberHint': 'Not in the pool: rotation skips it, and batch check-in and test leave it alone.',
   'row.poolServingOutside': '“{account}” is serving right now but is not in this pool: rotation will not pick it, and batch check-in and test will not touch it.',
@@ -710,6 +715,11 @@ export type WorkBuddySettingsKey = keyof typeof en
 
 export const zh: Record<WorkBuddySettingsKey, string> = {
   'nav.panel': 'WorkBuddy',
+  'row.iconStyleLabel': '图标样式',
+  'row.iconStyleHint': '立即更新侧边栏和页面图标，当前浏览器分别保存每个插件的选择。',
+  'row.iconStyleClaude': 'Claude 风格',
+  'row.iconStyleOriginal': '默认图标',
+  'row.iconStyleSaveFailed': '浏览器无法保存图标选择，请检查网站存储权限。',
   'nav.back': '返回会话',
   'row.title': "WorkBuddy 积分与模型",
   'row.desc': "在 DSH 中使用 WorkBuddy 国内版和国际版模型。可管理账号、选择模型、查询积分和领取每日签到奖励。刷新模型目录时，插件同时更新积分倍率。",
@@ -1046,7 +1056,7 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   'row.poolDirty': '● 有未保存的修改',
   // 自动签到（issue #191）。默认关，且标题写的是「它会做什么」而不是功能名。
   'row.poolAutoCheckin': '每天自动签到',
-  'row.poolAutoCheckinHint': "开启并保存后，插件每天为所选国内版个人账号领取签到奖励。重启后，插件先检查当天的签到状态，再处理尚未签到的账号。",
+  "row.poolAutoCheckinHint": "开启并保存后，插件在 DSH 运行期间每天为所选国内版个人账号领取签到奖励。重启后，插件先检查当天的签到进度，再处理尚未签到的账号。失败时自动重试。",
   'row.poolAutoCheckinToday': '今日：已签 {done} / {total}',
   'row.poolAutoCheckinDone': '今日：{total} 个全部已签',
   'row.poolAutoCheckinPending': '待重试 {count} 个',
@@ -1094,7 +1104,7 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   'row.poolGhostRemoveUnnamed': "将 {account} 移出账号池。插件未读取到账号名称，因此使用账号标识的前几位显示该账号。",
   'row.poolSelectAria': '把 {accountName} 加入本区域的账号池',
   'row.poolCurrentBadge': '当前使用',
-  'row.poolCurrentHeader': '当前使用：{account}',
+  'row.poolCurrentHeader': '当前计费：{account}',
   'row.poolNotMember': "未加入",
   'row.poolNotMemberHint': "加入账号池后可参与轮换、批量签到和测试。",
   'row.poolServingOutside': "当前使用的「{account}」尚未加入账号池，加入并保存后才会参与轮换、批量签到和测试。",

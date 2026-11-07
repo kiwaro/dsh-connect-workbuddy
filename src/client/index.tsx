@@ -44,7 +44,7 @@ import { CodebuddyLive } from './CodebuddyLive.tsx'
 import { selectQuotaNoticeClaim, WorkBuddyQuotaNotice } from './WorkBuddyQuotaNotice.tsx'
 import { en, zh } from './locales.ts'
 import type { WorkBuddySettingsKey } from './locales.ts'
-import { WORKBUDDY_PLUGIN_ICON } from './icon.ts'
+import { PluginIcon } from './plugin-icon.tsx'
 import { WORKBUDDY_SETTINGS_ID, openPluginSettingsPage } from './settings-route.ts'
 import {
   setSidebarPanelWanted, sidebarPanelWanted, subscribeSidebarPanelWanted,
@@ -275,23 +275,12 @@ export function apply(ctx: WorkBuddyClientContext): void {
       }
     }
 
-    /**
-     * The sidebar glyph for the WorkBuddy panel row.
-     *
-     * The sidebar renders `sidebar.panellist` registrants with `{ size, active }`
-     * inside a `currentColor`-themed glyph cell, so the brand mark is drawn as a
-     * small `<img>` — the PNG's own colours read as the plugin's identity, and
-     * the row's selection state is the host's to paint around it.
-     */
+    /** Sidebar icon follows the selected style and host foreground colour. */
     function WorkBuddyPanelIcon(props: { size?: number }): JSX.Element {
       const edge = typeof props.size === 'number' && props.size > 0 ? props.size : 16
-      return h('img', {
+      return h(PluginIcon, {
         className: 'dsm-workbuddy-panel-icon',
-        src: WORKBUDDY_PLUGIN_ICON,
-        alt: '',
-        width: edge,
-        height: edge,
-        'aria-hidden': 'true',
+        size: edge,
       })
     }
 

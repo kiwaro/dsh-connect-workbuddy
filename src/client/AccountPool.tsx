@@ -1,3 +1,4 @@
+import { IconStylePreference } from './plugin-icon.tsx'
 /**
  * The account pool's card section.
  *
@@ -2233,6 +2234,7 @@ function renderSettings(input: {
     h('div', { className: 'dsm-workbuddy-pool-card-head' },
       h('h4', { className: 'dsm-workbuddy-pool-card-title' }, t('row.poolSettingsTitle')),
     ),
+    h(IconStylePreference, { t }),
     // Reference text, at the top of the settings block and OUT of the member
     // block: it explains the badges and arrows in the table above, so it belongs
     // under the data rather than in front of it.

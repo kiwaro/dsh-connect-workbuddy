@@ -1195,3 +1195,5 @@ DSH 插件卡片标题与简介来自 `locale/<lang>.json` 的 meta.title、meta
 
 本项目采用 [MIT](LICENSE) 许可证，版权归属：Copyright (c) 2026 LaoDing。
 
+
+在“更多设置 → 图标样式”中可切换 Claude 风格线条图标和默认图标。默认使用 Claude 风格，选择立即生效，并由当前浏览器分别保存每个插件的设置。

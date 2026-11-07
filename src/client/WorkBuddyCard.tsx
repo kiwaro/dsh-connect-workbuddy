@@ -1,3 +1,4 @@
+import { updateStickyTabs } from './series-layout.ts'
 import { createCapabilityPreferences } from './workbuddy-capability-preferences.tsx'
 import { useWorkBuddyCardState } from './use-workbuddy-card-state.tsx'
 import { type WorkBuddyCardInjected, type WorkBuddyCardProps, imageCheckboxHint, promoChip, effectiveRate, SearchedPaths, formatNumber, formatDate, formatCapacity, dotStyle, tpsResultView, probeResultView } from './workbuddy-card-view.tsx'
@@ -42,7 +43,7 @@ import { busyIcon } from './busy-icon.tsx'
 import { uiLanguage } from './promo-badge.ts'
 import { inlineProbeReason } from './probe-reason.ts'
 
-import { WORKBUDDY_PLUGIN_ICON } from './icon.ts'
+import { PluginIcon } from './plugin-icon.tsx'
 import { WORKBUDDY_CARD_CSS } from './styles.ts'
 import { signedOutNotice, signedOutText } from './searched-paths.ts'
 import type { Translate } from './searched-paths.ts'
@@ -323,17 +324,6 @@ function WorkBuddyCardBody(props: WorkBuddyCardProps) {
   const { cliBridgePreference, cliBridgePickers, imageToolPreference, videoToolPreference, videoModelPreference, mediaModelsPreference, upstreamSwitches, channelRejectContinuePreference, sidebarPanelPreference } = createCapabilityPreferences({ t, activeRegionOn, imageToolOn, activeRegion, togglingCredits, canWrite, saving, poolBusy, toggleImageTool, videoToolOn, toggleVideoTool, mediaByRegion, preferredVideoModelOf, pinningVideoModel, pinVideoModel, mediaBusy, setMediaBusy, loadMediaModels, mounted, mediaError, cliBridgeSwitchedOn, cliBridgeBusy, toggleCliBridge, sidebarPanelSwitchedOn, sidebarPanelBusy, toggleSidebarPanel, cliBridgeModelValue, visibleModels, cliBridgeEffortValue, cliBridgeRegionOrderValue, cliBridgeModelBusy, cliBridgeEffortBusy, cliBridgeRegionOrderBusy, pickCliBridgeModel, pickCliBridgeEffort, pickCliBridgeRegionOrder, usageIdentityValue, usageIdentityBusy, setUsageIdentityOn, keepPromptLastValue, keepPromptLastBusy, setKeepPromptLastOn, sessionTitleValue, sessionTitleBusy, setSessionTitleOn, toggleUpstreamSwitch, extraInjectedPrefixes, channelRejectContinueValue, channelRejectContinueBusy })
   const creditPreferences = (
     <div className="dsm-workbuddy-prefs">
-      {cliBridgePreference}
-      {/* The picker row is a property of the switch above it, like the seat
-          row is a property of the credits switch: hidden while the route is
-          off, where it would configure nothing. */}
-      {cliBridgeSwitchedOn() ? cliBridgePickers : null}
-      {imageToolPreference}
-      {videoToolPreference}
-      {/* Same rule as the CLI pickers above: the pin row is a property of the
-          video switch, so it is hidden while that switch is off. */}
-      {videoModelPreference}
-      {mediaModelsPreference}
       <label
         className="dsm-workbuddy-pref"
         title={activeRegion === 'cn' ? t('row.showCreditsCnHint') : t('row.showCreditsGlobalHint')}
@@ -389,7 +379,7 @@ function WorkBuddyCardBody(props: WorkBuddyCardProps) {
             </button>
           )
         : null}
-      <img className="dsm-workbuddy-page-icon" src={WORKBUDDY_PLUGIN_ICON} alt="" />
+      <PluginIcon className="dsm-workbuddy-page-icon" />
       <span className="dsm-workbuddy-page-title">{title}</span>
       <span className="dsm-workbuddy-page-desc">{t('row.desc')}</span>
     </div>
@@ -1132,9 +1122,17 @@ function WorkBuddyCardBody(props: WorkBuddyCardProps) {
               >
                 <p className="dsm-workbuddy-panel-note">{t('row.panelCapabilitiesHint')}</p>
                 {creditPreferences}
+                {sidebarPanelPreference}
+                <div className="dsm-workbuddy-prefs">
+                  {imageToolPreference}
+                  {videoToolPreference}
+                  {videoModelPreference}
+                  {mediaModelsPreference}
+                  {cliBridgePreference}
+                  {cliBridgeSwitchedOn() ? cliBridgePickers : null}
+                </div>
                 {upstreamSwitches}
                 {channelRejectContinuePreference}
-                {sidebarPanelPreference}
               </div>
               {/* DIAGNOSTICS — the third section, and the one that earns its tab
                   by holding nothing the other two already say: the facts a bug
@@ -1336,7 +1334,7 @@ function WorkBuddyCardBody(props: WorkBuddyCardProps) {
 
   if (pageSurface) {
     return (
-      <div className="dsm-workbuddy-page">
+      <div className="dsm-workbuddy-page" ref={page => { if (page !== null) requestAnimationFrame(() => { updateStickyTabs(page) }) }} onScroll={event => { updateStickyTabs(event.currentTarget) }}>
         {pageHead}
         <div className="dsm-workbuddy-page-body">{cardBody}</div>
       </div>
@@ -1352,7 +1350,7 @@ function WorkBuddyCardBody(props: WorkBuddyCardProps) {
         aria-label={`${t(open ? 'row.collapse' : 'row.expand')}: ${title}`}
         onClick={() => { setCardOpen(!cardOpen) }}
       >
-        <img className="dsm-plugin-card-icon" src={WORKBUDDY_PLUGIN_ICON} alt="" />
+        <PluginIcon className="dsm-plugin-card-icon" />
         <span className="dsm-plugin-card-head">
           <span className="dsm-plugin-card-title">{title}</span>
           <span className="dsm-plugin-card-description">{t('row.desc')}</span>
