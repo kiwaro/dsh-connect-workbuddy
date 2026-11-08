@@ -4,6 +4,8 @@
 
 <h1 align="center">dsh-connect-workbuddy</h1>
 
+Local integration includes useful upstream changes through 5.20.32: import envelopes, cooldown retesting, promotion badges, settings compatibility and layout fixes. The optional historical-thinking redaction defaults to off and takes effect on the next request. See [integration notes](docs/UPSTREAM-INTEGRATION-2026-11-08.md).
+
 <p align="center"><b>Connect locally signed-in WorkBuddy models — CN and international — to DeepSeek Harness: read each model's credit multiplier automatically, toggle image input per model, switch between multiple accounts, and keep daily check-in with a read-only credits overview in capsule readouts on the card and in the composer.</b></p>
 
 <p align="center">

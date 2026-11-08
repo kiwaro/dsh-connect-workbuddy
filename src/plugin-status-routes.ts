@@ -317,6 +317,7 @@ export function installPluginStatusRoutes(webCtx: Parameters<typeof registerWork
      * live so the card's switch reflects the value the NEXT request will use
      * rather than the one captured at mount.
      */
+    dropAllThinking: () => unwrapVolatile(dependencies.current().dropAllThinking) === true,
     dropForeignThinking: () => unwrapVolatile(dependencies.current().dropForeignThinking) === true,
     /**
      * What the last request had to drop, so the card can explain a turn that

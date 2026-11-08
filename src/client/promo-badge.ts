@@ -27,6 +27,16 @@
 import type { WorkBuddyPromo } from '../promo.ts'
 
 /**
+ * Re-exported from `src/promo.ts`, which is where these now live.
+ *
+ * They moved because the HOST half needs them too: `src/adapter.ts` fills
+ * `LlmModelInfo.badge` and cannot import from `src/client/`. `src/promo.ts` is
+ * the one DOM-free module both halves already share. The re-export keeps every
+ * existing importer (the card, the picker label, the tests) reading unchanged.
+ */
+export { promoBadgeColor, promoBadgeTone } from '../promo.ts'
+
+/**
  * The UI's language, as the browser reports it.
  *
  * The card already formats dates and numbers with the browser's locale
@@ -38,7 +48,14 @@ import type { WorkBuddyPromo } from '../promo.ts'
  * that run in a plain Node environment, where it does not exist.
  */
 export function uiLanguage(): string {
-  return typeof navigator === 'undefined' ? '' : navigator.language
+  // `navigator.language` is NOT guaranteed even when `navigator` exists: embedded
+  // webviews, replaced navigator objects and stubbed test environments can all
+  // yield `undefined`, and callers do `.toLowerCase()` on the result. Returning a
+  // string here is what makes those call sites total instead of only usually
+  // safe — one of them (the foreign-row badge) must never throw, because an
+  // exception there retires this component and costs every row its decoration.
+  if (typeof navigator === 'undefined') return ''
+  return navigator.language ?? ''
 }
 
 /** Whether the given language is an English one. */
@@ -86,12 +103,6 @@ export function promoBadgeShortLabel(promo: WorkBuddyPromo, language?: string): 
  * refused rather than passed through, and the card falls back to its own
  * brand colour.
  */
-export function promoBadgeColor(promo: WorkBuddyPromo): string | undefined {
-  const color = promo.badge.color
-  if (color === undefined) return undefined
-  return /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(color) ? color : undefined
-}
-
 /**
  * A calendar day, in the user's own locale — read in the ZONE the upstream
  * wrote the instant in.

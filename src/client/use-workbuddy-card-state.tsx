@@ -168,6 +168,8 @@ export function useWorkBuddyCardState({ t, settingsScope, view, surface, backToC
   const [sessionTitleBusy, setSessionTitleBusy] = useState(false)
   const [channelRejectContinueOn, setChannelRejectContinueOn] = useState<boolean | undefined>(undefined)
   const [channelRejectContinueBusy, setChannelRejectContinueBusy] = useState(false)
+  const [dropAllThinkingOn, setDropAllThinkingOn] = useState<boolean | undefined>(undefined)
+  const [dropAllThinkingBusy, setDropAllThinkingBusy] = useState(false)
   /**
    * Probe results, keyed by region then model id.
    *
@@ -923,6 +925,19 @@ export function useWorkBuddyCardState({ t, settingsScope, view, surface, backToC
   }
 
   /**
+   * The reasoning-redaction switch (issue #213).
+   *
+   * Same three-level resolution as every other switch: this card's own verified
+   * write, then the committed snapshot. No Host mirror, because this one has no
+   * status-document field — it does not change any number the card displays.
+   */
+  const dropAllThinkingValue = (): boolean => {
+    if (dropAllThinkingOn !== undefined) return dropAllThinkingOn
+    const raw = settingsScope?.getSnapshot().value as Record<string, unknown> | undefined
+    return raw?.['dropAllThinking'] === true
+  }
+
+  /**
    * Flip one upstream-identity switch.
    *
    * No `refreshUsage` afterwards, unlike the CLI switch: these change the shape
@@ -931,7 +946,7 @@ export function useWorkBuddyCardState({ t, settingsScope, view, surface, backToC
    * stall #131 was about) for a number that cannot have moved.
    */
   const toggleUpstreamSwitch = async (
-    field: 'usageIdentity' | 'keepPromptLast' | 'sessionTitle' | 'channelRejectContinue',
+    field: 'usageIdentity' | 'keepPromptLast' | 'sessionTitle' | 'channelRejectContinue' | 'dropAllThinking',
     enabled: boolean,
   ): Promise<void> => {
     if (settingsScope === undefined) return
@@ -939,12 +954,16 @@ export function useWorkBuddyCardState({ t, settingsScope, view, surface, backToC
       ? setUsageIdentityBusy
       : field === 'keepPromptLast'
         ? setKeepPromptLastBusy
-        : field === 'sessionTitle' ? setSessionTitleBusy : setChannelRejectContinueBusy
+        : field === 'sessionTitle'
+          ? setSessionTitleBusy
+          : field === 'channelRejectContinue' ? setChannelRejectContinueBusy : setDropAllThinkingBusy
     const setOwn = field === 'usageIdentity'
       ? setUsageIdentityOn
       : field === 'keepPromptLast'
         ? setKeepPromptLastOn
-        : field === 'sessionTitle' ? setSessionTitleOn : setChannelRejectContinueOn
+        : field === 'sessionTitle'
+          ? setSessionTitleOn
+          : field === 'channelRejectContinue' ? setChannelRejectContinueOn : setDropAllThinkingOn
     setBusy(true)
     try {
       // `sessionTitle` and `channelRejectContinue` are the two switches whose
@@ -1626,27 +1645,6 @@ export function useWorkBuddyCardState({ t, settingsScope, view, surface, backToC
     void measureTpsFor(visibleModels.filter(model => activeEnabledIds.has(model.id)).map(model => model.id))
   }
 
-  /**
-   * Sweep EVERY model in the region's live catalog, enabled or not.
-   *
-   * Deliberately the whole VISIBLE catalog and nothing else: those are the ids
-   * the host can validate against its own catalog, so this cannot spend credit
-   * on an id that only exists in a config file.
-   */
-  const sweepAllModels = (): void => {
-    void sweepModels(visibleModels.map(model => model.id))
-  }
-
-  /**
-   * Sweep speed for the WHOLE visible catalog.
-   *
-   * Same rule as {@link sweepAllModels}: the visible catalog only, because those
-   * are the ids the host can validate against its own roster.
-   */
-  const sweepTpsAllModels = (): void => {
-    void measureTpsFor(visibleModels.map(model => model.id))
-  }
-
   const saveModels = async (): Promise<void> => {
     if (settingsScope === undefined) return
     if (status.status !== 'signed-in') return
@@ -1712,5 +1710,5 @@ export function useWorkBuddyCardState({ t, settingsScope, view, surface, backToC
       if (mounted.current) setSaving(false)
     }
   }
-  return { newModelsShownOn, toggleNewModels, togglingNewModels, status, activeRegion, refreshUsage, activeRegionOn, creditPositionOn, togglingCredits, canWrite, saving, poolBusy, changeCreditPosition, imageToolOn, toggleImageTool, videoToolOn, toggleVideoTool, mediaByRegion, preferredVideoModelOf, pinningVideoModel, pinVideoModel, mediaBusy, setMediaBusy, loadMediaModels, mounted, mediaError, cliBridgeSwitchedOn, cliBridgeBusy, toggleCliBridge, sidebarPanelSwitchedOn, sidebarPanelBusy, toggleSidebarPanel, cliBridgeModelValue, visibleModels, cliBridgeEffortValue, cliBridgeRegionOrderValue, cliBridgeModelBusy, cliBridgeEffortBusy, cliBridgeRegionOrderBusy, pickCliBridgeModel, pickCliBridgeEffort, pickCliBridgeRegionOrder, usageIdentityValue, usageIdentityBusy, setUsageIdentityOn, keepPromptLastValue, keepPromptLastBusy, setKeepPromptLastOn, sessionTitleValue, sessionTitleBusy, setSessionTitleOn, toggleUpstreamSwitch, extraInjectedPrefixes, channelRejectContinueValue, channelRejectContinueBusy, creditsShownOn, toggleCredits, pageSurface, statusByRegion, regionOn, setActiveRegion, setAccountError, togglingRegion, toggleRegion, signedIn, panel, setPanel, accountError, switchingAccount, switchAccount, rescanAccounts, busy, setPoolBusy, deviceSettings, changeDeviceMode, saveDeviceProfile, dirty, activeEnabledIds, refreshModels, sweeping, sweepEnabledModels, sweepAllModels, tpsSweeping, tpsBusy, sweepTpsEnabledModels, probeError, sweepSummary, toggleModel, busyLevels, activeImageIds, toggleImage, offBlocked, activeOffIds, toggleOff, activeContextBudgets, setContextBudget, probing, probeModels, tpsProbing, measureTpsFor, activeDefaultEfforts, setDefaultThinkingEffort, probes, tpsResults, tpsMeasuredAt, saveError, discardModels, saveModels, loading, statusRetries, open, setCardOpen, cardOpen }
+  return { dropAllThinkingValue, dropAllThinkingBusy, newModelsShownOn, toggleNewModels, togglingNewModels, status, activeRegion, refreshUsage, activeRegionOn, creditPositionOn, togglingCredits, canWrite, saving, poolBusy, changeCreditPosition, imageToolOn, toggleImageTool, videoToolOn, toggleVideoTool, mediaByRegion, preferredVideoModelOf, pinningVideoModel, pinVideoModel, mediaBusy, setMediaBusy, loadMediaModels, mounted, mediaError, cliBridgeSwitchedOn, cliBridgeBusy, toggleCliBridge, sidebarPanelSwitchedOn, sidebarPanelBusy, toggleSidebarPanel, cliBridgeModelValue, visibleModels, cliBridgeEffortValue, cliBridgeRegionOrderValue, cliBridgeModelBusy, cliBridgeEffortBusy, cliBridgeRegionOrderBusy, pickCliBridgeModel, pickCliBridgeEffort, pickCliBridgeRegionOrder, usageIdentityValue, usageIdentityBusy, setUsageIdentityOn, keepPromptLastValue, keepPromptLastBusy, setKeepPromptLastOn, sessionTitleValue, sessionTitleBusy, setSessionTitleOn, toggleUpstreamSwitch, extraInjectedPrefixes, channelRejectContinueValue, channelRejectContinueBusy, creditsShownOn, toggleCredits, pageSurface, statusByRegion, regionOn, setActiveRegion, setAccountError, togglingRegion, toggleRegion, signedIn, panel, setPanel, accountError, switchingAccount, switchAccount, rescanAccounts, busy, setPoolBusy, deviceSettings, changeDeviceMode, saveDeviceProfile, dirty, activeEnabledIds, refreshModels, sweeping, sweepEnabledModels, tpsSweeping, tpsBusy, sweepTpsEnabledModels, probeError, sweepSummary, toggleModel, busyLevels, activeImageIds, toggleImage, offBlocked, activeOffIds, toggleOff, activeContextBudgets, setContextBudget, probing, probeModels, tpsProbing, measureTpsFor, activeDefaultEfforts, setDefaultThinkingEffort, probes, tpsResults, tpsMeasuredAt, saveError, discardModels, saveModels, loading, statusRetries, open, setCardOpen, cardOpen }
 }

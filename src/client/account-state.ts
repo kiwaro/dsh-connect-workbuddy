@@ -122,14 +122,19 @@ export function formatShortClock(value: number): string {
  * measurement and no exclusion is simply unknown, and inventing "可用" for it
  * would be a claim nobody made.
  *
- * The retry wording has three states, matching the card's three:
- *  - a stated instant        → "被限流 · 10/19 01:32 之后可再用"
- *  - no instant but a timed   → "被限流 · 未提供恢复时间"
+ * The retry wording has four states, matching the card's four:
+ *  - a stated instant still ahead → "被限流 · 10/19 01:32 之后可再用 · 约 6 小时后"
+ *  - a stated instant ALREADY past, on a WAIT-AND-SEE cooldown (rate-limited,
+ *    model-busy) → NOTHING at all: no verdict (it has expired), no instant (it is
+ *    behind us), and no chore for the reader. The dot already answers the
+ *    question, and the card re-tests that one account by itself. Other outcomes
+ *    that happen to carry a past instant keep their verdict and drop the instant
+ *  - no instant but a timed       → "被限流 · 未提供恢复时间"
  *    exclusion
- *  - any other outcome        → the bare outcome ("连不上上游")
+ *  - any other outcome            → the bare outcome ("连不上上游")
  *
- * That third case is deliberate: "未提供恢复时间" beside a credential rejection
- * would imply waiting helps, when credentials must first be checked or refreshed.
+ * That last case is deliberate: "未提供恢复时间" beside a credential rejection
+ * would imply waiting helps, when the only fix is signing in again.
  */
 export function availabilityLine(
   t: Translate,
@@ -159,12 +164,44 @@ export function availabilityLine(
       // It lives HERE rather than being appended by each caller because the card
       // appended it and the panel did not — the same drift this module exists to
       // stop, one layer down. Assembling a sentence at a call site guarantees the
-      // call sites will disagree eventually. The relative part is empty once the
-      // moment has passed (`remainingText` returns ''), which means the local wait has elapsed. It does not prove that the
-      // upstream account has recovered; another request is needed to test it.
+      // call sites will disagree eventually.
+      //
+      // Once the moment has passed `remainingText` returns '' and there IS no
+      // wait left, but the answer is NOT "the outcome, and the instant it should
+      // have recovered at" — that printed 被限流 · 11/08 15:44 之后可再用 about a
+      // time already in the past, i.e. a present-tense verdict beside a
+      // future-tense date for the same moment. The row says the one state that is
+      // actually true then, and the card re-tests this single account on its own
+      // (see autoReTest) so the next measurement — not the wording — is what
+      // resolves it.
       const left = remainingText(t, probe.retryAtMs, nowMs)
+      if (left === '') {
+        // AN ELAPSED COOLDOWN SAYS NOTHING — not "awaiting re-check", not the old
+        // verdict, not the instant.
+        //
+        // 「恢复时间已到 · 待复核」 was printed here for a while and the owner
+        // rejected it with a screenshot: the row's dot is GREEN (the pool already
+        // put this account back among its candidates the moment the instant
+        // passed), and a yellow 「待复核」 beside a green dot is the contradiction
+        // the wording was meant to remove. Two facts, both true, that read as one
+        // wrong one.
+        //
+        // The state itself has nothing to assert: the last measurement said "not
+        // until T", T has passed, and nobody has measured since. Every sentence
+        // built from those pieces is either stale ("rate limited") or an
+        // instruction ("re-check me") this surface cannot carry out. So it says
+        // nothing and lets the dot answer the only question it asks — can this
+        // account serve — which the green already answers correctly.
+        //
+        // A non-cooldown verdict keeps its own words: an exhausted quota or a
+        // rejected credential is STILL the reason the account cannot serve, and
+        // dropping that would hide the one thing the user has to act on.
+        return probe.outcome === 'rate-limited' || probe.outcome === 'model-busy'
+          ? undefined
+          : outcomeText(t, probe.outcome)
+      }
       const at = t('row.poolRetryAt', { at: formatShortClock(probe.retryAtMs) })
-      return `${outcomeText(t, probe.outcome)} · ${at}${left === '' ? '' : ` · ${left}`}`
+      return `${outcomeText(t, probe.outcome)} · ${at} · ${left}`
     }
     // A limited account with NO stated time says exactly that. Rendering the
     // bare outcome would leave the user unable to tell "the upstream gave no
@@ -215,12 +252,34 @@ export function availabilityMark(
       // guess what happens when it elapses — on a row whose whole job is "can
       // this account serve", the verb is the answer, not the rounding.
       //
-      // Once the moment has passed `recoversInText` returns '' — then the reason
-      // alone is the honest line, because there is nothing left to wait for.
+      // Once the moment has passed `recoversInText` returns '' — there is no
+      // wait left to name. Returning the reason ALONE there was wrong, and the
+      // bug was invisible for a whole session: a row whose cooldown expired an
+      // hour ago rendered exactly like a row measured a second ago, so
+      // 「被限流」 on a seven-hour-old record looked like a live verdict.
+      //
+      // What is true in that state is narrower than "rate limited": the upstream
+      // said it would free up at a time that has NOW PASSED, and nothing has
+      // re-measured since. So the line states that instead of repeating the
+      // stale verdict — it is the difference between "this is the situation" and
+      // "this was the situation, as of the last test".
+      //
+      // The verdict is NOT prefixed here, and that is the whole point: the first
+      // version printed 「被限流 · 限流时段已过 · 重新测试以确认」, three fragments
+      // that contradict each other inside one line — a present-tense verdict, a
+      // note that it is over, and a chore for the reader. The owner's answer was
+      // that the plugin should simply re-test that one account, which is what
+      // `autoReTest` in the card does; the row only has to name the moment before
+      // the new measurement lands.
       const left = recoversInText(t, probe.retryAtMs, nowMs)
-      return left === ''
-        ? outcomeMarkText(t, probe.outcome)
-        : `${outcomeMarkText(t, probe.outcome)} · ${left}`
+      if (left !== '') return `${outcomeMarkText(t, probe.outcome)} · ${left}`
+      // An elapsed cooldown says NOTHING here either, for the reason spelled out in
+      // `availabilityLine`: the panel's dot is already green, and the sentence that
+      // used to sit beside it contradicted it. A quota refresh or a rejected
+      // credential keeps its own reason, because waiting does not clear those.
+      return probe.outcome === 'rate-limited' || probe.outcome === 'model-busy'
+        ? undefined
+        : outcomeMarkText(t, probe.outcome)
     }
     return outcomeMarkText(t, probe.outcome)
   }
@@ -257,7 +316,26 @@ function exclusionLabel(t: Translate, excludedBy: WorkBuddyWebPoolExclusion): st
  * `error` is separate from `warn` because the advice differs: one means "wait",
  * the other means "do something".
  */
-export function stateTone(account: AccountStateInput): 'ok' | 'warn' | 'error' | 'unknown' {
+export function stateTone(account: AccountStateInput, nowMs: number = Date.now()): 'ok' | 'warn' | 'error' | 'unknown' {
+  // AN ELAPSED COOLDOWN WITH NOTHING MEASURED SINCE IS 'unknown', not 'warn'.
+  //
+  // This is the same state `availabilityLine` now renders as NOTHING, and the two
+  // have to agree or the row contradicts itself in the other direction: a red dot
+  // beside a blank line asserts "this account cannot serve" and then declines to
+  // say why. It also contradicts the POOL, which re-admits such an account the
+  // moment the instant passes (`exclusionOf` returns undefined then) — so the dot
+  // would report a refusal the pool has already lifted.
+  //
+  // Grey is this module's own word for "nobody has measured": painting it green
+  // would assert a health nobody checked, and red a failure nobody saw. The card
+  // re-tests the account by itself, so the honest reading lasts about one request.
+  const probe = account.probe
+  if (probe !== undefined
+    && probe.retryAtMs !== undefined
+    && probe.retryAtMs <= nowMs
+    && (probe.outcome === 'rate-limited' || probe.outcome === 'model-busy')) {
+    return account.excludedBy === undefined ? 'unknown' : 'warn'
+  }
   if (account.excludedBy !== undefined) {
     return account.excludedBy === 'rate-limited'
       || account.excludedBy === 'model-busy'
@@ -277,8 +355,8 @@ export function stateTone(account: AccountStateInput): 'ok' | 'warn' | 'error' |
  * edited. The pool table draws a dot from a computed colour, so it needs a value
  * rather than a class name.
  */
-export function stateColor(account: AccountStateInput): string {
-  switch (stateTone(account)) {
+export function stateColor(account: AccountStateInput, nowMs: number = Date.now()): string {
+  switch (stateTone(account, nowMs)) {
     case 'ok': return 'var(--dsw-alias-state-success-primary, #22a06b)'
     case 'warn': return 'var(--dsw-alias-state-warn-primary, #f59e0b)'
     case 'error': return 'var(--dsw-alias-state-error-primary, #ef4444)'

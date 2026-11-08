@@ -61,6 +61,58 @@ describe('parseTransferFile', () => {
     expect(() => parseTransferFile('{"a":1}')).toThrow('array')
     expect(() => parseTransferFile('[{"uid":"u1"},42]')).toThrow('item 2')
   })
+
+  /**
+   * ISSUE #229: 「导出的账号 JSON 文件导入失败 … 导出导入流程闭环失效」.
+   *
+   * The importer demanded a bare array. Several sibling tools — and this
+   * plugin's OWN `?action=export` answer, which is `{accounts: [...]}` — wrap the
+   * same records one level down, so a user who saved that JSON verbatim had a
+   * file that already held every record and was still refused. The loop has to
+   * close against the files that exist, not only the one shape the reader
+   * happened to write first.
+   */
+  it('reads the records out of the wrappers sibling tools emit', () => {
+    const records = [siblingRecord(), siblingRecord({ uid: 'u-2' })]
+    // A bare array stays the primary format.
+    expect(parseTransferFile(JSON.stringify(records))).toHaveLength(2)
+    // THE one that closes the loop: this plugin's own export response body.
+    expect(parseTransferFile(JSON.stringify({ accounts: records }))).toHaveLength(2)
+    expect(parseTransferFile(JSON.stringify({ data: records }))).toHaveLength(2)
+    expect(parseTransferFile(JSON.stringify({ records }))).toHaveLength(2)
+    // …and the envelope-of-envelope form, bounded to one extra level.
+    expect(parseTransferFile(JSON.stringify({ code: 0, data: { accounts: records } }))).toHaveLength(2)
+  })
+
+  it('is bounded at one extra level, and proves it by walking deep', () => {
+    // THIS TEST EXISTS BECAUSE THE FIRST VERSION OF THE FIX LIED.
+    //
+    // `recordsOf` recursed unconditionally while its comment said "bounded on
+    // purpose: one extra level". The claim was false — measured, an array of
+    // records wrapped 200 levels deep was still accepted, which defeats the very
+    // reason the wrappers are recognized BY NAME: a log dump with an array under
+    // `data` would have been read as a credential file.
+    //
+    // A comment cannot be tested. This asserts the bound by walking past it.
+    const records = [siblingRecord()]
+    expect(parseTransferFile(JSON.stringify({ data: { accounts: records } }))).toHaveLength(1)
+    let deep: unknown = records
+    for (let i = 0; i < 200; i += 1) deep = { data: deep }
+    expect(() => parseTransferFile(JSON.stringify(deep))).toThrow('array')
+  })
+
+  it('still refuses a document whose shape it does not recognize, and says what it saw', () => {
+    // Not every object is a transfer file: a wrapper must be recognized BY NAME.
+    // Scanning for "the first array anywhere" would accept a log dump.
+    expect(() => parseTransferFile(JSON.stringify({ unrelated: [] }))).toThrow('array')
+    // The message names the actual top level, so 「导入失败」 becomes actionable
+    // instead of leaving the user to guess whether the file or the importer is wrong.
+    expect(() => parseTransferFile(JSON.stringify({ a: 1, b: 2 }))).toThrow('a, b')
+    expect(() => parseTransferFile('null')).toThrow('null')
+    // A wrapper whose array holds a non-object still reports the POSITION, which
+    // is what lets the user find the broken record in an editor.
+    expect(() => parseTransferFile(JSON.stringify({ accounts: [{ uid: 'u1' }, 42] }))).toThrow('item 2')
+  })
 })
 
 describe('previewTransferFile', () => {

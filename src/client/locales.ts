@@ -11,6 +11,7 @@
  */
 
 export const en = {
+  'row.iconStyleLead': 'Appearance',
   'nav.panel': 'WorkBuddy',
   'row.iconStyleLabel': 'Icon style',
   'row.iconStyleHint': 'Updates the sidebar and page icons immediately. Saved separately for this plugin in this browser.',
@@ -128,7 +129,6 @@ export const en = {
   'row.cardCrashed': 'The configuration area failed to render.',
   'row.cardCrashedHint': 'The model provider itself is unaffected — chat and credits keep working. Quote the line above in a bug report.',
   'row.modelsTitle': 'Models',
-  'row.modelsSummary': '{count} enabled',
   // Shown in the section header while the list is COLLAPSED. The save/discard
   // buttons live inside the fold, so without this a user could hide their own
   // unsaved edits behind it with nothing on screen saying so.
@@ -162,15 +162,13 @@ export const en = {
   'row.modelEffortFollowNamed': 'Default ({effort})',
   'row.modelUnknown': 'Unknown',
   'row.modelCapabilityPending': 'Only capabilities advertised by WorkBuddy are shown.',
-  // The two one-click sweeps (issue #61 follow-up, mirroring the sibling `trae`
-  // plugin). Cost is stated in the HINT rather than a confirm dialog, per the
-  // maintainer's choice: the "all" run covers models the user did not enable, so
-  // it spends more than the enabled-only run.
+  // The sweep (issue #61 follow-up, mirroring the sibling `trae` plugin). Cost is
+  // stated in the HINT rather than a confirm dialog. The "all models" variant was
+  // removed on request: it spent credit on models the user had deliberately
+  // switched off, and the same information is reachable by enabling one first.
   'row.modelsTestEnabled': 'Test enabled models',
-  'row.modelsTestAll': 'Test all models',
   'row.modelsTesting': 'Testing {done}/{total}…',
   'row.modelsTestEnabledHint': "Tests each enabled model once. Cost depends on the model rate and input size, which defaults to 25,000 tokens. Results appear as requests finish. Testing stops if the credential is rejected.",
-  'row.modelsTestAllHint': "Tests every model in this region, including disabled models. Each request is billed at that model's rate and input size. Testing stops if the credential is rejected.",
   'row.tpsSweepEnabled': 'Measure speed (enabled)',
   'row.tpsSweepAll': 'Measure speed (all)',
   'row.tpsSweepEnabledHint': "Measures each enabled model three times and reports the median output speed. Each request allows up to 256 output tokens and is billed at the model's rate.",
@@ -320,7 +318,6 @@ export const en = {
   'row.poolLogBenefitFailed': '{accountName} claim failed: {message}',
   'row.poolBenefitHint': 'Claim it on the plans page: {url}',
   'row.poolCreditSoon': '{count} expiring within 3 days',
-  'row.poolCreditNearest': 'Nearest package expires {at}',
   'row.poolExcludedRateLimited': 'Rate limited',
   'row.poolExcludedModelBusy': 'Model busy',
   'row.poolExcludedOutOfCredit': 'Out of credits',
@@ -559,6 +556,9 @@ export const en = {
   'row.channelRejectContinueHint': 'LAST RESORT, not a fix for 11128. When the gateway answers 400 with code 11128 (「被网关的渠道校验拦截」), the turn just fails: the plugin never retries it in place and never swaps accounts, because the gate matches the message contents and every account sends the same ones. Fixed system fingerprints are byte-identical every turn, so resending only pays for the same 400 again; since 5.13.1 `prepareChatBody` rewrites known phrases instead. The narrow case this can help is content that changes between turns. It sends the text below as a NEW turn and spends a real request each time. Stops after N CONSECUTIVE sends (default 1); one successful turn, or one message you type yourself, resets the count. Subagent sessions are never touched. Off by default. Takes effect immediately, no reload.',
   'row.channelRejectContinueLimit': 'Max consecutive sends:',
   'row.channelRejectContinueText': 'Text sent:',
+  'row.dropAllThinkingLead': 'Reasoning redaction — when the gateway refuses what we send.',
+  'row.dropAllThinkingLabel': 'Strip past thinking from requests (for 11128)',
+  'row.dropAllThinkingHint': 'LAST RESORT for 「被网关的渠道校验拦截」(400 / code 11128), and not a fix. The gateway scans the text of every request, and this plugin sends the model its own earlier reasoning as `reasoning_content` whenever a thinking block carries a signature — so past reasoning is one of the things being scanned. On, ALL thinking blocks are removed from the request: your messages, the tool calls and the answers are untouched, but the model no longer sees its own earlier reasoning, and that loss is real (it is the model working memory, not decoration). Off by default. Turn it on when the openings named in a 11128 can be matched to reasoning text in that session, which is what issue #213 measured. Takes effect on the next turn, no reload.',
   'row.cliBridgeLabel': 'Let the local CodeBuddy CLI do the work',
   'row.cliBridgeHint': 'Adds the codebuddy_ask tool and the /codebuddy command. Each call spends CodeBuddy quota. injectResult only affects /codebuddy — its result is injected back into the session, costing one DSH turn when the session is idle; tool calls never read it. Rate-limited: 6 turns per session per hour, 20 per process per hour, one turn at a time. Off by default.',
   'row.cnBaseLabel': 'CN gateway host',
@@ -735,6 +735,7 @@ export const en = {
 export type WorkBuddySettingsKey = keyof typeof en
 
 export const zh: Record<WorkBuddySettingsKey, string> = {
+  'row.iconStyleLead': '图标外观',
   'nav.panel': 'WorkBuddy',
   'row.iconStyleLabel': '图标样式',
   'row.iconStyleHint': '立即更新侧边栏和页面图标，当前浏览器分别保存每个插件的选择。',
@@ -830,7 +831,6 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   'row.cardCrashed': "设置页面加载失败。",
   'row.cardCrashedHint': "设置页加载失败时请先刷新；若仍有问题，请在反馈中附上错误信息。",
   'row.modelsTitle': '模型',
-  'row.modelsSummary': '已启用 {count} 个',
   // 折叠态显示在标题行。保存/放弃按钮在折叠区里面，没有这个提示，用户会把
   // 自己未保存的改动藏到折叠后面，而界面上什么都不说。
   'row.modelsDirty': '有未保存的修改',
@@ -865,10 +865,8 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   // 两个一键遍历按钮（issue #61 的后续，与同族 trae 插件对齐）。成本写在 title 提示里
   // 而不是二次确认，按维护者的选择：「所有模型」含未启用的，所以比「仅启用」花得多。
   'row.modelsTestEnabled': "测试已启用模型",
-  'row.modelsTestAll': "测试所有模型",
   'row.modelsTesting': '测试中 {done}/{total}…',
   'row.modelsTestEnabledHint': "插件向每个已启用模型发送一次测试请求，并显示结果。默认输入长度为 25000 token，按模型费率计费。服务端拒绝登录凭据后，插件停止本次测试。",
-  'row.modelsTestAllHint': "插件测试当前区域的所有模型，包含未启用的模型。各模型使用相同的输入长度，按各自费率计费。服务端拒绝登录凭据后，插件停止本次测试。",
   'row.tpsSweepEnabled': "测速已启用模型",
   'row.tpsSweepAll': "测速所有模型",
   'row.tpsSweepEnabledHint': "每个模型测试 3 次，取输出速度中位数。每次最多输出 256 token，按模型费率扣除积分。",
@@ -1015,7 +1013,6 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   'row.poolLogBenefitFailed': '{accountName} 领取失败：{message}',
   'row.poolBenefitHint': '去套餐与积分页领取：{url}',
   'row.poolCreditSoon': '{count} 积分 3 天内过期',
-  'row.poolCreditNearest': '最近积分包 {at} 过期',
   'row.poolExcludedRateLimited': '被限流',
   'row.poolExcludedModelBusy': '模型繁忙',
   'row.poolExcludedOutOfCredit': '积分耗尽',
@@ -1237,8 +1234,21 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   'row.channelRejectContinueHint': "遇到 code 11128 时，以新回合发送下方文本，每次会消耗请求额度。仅当触发拦截的内容随回合变化时可能有效。默认关闭，连续发送上限为 1 次；对话成功或用户发送消息后计数清零。仅用于主会话，修改后立即生效。",
   'row.channelRejectContinueLimit': '连续发送上限：',
   'row.channelRejectContinueText': '发送的文本：',
-  'row.cliBridgeLabel': "启用本机 CodeBuddy 调用",
-  'row.cliBridgeHint': "提供 codebuddy_ask 工具和 /codebuddy 指令，每次调用消耗 CodeBuddy 额度。指令结果按 injectResult 设置发送给会话模型，会话空闲时会增加一次模型请求。默认每会话每小时最多 6 次、全局每小时 20 次，每会话同时执行一次。",
+  'row.dropAllThinkingLead': '思考剥离 —— 网关拒收我们发出去的内容时。',
+  'row.dropAllThinkingLabel': '把历史思考从请求里剥掉（针对 11128）',
+  'row.dropAllThinkingHint': '「被网关的渠道校验拦截」（400 + code 11128）的最后兜底，不是修复。网关会扫描每一份请求的文本，而本插件会把模型过去的思考作为 reasoning_content 发出去（thinking 块带 signature 时就会），所以历史思考也是被扫的内容之一。开启后请求里的 thinking 块会被全部移除——你的消息、工具调用和回答不受影响，但模型看不到自己之前的思考，而这个代价是真的（那是它的工作记忆，不是装饰）。默认关闭。适用情形：这次 11128 报出的那几个开头，能与该会话里的 reasoning 文本逐字对上——#213 里被证实的就是这种情况。改完下一轮生效，不必重载插件。',
+  'row.cliBridgeLabel': '允许调用本机 CodeBuddy CLI 干活',
+  'row.cliBridgeHint': '开启后多出 codebuddy_ask 工具与 /codebuddy 指令；每次调用花 CodeBuddy 配额。injectResult 只影响 /codebuddy：其结果回注会话，会话空闲时多花一次 DSH 回合；工具调用不读它。限流：每会话每小时 6 回合、每进程每小时 20 回合、同时只跑一个回合。默认关闭。',
+  'row.cnBaseLabel': 'CN 网关主机',
+  'row.cnBaseHint': '留空即用 copilot.tencent.com。只有当你的网络按 TLS SNI 重置这个域名时才需要填（连接在毫秒级就失败，而同一台机器上的 WorkBuddy 桌面端正常——客户端自己会退回 wb.tencentbuddy.com）。可填 copilot.tencent.com、tencentbuddy.com、workbuddy.cn、codebuddy.cn 任一域名下的子域，且必须是 https。聊天、计费、模型目录、签到都会跟着走；账号与区域不会变。',
+  'row.cnBasePlaceholder': 'https://wb.tencentbuddy.com',
+  'row.cnBaseInvalidMalformed': '这不是一个完整 URL。请带上 https:// 与主机名，例如 https://wb.tencentbuddy.com',
+  'row.cnBaseInvalidInsecure': '只接受 https——明文主机会把你的 token 裸发出去。',
+  'row.cnBaseInvalidHost': '这个主机不在 CN 品牌里。请用 copilot.tencent.com、tencentbuddy.com、workbuddy.cn、codebuddy.cn 下的子域。',
+  'row.cnBaseSaved': 'CN 网关已保存，新请求即刻使用它；Origin/Referer 仍然自称 CN 网页端。',
+  'row.cnBaseCleared': '已回到内置 CN 网关。',
+  'row.diagCnBase': 'CN 网关',
+  'row.diagCnBaseDefault': '内置（copilot.tencent.com）',
   'row.sidebarPanelLabel': '在侧边栏显示 WorkBuddy',
   'row.sidebarPanelHint': "在侧边栏显示 WorkBuddy 设置入口，默认关闭。开关即时生效；关闭时，已打开的设置页会返回对话。",
   // 本地 CLI 路由的三个快调旋钮：跑哪个模型、哪个推理档位、按什么顺序
@@ -1367,16 +1377,6 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   'row.modelToolsHint': '设置本区域的积分显示、新模型提示和模型工具权限。工具开关保存后生效。',
   'row.channelRejectHint': '开启前请阅读重试条件。遇到渠道拒绝时，此选项可能额外发送一次请求。',
   'row.sidebarPanelLead': '选择是否在 DSH 侧边栏显示 WorkBuddy。此设置只影响导航入口。',
-  'row.cnBaseLabel': 'CN 网关主机',
-  'row.cnBaseHint': '留空时使用 copilot.tencent.com。当前网络无法连接默认网关时，可填写其他 HTTPS 地址。允许的域名为 copilot.tencent.com、tencentbuddy.com、workbuddy.cn、codebuddy.cn 及其子域名。保存后，国内版的聊天、计费、模型目录和签到请求使用所选网关，账号与区域保持不变。',
-  'row.cnBasePlaceholder': 'https://wb.tencentbuddy.com',
-  'row.cnBaseInvalidMalformed': '这不是一个完整 URL。请带上 https:// 与主机名，例如 https://wb.tencentbuddy.com',
-  'row.cnBaseInvalidInsecure': '请填写 HTTPS 地址，以加密传输登录凭据。',
-  'row.cnBaseInvalidHost': '请使用 copilot.tencent.com、tencentbuddy.com、workbuddy.cn、codebuddy.cn 或其子域名。',
-  'row.cnBaseSaved': '国内版网关已保存，后续请求使用所选网关。',
-  'row.cnBaseCleared': '已恢复使用国内版默认网关。',
-  'row.diagCnBase': 'CN 网关',
-  'row.diagCnBaseDefault': '内置（copilot.tencent.com）',
   'row.showNewModels': '显示新出现的模型',
   'row.showNewModelsHint': '在积分旁显示新模型数量，并在模型选择器中标记这些模型。统计范围为当前目录中、本机近 7 天首次记录的模型，首次记录时间不代表上游上架时间。此选项默认关闭，因为全新安装时所有模型都会被首次记录。',
   'row.showNewModelsHintInline': '统计当前目录中、本机近 7 天首次记录的模型。此选项默认关闭，因为全新安装时所有模型都会被首次记录。',

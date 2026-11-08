@@ -89,6 +89,98 @@ export const name = 'dsh-connect-workbuddy-client'
 export const inject = ['slots', 'locale']
 
 /** Register card copy and the WorkBuddy card under Plugin configuration. */
+/**
+ * Report whether the model-picker label slot landed.
+ *
+ * The slot is a `single` cell declared as a CHILD of `conversation.input.model`,
+ * so the host calls our inject callback only once that parent entry mounts. Two
+ * failures follow, and neither is visible on the page:
+ *
+ *   1. `register()` threw — another claim at the same priority.
+ *   2. The callback never ran — the parent never mounted. Nothing throws, the
+ *      disposer list is simply one shorter, and the picker shows no badges.
+ *
+ * Case 2 is why this exists: it produced NO trace of any kind. The state is
+ * published on `window` (so a person can inspect it without reproducing the
+ * symptom) and a failure is warned about exactly once per rebind. A healthy
+ * load stays silent — a warning that fires when nothing is wrong stops being
+ * read.
+ *
+ * Exported for the test; never called outside `rebindSlots`.
+ *
+ * @param state - What the registration path recorded.
+ * @param target - Where to publish; defaults to the global object.
+ * @returns The published view, or `undefined` when there is no global to
+ *          publish onto (server rendering, a bare test).
+ */
+/**
+ * One word for the state of the model-label registration.
+ *
+ * The four outcomes need DIFFERENT fixes, and three of them look identical from
+ * the picker (no badges):
+ *
+ *   not-reached       the client half never reached registration — a boot or
+ *                     composition problem, nothing to do with the slot.
+ *   parent-not-mounted  we asked, the host never called back: the parent entry
+ *                     (`conversation.input.model`) is not mounted, so the child
+ *                     cell does not exist yet.
+ *   failed            `register()` threw (a same-priority claim).
+ *   claimed           it landed; if badges are still missing the cause is
+ *                     downstream (render or CSS), not here.
+ *
+ * @param state - What the registration path recorded.
+ * @returns The verdict word.
+ */
+export function modelLabelVerdictOf(state: {
+  injectRanAt?: number | undefined
+  failure?: string | undefined
+  askedAt?: number | undefined
+  dispose?: (() => void) | undefined
+}): 'failed' | 'claimed' | 'not-reached' | 'parent-not-mounted' {
+  if (state.failure !== undefined) return 'failed'
+  if (state.injectRanAt !== undefined) return 'claimed'
+  // No ask at all: the code never got this far.
+  if (state.askedAt === undefined) return 'not-reached'
+  // It asked; the host never called back.
+  return 'parent-not-mounted'
+}
+
+export function publishModelLabelState(
+  state: {
+    injectRanAt?: number | undefined
+    failure?: string | undefined
+    dispose?: (() => void) | undefined
+    askedAt?: number | undefined
+    rebinds?: number | undefined
+  },
+  target: { warn?: (message: string) => void } & Record<string, unknown> = globalThis as never,
+): Record<string, unknown> | undefined {
+  const view = {
+    verdict: modelLabelVerdictOf(state),
+    injectRanAt: state.injectRanAt,
+    askedAt: state.askedAt,
+    rebinds: state.rebinds,
+    failure: state.failure,
+    claimed: state.dispose !== undefined,
+    at: Date.now(),
+  }
+  try {
+    target['__dshWorkBuddyModelLabel__'] = view
+  } catch {
+    // A frozen global, or no global at all: the console line below is still
+    // worth attempting, so this is not fatal.
+    return undefined
+  }
+  if (state.failure !== undefined) {
+    try {
+      target.warn?.(
+        '[dsh-connect-workbuddy] the model-picker badges could not be registered: ' + state.failure,
+      )
+    } catch { /* a console that throws must not take the slots with it */ }
+  }
+  return view
+}
+
 export function apply(ctx: WorkBuddyClientContext): void {
   try {
     const namespace = 'settings.workbuddy'
@@ -105,9 +197,9 @@ export function apply(ctx: WorkBuddyClientContext): void {
     /**
      * The credits popover's header button: open 设置 → WorkBuddy.
      *
-     * ALWAYS A FUNCTION, never `undefined`. It drives the shell's real chrome
-     * (see `settings-jump.ts`) rather than asking a host service, so it has a
-     * definite value from the moment `apply` runs. That matters because the
+     * ALWAYS A FUNCTION, never `undefined`, and it takes no route value at
+     * creation time: it reads the store seat per press and otherwise drives the
+     * shell's real chrome (see `settings-jump.ts`). That matters because the
      * readout only renders the button when this is present, and the first
      * `registerAllSlots()` happens before most of `apply` has finished — a
      * route captured from `ctx.get('layout')` at that moment is `undefined` on
@@ -119,6 +211,10 @@ export function apply(ctx: WorkBuddyClientContext): void {
      */
     const openSettingsSection = (): boolean => openWorkBuddySettingsSection({
       label: () => t('nav.panel'),
+      // Route 1: the settings shell's store seat, which opens the dialog ON this
+      // plugin's section in one call. Probed per press (not captured here)
+      // because the sidebar bundle's apply order is not ours to assume.
+      get: softGet,
       onGiveUp: () => {
         // Last resort: the plugin manager's bundle page, which at least names
         // the plugin and offers install/uninstall. Soft-probed, and its absence
@@ -220,14 +316,7 @@ export function apply(ctx: WorkBuddyClientContext): void {
                 return h(PluginIcon, {
                   size: edge,
                   className: 'dsm-workbuddy-nav-icon',
-                  style: {
-                    width: `${edge}px`,
-                    height: `${edge}px`,
-                    borderRadius: '4px',
-                    display: 'block',
-                    objectFit: 'contain',
-                    opacity: iconProps?.active === false ? 0.75 : 1,
-                  },
+                  style: { borderRadius: '4px', display: 'block', opacity: iconProps?.active === false ? 0.75 : 1 },
                 })
               })
               disposers.push(iconDisposer)
@@ -352,15 +441,65 @@ export function apply(ctx: WorkBuddyClientContext): void {
      * meeting that price for the first time; the disposition is to state it
      * plainly rather than to coordinate at runtime.
      */
+    /**
+     * WHY THIS RECORDS AN OUTCOME, not just a disposer.
+     *
+     * Claiming the cell can fail in two DIFFERENT ways and both are silent:
+     *
+     *  1. `register()` throws — a `single` slot with another claim at the same
+     *     priority. The catch logs, the page looks fine, the badges are gone.
+     *  2. `inject()` never runs — the slot is declared as a child of
+     *     `conversation.input.model`, so the host only calls back once THAT
+     *     entry mounts. If it never mounts (a session-less surface, an older
+     *     host, a renamed parent), nothing throws at all: the callback simply
+     *     does not happen and the disposer list stays one shorter.
+     *
+     * Case 2 left no trace of any kind, which is why this plugin could look
+     * healthy while the picker showed no badges. Recording the timestamp of the
+     * callback and the reason for a failure turns "did it land?" from a guess
+     * into a fact the diagnostics row can print.
+     */
+    const modelLabelState: {
+      /** Set inside the inject callback: the host called us for this slot. */
+      injectRanAt?: number
+      /** Set when `register()` threw. */
+      failure?: string
+      /** The disposer, when the host eventually asked for the cell. */
+      dispose?: (() => void) | undefined
+      /**
+       * Set the moment `registerModelLabel()` is CALLED, before the host has a
+       * chance to answer.
+       *
+       * This exists so the published view can tell three states apart instead of
+       * two. Without it, "the plugin never got this far" and "the plugin asked
+       * and the host never answered" both publish `undefined`, and those need
+       * completely different fixes.
+       */
+      askedAt?: number
+      /** How many times `rebindSlots` has run — proves the client half booted. */
+      rebinds?: number
+    } = {}
+    /** The verdict for the console line (see `modelLabelVerdictOf`). */
+    const modelLabelVerdict = (): string => modelLabelVerdictOf(modelLabelState)
     const registerModelLabel = (): (() => void) | undefined => {
+      modelLabelState.askedAt = Date.now()
       try {
-        return ctx.slots.inject('conversation.input.model.label' as never, () => (ctx.slots as unknown as {
-          register(options: { name: string, priority: number }, component: unknown): () => void
-        }).register(
-          { name: 'conversation.input.model.label', priority: MODEL_LABEL_PRIORITY },
-          WorkBuddyModelLabel,
-        ))
+        return ctx.slots.inject('conversation.input.model.label' as never, () => {
+          // THIS LINE IS THE EVIDENCE. The host calls back only after
+          // `conversation.input.model` has mounted and declared the child cell;
+          // if the row never appears, the callback never runs and NOTHING throws
+          // (see the note above `modelLabelState`).
+          modelLabelState.injectRanAt = Date.now()
+          return (ctx.slots as unknown as {
+            register(options: { name: string, priority: number }, component: unknown): () => void
+          }).register(
+            { name: 'conversation.input.model.label', priority: MODEL_LABEL_PRIORITY },
+            WorkBuddyModelLabel,
+          )
+        })
       } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error)
+        modelLabelState.failure = message
         console.error('[dsh-connect-workbuddy] model label slot failed to register (host provider unaffected):', error)
         return undefined
       }
@@ -679,7 +818,14 @@ export function apply(ctx: WorkBuddyClientContext): void {
       registerStatsCredits(),
       registerCliLive(),
       registerQuotaNotice(),
-      registerModelLabel(),
+      // Recorded, not just appended: `modelLabelState` is the only place that
+      // knows whether the host ever asked for the cell (see the publish block in
+      // `rebindSlots`).
+      (() => {
+        const dispose = registerModelLabel()
+        modelLabelState.dispose = dispose
+        return dispose
+      })(),
       // The full PAGE is always-on: the composer readout's button opens it, and a
       // `main` panel has to exist for `layout.selectPanel` to accept the key.
       registerMainPage(),
@@ -717,6 +863,7 @@ export function apply(ctx: WorkBuddyClientContext): void {
         try { dispose() } catch { /* already disposed by the slot service */ }
       }
       liveDisposers = []
+      modelLabelState.rebinds = (modelLabelState.rebinds ?? 0) + 1
       liveDisposers = registerAllSlots()
       // Say what actually landed, once per rebind.
       //
@@ -732,11 +879,27 @@ export function apply(ctx: WorkBuddyClientContext): void {
       // Deliberately `console.info`, not `warn`/`error`: this is the healthy
       // path, and a warning-per-page-load would train users to ignore the one
       // channel that matters when something really is wrong.
+      // EXPOSE THE SLOT STATE ON `window`, and shout when the model label did
+      // not land.
+      //
+      // Why this exists: a `single` slot whose parent entry never mounts (or
+      // whose claim collides) fails SILENTLY — the picker simply has no badges,
+      // the page looks healthy, and there is nothing for the user to report
+      // except "it is not there". That is exactly the position a user was in
+      // when this was added. The two facts that identify the cause — did the
+      // inject callback ever run, and did `register()` throw — are known only
+      // here, so they are published rather than guessed at.
+      //
+      // `warn`, not `info`, and only on the broken path: a healthy load stays
+      // quiet, which is the only way a warning keeps meaning anything.
+      publishModelLabelState(modelLabelState)
       try {
         console.info(
           `[dsh-connect-workbuddy] registered ${String(liveDisposers.length)} slots `
           + `(settings form: ${settingsScope === undefined ? 'none — page is read-only' : 'bound'}, `
-          + `sidebar panel: ${sidebarPanelWanted() ? 'on' : 'off'})`,
+          + `sidebar panel: ${sidebarPanelWanted() ? 'on' : 'off'}, `
+          + `model label: ${modelLabelVerdict()}`
+          + `${modelLabelState.failure === undefined ? '' : ` (${modelLabelState.failure})`})`,
         )
       } catch { /* a host without console must still get its slots */ }
       // The panel rides its OWN switch, so it is reconciled rather than listed:

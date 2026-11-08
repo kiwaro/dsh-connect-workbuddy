@@ -198,10 +198,14 @@ describe('context-budget tiers', () => {
     const m = await render(usageWithWindow(1_000_000))
     expect(Array.from(budgetSelect(m.container)?.options ?? [])).toHaveLength(3)
     expect(tierLabels(m.container)).toEqual(['200K', '500K', '1M'])
-    // And the row that holds them is the one the stylesheet allows to wrap.
-    const head = m.container.querySelector('.dsm-workbuddy-model-head')
-    expect(head).not.toBeNull()
-    expect(head?.querySelector('.dsm-workbuddy-context-budget')).not.toBeNull()
+    // And it lives on the model's SECOND line, with the other per-model
+    // switches. This used to assert "inside .dsm-workbuddy-model-head" — the
+    // control has since moved to `.dsm-workbuddy-model-controls` when the row
+    // was split into three explicit lines, so the old anchor was pinning WHERE
+    // the control was rather than that it is reachable.
+    const controls = m.container.querySelector('.dsm-workbuddy-model-controls')
+    expect(controls).not.toBeNull()
+    expect(controls?.querySelector('select.dsm-workbuddy-context-budget')).not.toBeNull()
   })
 })
 
@@ -252,5 +256,76 @@ describe('the tier control is a dropdown, not a row of radios', () => {
     }
     expect(sent.value['cn']?.contextBudgets?.['probe-model']).toBe(500_000)
     await m.unmount()
+  })
+})
+
+describe('one model is expressed as two lines', () => {
+  /**
+   * TWO lines: line 1 is what the model is PLUS how it behaves, line 2 is what it
+   * costs plus the actions.
+   *
+   * It was three for one release (5.20.7), and that was the wrong split: the name
+   * is short, so line 1 left its whole right half empty while line 2 carried
+   * three narrow controls — three lines, two-thirds empty each. These cases pin
+   * the two-line structure, and they are about the STRUCTURE rather than the
+   * pixels: jsdom performs no layout, so "is it two lines" is unmeasurable, while
+   * "is there one container per concern, and is the switch group INSIDE line 1"
+   * is exact.
+   */
+  const rowOf = async (): Promise<{ head: Element | null, controls: Element | null, details: Element | null }> => {
+    const m = await render(usageWithWindow(1_000_000))
+    const model = m.container.querySelector('.dsm-workbuddy-model')
+    return {
+      head: model?.querySelector('.dsm-workbuddy-model-head') ?? null,
+      controls: model?.querySelector('.dsm-workbuddy-model-controls') ?? null,
+      details: model?.querySelector('.dsm-workbuddy-model-details') ?? null,
+    }
+  }
+
+  it('gives each concern its own line', async () => {
+    const { head, controls, details } = await rowOf()
+    expect(head, 'line 1 (name)').not.toBeNull()
+    expect(controls, 'line 2 (switches)').not.toBeNull()
+    expect(details, 'line 3 (facts + actions)').not.toBeNull()
+  })
+
+  it('keeps the switches on line 1, beside the name', async () => {
+    // THE WHOLE POINT of the two-line form: the switch group is INSIDE the name's
+    // line, not a line of its own. If someone moves it back out, line 1 becomes
+    // mostly empty again and the row grows a third line for no gain.
+    const { head } = await rowOf()
+    expect(head?.querySelector('.dsm-workbuddy-model-name')).not.toBeNull()
+    expect(head?.querySelector('input[type=checkbox]')).not.toBeNull()
+    // The controls container must be a DESCENDANT of the head, not a sibling.
+    expect(head?.querySelector('.dsm-workbuddy-model-controls')).not.toBeNull()
+    expect(head?.querySelector('select.dsm-workbuddy-context-budget')).not.toBeNull()
+    // The actions still belong to line 2.
+    expect(head?.querySelector('.dsm-workbuddy-model-probe')).toBeNull()
+  })
+
+  it('keeps the switches off line 2, and the buttons on it', async () => {
+    // The split that matters: the buttons are actions ON the model, not settings
+    // OF it, so they belong with its facts — and the switches do NOT belong there.
+    const { details } = await rowOf()
+    expect(details?.querySelector('select.dsm-workbuddy-context-budget')).toBeNull()
+    expect(details?.querySelector('.dsm-workbuddy-model-image')).toBeNull()
+    expect(details?.querySelector('.dsm-workbuddy-model-probe')).not.toBeNull()
+    expect(details?.querySelector('.dsm-workbuddy-model-meta')).not.toBeNull()
+  })
+
+  it('indents line 2 under the name, and lets line 1 start at the checkbox', async () => {
+    // A stylesheet contract, because alignment cannot be observed in jsdom.
+    // 22px = the checkbox's own box + the 8px gap before the name, so the two
+    // lines read as one block.
+    const details = /\.dsm-workbuddy-model-details\{([^}]*)\}/.exec(WORKBUDDY_CARD_CSS)?.[1] ?? ''
+    expect(details).toContain('padding-inline-start:22px')
+    // Line 1 opens with the checkbox, so it must NOT be indented.
+    const head = /\.dsm-workbuddy-model-head\{([^}]*)\}/.exec(WORKBUDDY_CARD_CSS)?.[1] ?? ''
+    expect(head).not.toContain('padding-inline-start')
+    // The switch group sits on line 1, so it must not carry line 2's indent —
+    // and it must not shrink, or the controls would be squeezed by a long name.
+    const controls = /\.dsm-workbuddy-model-controls\{([^}]*)\}/.exec(WORKBUDDY_CARD_CSS)?.[1] ?? ''
+    expect(controls).not.toContain('padding-inline-start')
+    expect(controls).toContain('flex:none')
   })
 })

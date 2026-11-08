@@ -53,12 +53,14 @@ interface CapabilityInputs {
   sessionTitleValue: () => { enabled: boolean; model: string; }
   sessionTitleBusy: boolean
   setSessionTitleOn: import("D:/work/dsh-connect-workbuddy/node_modules/.pnpm/@types+react@18.3.31/node_modules/@types/react/index").Dispatch<import("D:/work/dsh-connect-workbuddy/node_modules/.pnpm/@types+react@18.3.31/node_modules/@types/react/index").SetStateAction<boolean | undefined>>
-  toggleUpstreamSwitch: (field: "usageIdentity" | "keepPromptLast" | "sessionTitle" | "channelRejectContinue", enabled: boolean) => Promise<void>
+  toggleUpstreamSwitch: (field: "usageIdentity" | "keepPromptLast" | "sessionTitle" | "channelRejectContinue" | "dropAllThinking", enabled: boolean) => Promise<void>
   extraInjectedPrefixes: () => string[]
   channelRejectContinueValue: () => { enabled: boolean; maxConsecutive: number; text: string; }
+  dropAllThinkingValue(): boolean
+  dropAllThinkingBusy: boolean
   channelRejectContinueBusy: boolean
 }
-export function createCapabilityPreferences({ t, activeRegionOn, imageToolOn, activeRegion, togglingCredits, canWrite, saving, poolBusy, toggleImageTool, videoToolOn, toggleVideoTool, mediaByRegion, preferredVideoModelOf, pinningVideoModel, pinVideoModel, mediaBusy, setMediaBusy, loadMediaModels, mounted, mediaError, cliBridgeSwitchedOn, cliBridgeBusy, toggleCliBridge, sidebarPanelSwitchedOn, sidebarPanelBusy, toggleSidebarPanel, cliBridgeModelValue, visibleModels, cliBridgeEffortValue, cliBridgeRegionOrderValue, cliBridgeModelBusy, cliBridgeEffortBusy, cliBridgeRegionOrderBusy, pickCliBridgeModel, pickCliBridgeEffort, pickCliBridgeRegionOrder, usageIdentityValue, usageIdentityBusy, setUsageIdentityOn, keepPromptLastValue, keepPromptLastBusy, setKeepPromptLastOn, sessionTitleValue, sessionTitleBusy, setSessionTitleOn, toggleUpstreamSwitch, extraInjectedPrefixes, channelRejectContinueValue, channelRejectContinueBusy }: CapabilityInputs) {
+export function createCapabilityPreferences({ t, activeRegionOn, imageToolOn, activeRegion, togglingCredits, canWrite, saving, poolBusy, toggleImageTool, videoToolOn, toggleVideoTool, mediaByRegion, preferredVideoModelOf, pinningVideoModel, pinVideoModel, mediaBusy, setMediaBusy, loadMediaModels, mounted, mediaError, cliBridgeSwitchedOn, cliBridgeBusy, toggleCliBridge, sidebarPanelSwitchedOn, sidebarPanelBusy, toggleSidebarPanel, cliBridgeModelValue, visibleModels, cliBridgeEffortValue, cliBridgeRegionOrderValue, cliBridgeModelBusy, cliBridgeEffortBusy, cliBridgeRegionOrderBusy, pickCliBridgeModel, pickCliBridgeEffort, pickCliBridgeRegionOrder, usageIdentityValue, usageIdentityBusy, setUsageIdentityOn, keepPromptLastValue, keepPromptLastBusy, setKeepPromptLastOn, sessionTitleValue, sessionTitleBusy, setSessionTitleOn, toggleUpstreamSwitch, extraInjectedPrefixes, channelRejectContinueValue, channelRejectContinueBusy, dropAllThinkingValue, dropAllThinkingBusy }: CapabilityInputs) {
   const imageToolPreference = (
     <label className="dsm-workbuddy-pref" title={t('row.imageToolHint')}>
       <input
@@ -519,5 +521,40 @@ export function createCapabilityPreferences({ t, activeRegionOn, imageToolOn, ac
     </div>
   )
 
-return { cliBridgePreference, cliBridgePickers, imageToolPreference, videoToolPreference, videoModelPreference, mediaModelsPreference, upstreamSwitches, channelRejectContinuePreference, sidebarPanelPreference }
+  /**
+   * ISSUE #213: redact past reasoning from the request.
+   *
+   * Its own group rather than a row inside the channel-reject block, because the
+   * two answer different failures: that switch RESENDS after a refusal, this one
+   * removes the text that gets scanned in the first place. Grouping them would
+   * imply they are alternatives of one feature.
+   */
+  const dropAllThinkingPreference = (
+    <div className="dsm-workbuddy-prefs">
+      <span className="dsm-workbuddy-pref-hint">{t('row.dropAllThinkingLead')}</span>
+      <label
+        className="dsm-workbuddy-pref dsm-workbuddy-upstream-pref"
+        title={t('row.dropAllThinkingHint')}
+      >
+        {/* Only its own class, NOT `dsm-workbuddy-upstream-check`: that class is
+            the contract the upstream-switch suite reads to enumerate "switches
+            that need a reload", and this one takes effect on the next turn. */}
+        <input
+          type="checkbox"
+          className="dsm-workbuddy-drop-thinking-check"
+          checked={dropAllThinkingValue()}
+          disabled={!canWrite || saving || poolBusy || dropAllThinkingBusy}
+          onChange={(event: { target: { checked: boolean } }) => {
+            void toggleUpstreamSwitch('dropAllThinking', event.target.checked)
+          }}
+        />
+        <span className="dsm-workbuddy-pref-copy">
+          <span className="dsm-workbuddy-pref-label">{t('row.dropAllThinkingLabel')}</span>
+          <span className="dsm-workbuddy-pref-hint">{t('row.dropAllThinkingHint')}</span>
+        </span>
+      </label>
+    </div>
+  )
+
+return { cliBridgePreference, cliBridgePickers, imageToolPreference, videoToolPreference, videoModelPreference, mediaModelsPreference, upstreamSwitches, channelRejectContinuePreference, sidebarPanelPreference, dropAllThinkingPreference }
 }

@@ -47,7 +47,7 @@ import { busyIcon } from './busy-icon.tsx'
 import { uiLanguage } from './promo-badge.ts'
 import { inlineProbeReason } from './probe-reason.ts'
 
-import { PluginIcon } from './plugin-icon.tsx'
+import { IconStylePreference, PluginIcon } from './plugin-icon.tsx'
 import { WORKBUDDY_CARD_CSS } from './styles.ts'
 import { signedOutNotice, signedOutText } from './searched-paths.ts'
 import type { Translate } from './searched-paths.ts'
@@ -151,7 +151,7 @@ export function WorkBuddyCard(props: WorkBuddyCardProps) {
 function WorkBuddyCardBody(props: WorkBuddyCardProps) {
   const { t, settingsScope, view, surface, backToConversation } = props
   if (t === undefined) throw new Error('WorkBuddy plugin card requires its translation function')
-  const { newModelsShownOn, toggleNewModels, togglingNewModels, status, activeRegion, refreshUsage, activeRegionOn, creditPositionOn, togglingCredits, canWrite, saving, poolBusy, changeCreditPosition, imageToolOn, toggleImageTool, videoToolOn, toggleVideoTool, mediaByRegion, preferredVideoModelOf, pinningVideoModel, pinVideoModel, mediaBusy, setMediaBusy, loadMediaModels, mounted, mediaError, cliBridgeSwitchedOn, cliBridgeBusy, toggleCliBridge, sidebarPanelSwitchedOn, sidebarPanelBusy, toggleSidebarPanel, cliBridgeModelValue, visibleModels, cliBridgeEffortValue, cliBridgeRegionOrderValue, cliBridgeModelBusy, cliBridgeEffortBusy, cliBridgeRegionOrderBusy, pickCliBridgeModel, pickCliBridgeEffort, pickCliBridgeRegionOrder, usageIdentityValue, usageIdentityBusy, setUsageIdentityOn, keepPromptLastValue, keepPromptLastBusy, setKeepPromptLastOn, sessionTitleValue, sessionTitleBusy, setSessionTitleOn, toggleUpstreamSwitch, extraInjectedPrefixes, channelRejectContinueValue, channelRejectContinueBusy, creditsShownOn, toggleCredits, pageSurface, statusByRegion, regionOn, setActiveRegion, setAccountError, togglingRegion, toggleRegion, signedIn, panel, setPanel, accountError, switchingAccount, switchAccount, rescanAccounts, busy, setPoolBusy, deviceSettings, changeDeviceMode, saveDeviceProfile, dirty, activeEnabledIds, refreshModels, sweeping, sweepEnabledModels, sweepAllModels, tpsSweeping, tpsBusy, sweepTpsEnabledModels, probeError, sweepSummary, toggleModel, busyLevels, activeImageIds, toggleImage, offBlocked, activeOffIds, toggleOff, activeContextBudgets, setContextBudget, probing, probeModels, tpsProbing, measureTpsFor, activeDefaultEfforts, setDefaultThinkingEffort, probes, tpsResults, tpsMeasuredAt, saveError, discardModels, saveModels, loading, statusRetries, open, setCardOpen, cardOpen } = useWorkBuddyCardState(props)
+  const { newModelsShownOn, toggleNewModels, togglingNewModels, status, activeRegion, refreshUsage, activeRegionOn, creditPositionOn, togglingCredits, canWrite, saving, poolBusy, changeCreditPosition, imageToolOn, toggleImageTool, videoToolOn, toggleVideoTool, mediaByRegion, preferredVideoModelOf, pinningVideoModel, pinVideoModel, mediaBusy, setMediaBusy, loadMediaModels, mounted, mediaError, cliBridgeSwitchedOn, cliBridgeBusy, toggleCliBridge, sidebarPanelSwitchedOn, sidebarPanelBusy, toggleSidebarPanel, cliBridgeModelValue, visibleModels, cliBridgeEffortValue, cliBridgeRegionOrderValue, cliBridgeModelBusy, cliBridgeEffortBusy, cliBridgeRegionOrderBusy, pickCliBridgeModel, pickCliBridgeEffort, pickCliBridgeRegionOrder, usageIdentityValue, usageIdentityBusy, setUsageIdentityOn, keepPromptLastValue, keepPromptLastBusy, setKeepPromptLastOn, sessionTitleValue, sessionTitleBusy, setSessionTitleOn, toggleUpstreamSwitch, extraInjectedPrefixes, channelRejectContinueValue, channelRejectContinueBusy, dropAllThinkingValue, dropAllThinkingBusy, creditsShownOn, toggleCredits, pageSurface, statusByRegion, regionOn, setActiveRegion, setAccountError, togglingRegion, toggleRegion, signedIn, panel, setPanel, accountError, switchingAccount, switchAccount, rescanAccounts, busy, setPoolBusy, deviceSettings, changeDeviceMode, saveDeviceProfile, dirty, activeEnabledIds, refreshModels, sweeping, sweepEnabledModels, tpsSweeping, tpsBusy, sweepTpsEnabledModels, probeError, sweepSummary, toggleModel, busyLevels, activeImageIds, toggleImage, offBlocked, activeOffIds, toggleOff, activeContextBudgets, setContextBudget, probing, probeModels, tpsProbing, measureTpsFor, activeDefaultEfforts, setDefaultThinkingEffort, probes, tpsResults, tpsMeasuredAt, saveError, discardModels, saveModels, loading, statusRetries, open, setCardOpen, cardOpen } = useWorkBuddyCardState(props)
 
   const [cnBaseDraft, setCnBaseDraft] = useState<string | undefined>(undefined)
   const [cnBaseSaving, setCnBaseSaving] = useState(false)
@@ -427,7 +427,7 @@ function WorkBuddyCardBody(props: WorkBuddyCardProps) {
    * tool uses whichever region is BOTH enabled and switched on (CN first), so
    * ticking it here only ever authorizes spending on THIS tab.
    */
-  const { cliBridgePreference, cliBridgePickers, imageToolPreference, videoToolPreference, videoModelPreference, mediaModelsPreference, upstreamSwitches, channelRejectContinuePreference, sidebarPanelPreference } = createCapabilityPreferences({ t, activeRegionOn, imageToolOn, activeRegion, togglingCredits, canWrite, saving, poolBusy, toggleImageTool, videoToolOn, toggleVideoTool, mediaByRegion, preferredVideoModelOf, pinningVideoModel, pinVideoModel, mediaBusy, setMediaBusy, loadMediaModels, mounted, mediaError, cliBridgeSwitchedOn, cliBridgeBusy, toggleCliBridge, sidebarPanelSwitchedOn, sidebarPanelBusy, toggleSidebarPanel, cliBridgeModelValue, visibleModels, cliBridgeEffortValue, cliBridgeRegionOrderValue, cliBridgeModelBusy, cliBridgeEffortBusy, cliBridgeRegionOrderBusy, pickCliBridgeModel, pickCliBridgeEffort, pickCliBridgeRegionOrder, usageIdentityValue, usageIdentityBusy, setUsageIdentityOn, keepPromptLastValue, keepPromptLastBusy, setKeepPromptLastOn, sessionTitleValue, sessionTitleBusy, setSessionTitleOn, toggleUpstreamSwitch, extraInjectedPrefixes, channelRejectContinueValue, channelRejectContinueBusy })
+  const { cliBridgePreference, cliBridgePickers, imageToolPreference, videoToolPreference, videoModelPreference, mediaModelsPreference, upstreamSwitches, channelRejectContinuePreference, sidebarPanelPreference, dropAllThinkingPreference } = createCapabilityPreferences({ t, activeRegionOn, imageToolOn, activeRegion, togglingCredits, canWrite, saving, poolBusy, toggleImageTool, videoToolOn, toggleVideoTool, mediaByRegion, preferredVideoModelOf, pinningVideoModel, pinVideoModel, mediaBusy, setMediaBusy, loadMediaModels, mounted, mediaError, cliBridgeSwitchedOn, cliBridgeBusy, toggleCliBridge, sidebarPanelSwitchedOn, sidebarPanelBusy, toggleSidebarPanel, cliBridgeModelValue, visibleModels, cliBridgeEffortValue, cliBridgeRegionOrderValue, cliBridgeModelBusy, cliBridgeEffortBusy, cliBridgeRegionOrderBusy, pickCliBridgeModel, pickCliBridgeEffort, pickCliBridgeRegionOrder, usageIdentityValue, usageIdentityBusy, setUsageIdentityOn, keepPromptLastValue, keepPromptLastBusy, setKeepPromptLastOn, sessionTitleValue, sessionTitleBusy, setSessionTitleOn, toggleUpstreamSwitch, extraInjectedPrefixes, channelRejectContinueValue, channelRejectContinueBusy, dropAllThinkingValue, dropAllThinkingBusy })
   const creditPreferences = (
     <div className="dsm-workbuddy-prefs">
       <span className="dsm-workbuddy-pref-hint">{t('row.modelToolsHint')}</span>
@@ -576,7 +576,6 @@ function WorkBuddyCardBody(props: WorkBuddyCardProps) {
               {/* 区域说明共用一个紧凑容器，避免父级 gap 在每段之间重复累加。 */}
               <div className="dsm-workbuddy-region-summary">
                 <p className="dsm-workbuddy-models-summary dsm-workbuddy-tab-hint">{t('row.tabHint')}</p>
-                <p className="dsm-workbuddy-models-summary dsm-workbuddy-free-quota-warn">{t('row.tabFreeQuotaWarn')}</p>
               </div>
               {signedIn
                 ? <div className="dsm-workbuddy-panels" role="tablist" aria-label={t('row.panelAria')}>
@@ -832,6 +831,13 @@ function WorkBuddyCardBody(props: WorkBuddyCardProps) {
                           different kind of section rather than the same one. */}
                       <div className="dsm-workbuddy-models-fold">
                         <div className="dsm-workbuddy-models-head">
+                          {/* NO "已启用 N 个" LINE UNDER THE TITLE (removed on
+                              request). It restated a count the list itself makes
+                              obvious — every row you can see is a row, and the
+                              enabled ones are the unticked ones — so it was a
+                              second line of chrome above the content. The count
+                              is still readable from the rows, and the dirty
+                              marker beside the title is untouched. */}
                           <div>
                             <div className="dsm-workbuddy-models-title-row">
                               <h3 className="dsm-workbuddy-models-title">
@@ -841,7 +847,6 @@ function WorkBuddyCardBody(props: WorkBuddyCardProps) {
                                   : null}
                               </h3>
                             </div>
-                            <p className="dsm-workbuddy-models-summary">{t('row.modelsSummary', { count: activeEnabledIds.size })}</p>
                           </div>
                           <div className="dsm-workbuddy-models-head-actions">
                             <button
@@ -852,15 +857,15 @@ function WorkBuddyCardBody(props: WorkBuddyCardProps) {
                             >
                               {busy ? t('row.modelsRefreshing') : t('row.modelsRefresh')}
                             </button>
-                            {/* Two sweeps, by request of the maintainer after
-                                comparing with the sibling `trae` plugin — which
-                                ships the same pair. Both stay ONE model per
-                                request (the route refuses more, and that cap is
-                                what keeps a sweep from being an unaccounted
-                                spend), so the loop lives here rather than in the
-                                Host. The "all" button carries the cost hint: it
-                                covers the models you did NOT enable as well, so
-                                it spends more than the enabled-only run. */}
+                            {/* ONE sweep over the ENABLED models (the
+                                "all models" variant was removed on request: it
+                                spent credits on rows the user had deliberately
+                                not enabled, and the same information is
+                                reachable by enabling a model first). It stays
+                                ONE model per request — the route refuses more,
+                                and that cap is what keeps a sweep from being an
+                                unaccounted spend — so the loop lives here rather
+                                than in the Host. */}
                             <button
                               type="button"
                               className="dsm-btn dsm-btn-outline dsm-workbuddy-models-sweep"
@@ -870,17 +875,6 @@ function WorkBuddyCardBody(props: WorkBuddyCardProps) {
                             >
                               {sweeping === undefined
                                 ? t('row.modelsTestEnabled')
-                                : t('row.modelsTesting', { done: sweeping.done, total: sweeping.total })}
-                            </button>
-                            <button
-                              type="button"
-                              className="dsm-btn dsm-btn-outline dsm-workbuddy-models-sweep"
-                              disabled={busy || sweeping !== undefined || visibleModels.length === 0}
-                              title={t('row.modelsTestAllHint')}
-                              onClick={sweepAllModels}
-                            >
-                              {sweeping === undefined
-                                ? t('row.modelsTestAll')
                                 : t('row.modelsTesting', { done: sweeping.done, total: sweeping.total })}
                             </button>
                             {/* Speed sweep (issue #92). A separate button from the
@@ -917,6 +911,18 @@ function WorkBuddyCardBody(props: WorkBuddyCardProps) {
                       <div className="dsm-workbuddy-model-list">
                         {visibleModels.map(model => (
                           <div className={`dsm-workbuddy-model${activeEnabledIds.has(model.id) ? '' : ' dsm-workbuddy-model-disabled'}`} key={model.id}>
+                            {/* THREE LINES PER MODEL (requested) — the name,
+                                its switches, and the facts/actions.
+                                It was two: one line carrying the checkbox, the
+                                name, both switches, the budget select and two
+                                buttons, then a line of metadata. In the 564px
+                                Settings column that first line wrapped onto a
+                                second one anyway, so the row was already three
+                                lines tall — just broken at an arbitrary point,
+                                with the budget select sometimes starting a line
+                                of its own. Making the break explicit means each
+                                line is a UNIT a reader can scan: what the model
+                                is, how it behaves, what it costs. */}
                             <div className="dsm-workbuddy-model-head">
                               <label className="dsm-workbuddy-model-enabled">
                                 <input
@@ -952,6 +958,18 @@ function WorkBuddyCardBody(props: WorkBuddyCardProps) {
                                   {busyIcon(busyLevels[model.id], uiLanguage())}
                                 </span>
                               </label>
+                              {/* LINE 1, RIGHT HALF — the model's own
+                                  behaviour: what it accepts, what it thinks at,
+                                  and how much of its window it may use. It used
+                                  to be a line of its own (line 2), which pushed
+                                  the row to THREE lines and left the whole right
+                                  side of line 1 empty. Sharing line 1 with the
+                                  name costs nothing: the name is the only thing
+                                  that grows, and it already ellipsizes.
+                                  The actions (test / speed) stay on LINE 2 with
+                                  the facts, because they act on the model
+                                  rather than configure it. */}
+                              <div className="dsm-workbuddy-model-controls">
                               <label
                                 className="dsm-workbuddy-model-image"
                                 title={imageCheckboxHint(model, t)}
@@ -1026,47 +1044,14 @@ function WorkBuddyCardBody(props: WorkBuddyCardProps) {
                                   {formatCapacity(model.nativeContextWindow, t('row.modelUnknown'))}
                                 </option>
                               </select>
-                                <div className="dsm-workbuddy-model-actions-buttons">
-                                {/* Test button. Deliberately NOT gated on `canWrite`
-                                    or `saving`: a probe writes no settings, so it
-                                    works on a read-only card and while a save is
-                                    in flight. It IS gated on being signed in,
-                                    because without a credential the only possible
-                                    answer is "rejected".
-
-                                    It sends a REAL-VOLUME request (see
-                                    DEFAULT_PROBE_INPUT_TOKENS in src/probe.ts), because
-                                    the upstream's 6004 throttle fires on request
-                                    size: a tiny probe would report "usable" while
-                                    every real request in a long conversation is
-                                    refused. That also means it costs real
-                                    credits, so it is per-model and manual only —
-                                    there is deliberately no batch button. */}
-                                <button
-                                  type="button"
-                                  className="dsm-btn dsm-btn-outline dsm-workbuddy-model-probe"
-                                  disabled={probing[model.id] === true || status.status !== 'signed-in'}
-                                  title={t('row.probeHint')}
-                                  onClick={() => { void probeModels([model.id]) }}
-                                >
-                                  {probing[model.id] === true ? t('row.probing') : t('row.probe')}
-                                </button>
-                                {/* Speed, beside availability (issue #92). Its own
-                                    button because the two answers are about
-                                    different things: a model can be perfectly
-                                    available and half the speed of its
-                                    neighbour at the same credit multiplier. */}
-                                <button
-                                  type="button"
-                                  className="dsm-btn dsm-btn-outline dsm-workbuddy-model-probe"
-                                  disabled={tpsProbing[model.id] === true || status.status !== 'signed-in'}
-                                  title={t('row.tpsHint')}
-                                  onClick={() => { void measureTpsFor([model.id]) }}
-                                >
-                                  {tpsProbing[model.id] === true ? t('row.tpsMeasuring') : t('row.tpsMeasure')}
-                                </button>
-                                </div>
                               </div>
+                            </div>
+                              {/* LINE 2 — what the model IS (window, output
+                                  ceiling, thinking tier) on the left, and what
+                                  an operator can DO to it on the right. The
+                                  buttons act on the model rather than configure
+                                  it, so they belong beside its facts rather than
+                                  beside its switches. */}
                               <div className="dsm-workbuddy-model-details">
                                 <div className="dsm-workbuddy-model-meta">
                                   <span>{t('row.modelContext', { context: formatCapacity(model.nativeContextWindow, t('row.modelUnknown')) })}</span>
@@ -1139,6 +1124,46 @@ function WorkBuddyCardBody(props: WorkBuddyCardProps) {
                                       </label>
                                     )
                                   })()}
+                                </div>
+                                <div className="dsm-workbuddy-model-actions-buttons">
+                                {/* Test button. Deliberately NOT gated on `canWrite`
+                                    or `saving`: a probe writes no settings, so it
+                                    works on a read-only card and while a save is
+                                    in flight. It IS gated on being signed in,
+                                    because without a credential the only possible
+                                    answer is "rejected".
+
+                                    It sends a REAL-VOLUME request (see
+                                    DEFAULT_PROBE_INPUT_TOKENS in src/probe.ts), because
+                                    the upstream's 6004 throttle fires on request
+                                    size: a tiny probe would report "usable" while
+                                    every real request in a long conversation is
+                                    refused. That also means it costs real
+                                    credits, so it is per-model and manual only —
+                                    there is deliberately no batch button. */}
+                                <button
+                                  type="button"
+                                  className="dsm-btn dsm-btn-outline dsm-workbuddy-model-probe"
+                                  disabled={probing[model.id] === true || status.status !== 'signed-in'}
+                                  title={t('row.probeHint')}
+                                  onClick={() => { void probeModels([model.id]) }}
+                                >
+                                  {probing[model.id] === true ? t('row.probing') : t('row.probe')}
+                                </button>
+                                {/* Speed, beside availability (issue #92). Its own
+                                    button because the two answers are about
+                                    different things: a model can be perfectly
+                                    available and half the speed of its
+                                    neighbour at the same credit multiplier. */}
+                                <button
+                                  type="button"
+                                  className="dsm-btn dsm-btn-outline dsm-workbuddy-model-probe"
+                                  disabled={tpsProbing[model.id] === true || status.status !== 'signed-in'}
+                                  title={t('row.tpsHint')}
+                                  onClick={() => { void measureTpsFor([model.id]) }}
+                                >
+                                  {tpsProbing[model.id] === true ? t('row.tpsMeasuring') : t('row.tpsMeasure')}
+                                </button>
                                 </div>
                               </div>
                               {(() => {
@@ -1233,6 +1258,11 @@ function WorkBuddyCardBody(props: WorkBuddyCardProps) {
 
                 {upstreamSwitches}
                 {channelRejectContinuePreference}
+                {dropAllThinkingPreference}
+                <div className="dsm-workbuddy-prefs">
+                  <span className="dsm-workbuddy-pref-hint">{t('row.iconStyleLead')}</span>
+                  <IconStylePreference t={t} />
+                </div>
               </div>
               {/* DIAGNOSTICS — the third section, and the one that earns its tab
                   by holding nothing the other two already say: the facts a bug
@@ -1464,7 +1494,7 @@ function WorkBuddyCardBody(props: WorkBuddyCardProps) {
 
   if (pageSurface) {
     return (
-      <div className="dsm-workbuddy-page" ref={page => { if (page !== null) requestAnimationFrame(() => { updateStickyTabs(page) }) }} onScroll={event => { updateStickyTabs(event.currentTarget) }}>
+      <div className={settingsSurface ? 'dsm-workbuddy-page dsm-workbuddy-settings' : 'dsm-workbuddy-page'} ref={page => { if (page !== null) requestAnimationFrame(() => { updateStickyTabs(page) }) }} onScroll={event => { updateStickyTabs(event.currentTarget) }}>
         {pageHead}
         <div className="dsm-workbuddy-page-body">{cardBody}</div>
       </div>

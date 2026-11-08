@@ -10,11 +10,35 @@ export function seriesLayoutCss(plugin: 'trae' | 'workbuddy'): string {
   const current = plugin === 'trae' ? `${p}-pool-current` : `${p}-pool-current-badge`
   return `
 ${p}-page{font-family:inherit;--dsm-series-sticky-top:-28px}
-${p}-page${p}-page{height:calc(100% - 16px);margin-bottom:16px;padding:28px clamp(24px,4vw,48px) 48px;gap:20px}
+/* Doubled selector so this beats the host's own page rule — but NOT at the cost
+ * of the settings surface, which shares the class and overrides its padding to 0
+ * (see styles.ts: the Settings panel column is already padded and already
+ * scrolls, so this page must not add padding of its own).
+ *
+ * The doubled class is (0,2,0) and a bare .dsm-workbuddy-settings is (0,1,0), so
+ * the padding came back and ate 36px off EACH side of the settings column:
+ * measured, the content column went 612px -> 540px, i.e. every card and the
+ * account table were 72px narrower than they should be. The owner saw it before
+ * any test could ("整体宽度变小了"). The :not() keeps the reach of the rule and
+ * gives the settings surface its padding back. */
+${p}-page${p}-page:not(${p}-settings){height:calc(100% - 16px);margin-bottom:16px;padding:28px clamp(24px,4vw,48px) 48px;gap:20px}
 ${u} ${p}-pool-auto-checkin-status{margin:0;font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary,#777)}
 ${p}-page-desc{font-size:13px;line-height:20px;color:var(--dsw-alias-label-tertiary,#999)}
 ${u} ${p}-pool-auto-checkin{display:flex;flex-direction:column;gap:6px;margin-top:8px}
-${p}-page>*{width:100%;max-width:860px;min-width:0}
+/* 1120px, NOT the 860px the shared series layout shipped with.
+ *
+ * The page's own rule (styles.ts) has always been 1120px, and that is what the
+ * cards, the account table and the settings block were laid out and measured
+ * against. The series file narrowed the container to 860 as part of "unifying
+ * spacing", which does not unify anything for this plugin: it simply made every
+ * block on the page ~23% narrower, took the account table's columns with it, and
+ * the owner saw it immediately ("整体宽度变小了，不行，要用原来的宽度").
+ *
+ * Kept as a SECOND declaration next to the page's own one ON PURPOSE: this file is
+ * loaded after styles.ts (it is concatenated onto the same bundle), so it would
+ * win the cascade. Stating the same 1120 here is what keeps the shared file from
+ * silently re-narrowing the page the next time it is synced from trae. */
+${p}-page>*{width:100%;max-width:1120px;min-width:0}
 ${u}{gap:16px;font-size:13px;line-height:1.5;min-width:0}
 ${u} .dsm-btn{box-sizing:border-box;font:inherit;font-size:13px;line-height:20px;padding:5px 14px;border-radius:8px;min-height:32px}
 ${u} .dsm-btn-outline{background:transparent;border-color:var(--dsw-alias-border-l2,#777);color:var(--dsw-alias-label-secondary,#999)}
@@ -68,6 +92,29 @@ ${u} ${p}-pool-set{display:flex;align-items:center;justify-content:space-between
 ${u} ${p}-pool-set-copy{flex:1;min-width:0;gap:3px}
 ${u} ${p}-pool-set-copy b{font-size:13px;font-weight:500;line-height:18px}
 ${u} ${p}-pool-set-copy span{font-size:12px;line-height:18px}
+/* ONCE THE SETTINGS ROW STACKS, THE CONTROL TAKES THE WHOLE LINE.
+ *
+ * Two rules above do the stacking (this file's .pool-set is the flex row, the
+ * plugin's own @container turns it into a column), and both of the things that
+ * finish that move were being overridden here:
+ *
+ *   - width:240px on the select — (0,2,1) beats the plugin's (0,1,0) width:100%,
+ *     so the dropdown stayed a 240px stub in a 612px column, sitting alone under its
+ *     label with ~180px of dead space on each side. The owner's screenshot:
+ *     「这个应该 100%宽度啊」.
+ *   - align-items:center on .pool-set — (0,2,0) beats the @container's
+ *     align-items:stretch, so even a width:100% child would have been centred
+ *     at its intrinsic width rather than filling.
+ *
+ * Restated here rather than narrowed above, because this is the same direction the
+ * plugin already declares and the file that wins the cascade has to say it too.
+ * Specificity matches the base rules above ((0,2,0)/(0,2,1)) and these come later,
+ * so they win by order. */
+@container (max-width:620px){
+ ${u} ${p}-pool-set{flex-direction:column;align-items:stretch;gap:8px}
+ ${u} ${p}-pool-set-ctl{flex:1 1 auto;justify-content:flex-start;max-width:100%;min-width:0}
+ ${u} ${p}-pool-set-ctl select{width:100%;max-width:none;min-width:0}
+}
 ${u} ${p}-models-title{font-size:13px;line-height:18px;font-weight:600}
 ${u} ${p}-model-list{border-radius:12px}
 ${u} ${p}-model{padding:12px 14px;gap:8px}
@@ -89,12 +136,23 @@ ${u} ${p}-draw-image>span{display:flex;flex-direction:column;gap:3px}
 ${u} ${p}-draw-image-hint{font-size:12px;line-height:18px}
 ${u} ${p}-pool-table{container-type:inline-size}
 ${u} ${p}-pool-current-tag{border:1px solid var(--dsw-alias-border-l2,#777);background:var(--dsw-alias-bg-layer-2,#24262c);color:var(--dsw-alias-label-secondary,#999)}
-@container(max-width:700px){
- ${u} ${p}-pool-row{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;padding:10px 12px}
- ${u} ${p}-pool-row-head{display:none}
- ${u} ${p}-pool-account{flex:1 1 100%;min-width:0}
- ${u} ${p}-pool-row-actions{flex:1 1 100%;justify-content:flex-start;padding-top:4px}
-}
+/* The ≤700px RE-GRID OF THE POOL ROW IS DELIBERATELY ABSENT.
+ *
+ * The shared series layout used to switch the row to display:flex + flex-wrap:wrap,
+ * hide the header and give the actions their own full-width line here. That is the
+ * stacked form workbuddy REMOVED: the row is three lines at every width (identity +
+ * credits / verdict + timestamp + check-in + buttons / provenance), and its narrow
+ * concession is one detail — dropping the absolute timestamp where it cannot sit
+ * beside the verdict — not a second layout.
+ *
+ * Copied over, those four rules cost the row its whole shape: measured in headless
+ * Chrome at the 564px Settings column, the row went from 80px to 118px, the header
+ * disappeared, and the buttons fell onto a line of their own. The two-class selectors
+ * below would have outranked the row's own single-class rule, so nothing warned.
+ *
+ * The series layout keeps everything that is genuinely shared — sticky tabs, the
+ * save bar, the paddings and control metrics — and leaves each plugin row to
+ * itself. trae still ships its own stacked form in its own stylesheet. */
 /* 自动签到、设备参数和 SDK 是功能差异；沿用公共间距，不移除控件。 */
 ${u} ${p}-device-mode{margin:0;padding:0 14px 12px}
 ${u} ${p}-pool .sw{width:36px;height:20px}
@@ -120,6 +178,8 @@ export function updateStickyTabs(page: HTMLElement): void {
   const viewportBottom = page.getBoundingClientRect().bottom
   for (const bar of Array.from(page.querySelectorAll<HTMLElement>('[class$="-pool-save-row"],[class$="-pool-save-bar"]'))) {
     const visible = bar.getClientRects().length > 0
-    bar.dataset.saveStuck = String(visible && Math.abs(bar.getBoundingClientRect().bottom - viewportBottom) <= 1)
+    // 保存栏的负 bottom 用于覆盖内边距，判断吸附时需要计入这一偏移。
+    const bottom = Number.parseFloat(getComputedStyle(bar).bottom) || 0
+    bar.dataset.saveStuck = String(visible && Math.abs(bar.getBoundingClientRect().bottom + bottom - viewportBottom) <= 1)
   }
 }
