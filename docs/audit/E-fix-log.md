@@ -11,7 +11,7 @@
 | **H-2** | 一键解锁即出现「显示A计费B」 | `rotationLocked` 改读**已保存值**；新增 `rotationUnlockPending` 提示"保存后生效" | 四步状态变化规则：未保存时下拉保持禁用、保存后才解锁 ✓ |
 | **H-3** | 关池后轮换 override 永不清理 | `loader/volatile-update` 事件与启动时都调用 `applyRotation` | 项目插件：建立轮换→关池→override 已清 ✓ |
 | **H-4** | 第三个写入者（tab 开关）绕过串行 | tab 开关加入 `saving \|\| poolBusy`；两个保存按钮加入 `togglingRegion` | 六场景门控矩阵全部通过 ✓ |
-| **H-5** | 幽灵成员：界面宣称完成、零请求 | DSH 返回 `effectiveMemberAccountIds`；客户端据此计数与禁用 | 项目插件：`已选 0/1`、按钮禁用、0 上游请求 ✓ |
+| **H-5** | 已失效的成员记录：界面宣称完成、零请求 | DSH 返回 `effectiveMemberAccountIds`；客户端据此计数与禁用 | 项目插件：`已选 0/1`、按钮禁用、0 上游请求 ✓ |
 | **H-6** | 目标模型可为目录外 id | `resolveTargetModel` 新增 `'stale'`；stale 时**省略 modelId**（未加检查的调用方也 fail-safe） | 项目插件：`source='stale'`、路由 409 `reason=target-model-stale` ✓ |
 
 ### 设计取舍说明
@@ -131,7 +131,7 @@ Host 在空池分支里**已经算出了两种原因**（`savedMembers.length ==
 
 这是 M-3 的残留：第二轮修了**客户端显示**和**路由检查**，没修**路由的 reason 取值**。
 
-**修复**：拆成两个 reason——`no-members`（真空池）与 `no-live-members`（幽灵池）；客户端 `poolErrorText` 新增分支；`locales.ts` 新增 `row.poolErrNoMembers` / `row.poolErrNoLiveMembers` 双语（键数 185×2 校验通过）。
+**修复**：拆成两个 reason——`no-members`（真空池）与 `no-live-members`（仅含失效成员的账号池）；客户端 `poolErrorText` 新增分支；`locales.ts` 新增 `row.poolErrNoMembers` / `row.poolErrNoLiveMembers` 双语（键数 185×2 校验通过）。
 
 **测试**：ghost 用例断言改为 `no-live-members`；**新增对照用例**「H-5: an UNCHECKED pool answers no-members, a distinct reason from the ghost case」用真空 `memberAccountIds: []` 验证另一分支。
 
@@ -176,7 +176,7 @@ case 'out-of-credit':
 2. **`poolNoCandidateHint`（C4-8）同步失准**：文案列「被限流、积分耗尽、被上游拒绝、本版本无法使用」四种，但 `unavailable`/`failed`/`not-found` 都显示为「被上游拒绝」，用户按文案排查会走错方向。
 3. **一次临时网络故障就让账号退出轮换，最长一个间隔**：`unavailable` 包含 `status === 0 || status >= 500`（`src/probe.ts:296`），即一次超时或一次上游 5xx 就足以让该账号在下一次探测前不再是轮换候选。`rate-limited` 用 30 分钟冷却，而它用"整个测试间隔"（默认 30 分钟，最长 24 小时）——两把尺子不同，且没有文档说明。
 
-**为什么这不一定是本轮要修的**：不自动重试 `credential-rejected` **有安全性论据**——凭证确实坏了，重试只是浪费请求。问题不在"是否排除"，而在**把网络类失败也塞进同一个值**，以及**界面对同一行给出两种互相矛盾的诊断**。建议下轮：给 `unavailable` / `failed` 独立的值（或让它们走 `retryDue` 的冷却路径），并让 `exclusionText` 覆盖之。
+**为什么这不一定是本轮要修的**：不自动重试 `credential-rejected` **有安全性论据**——凭证确实坏了，重试只是浪费请求。问题不在"是否排除"，而在**把网络类失败也放入同一个值**，以及**界面对同一行给出两种互相矛盾的诊断**。建议下轮：给 `unavailable` / `failed` 独立的值（或让它们走 `retryDue` 的冷却路径），并让 `exclusionText` 覆盖之。
 
 **这也正是验证员被要求继续挖的方向**（见 §8.1 末尾给 `round2-verify` 的留言）。
 
@@ -225,7 +225,7 @@ M4（把 `announcedBatchCount` 的入参换成 draft-aware 的 `effectiveMembers
 
 - **D4（中，测试完整性）**：`tests/pool-e2e.spec.ts` 那条"证明挂载的插件**真的执行了**调度"的 e2e **无法观测它声称的事**，两个独立原因：(1) 它挂 `memberAccountIds: []`，被唤醒的调度器无事可做，而两条断言都是 `expect(probes).toBe(0)`——**死计时器与活调度器产生同样的结果**；(2) 它先在**真实计时器**上挂载、之后才 `vi.useFakeTimers()`，而心跳 `setInterval` 是在 `apply()` 内创建的（`src/index.ts:1281`），所以假时钟**永远不触发它**。
 
-  验证员第一次驱动调度器就复现了两半（`chatCalls = 0`，对照测试"通过"而批次从未运行）；只有把假时钟装在 `WorkBuddy.apply(...)` **之前**，批次才真的跑起来。
+  验证员第一次驱动调度器就复现了两半（`chatCalls = 0`，对照测试"通过"而批次从未运行）；只有把假时钟装在 `WorkBuddy.apply(...)` **之前**，批次才真的运行。
 
   **相同的测试缺口也影响邻接用例**"整间隔未到不探测任何东西"（`memberAccountIds: ['x']` 不是本地登录 → 批次也是 no-op）。
 
@@ -244,7 +244,7 @@ M4（把 `announcedBatchCount` 的入参换成 draft-aware 的 `effectiveMembers
 
 ### 覆盖面缺口（非缺陷，但需补）
 
-- **H7**：删掉客户端 `case 'no-live-members'` → **618 全过**；**H8b**：把 `row.poolErrNoLiveMembers` 从**中英两表**都删掉 → **618 全过**。即"幽灵池给用户的恢复指引"**在仓库套件里毫无检查**，目前只有验证员的 oracle 在盯。**这必须补进 `tests/`。**
+- **H7**：删掉客户端 `case 'no-live-members'` → **618 全过**；**H8b**：把 `row.poolErrNoLiveMembers` 从**中英两表**都删掉 → **618 全过**。即"仅含失效成员的账号池给用户的恢复指引"**在仓库套件里毫无检查**，目前仅由独立验证脚本检查。**这必须补进 `tests/`。**
 - **H5**：`stale()` 令牌未被单独覆盖，但 await 后重读使它在唯一可竞态的路径上冗余 → 属覆盖缺口而非活缺陷。
 
 ### 验证员未能验证的部分（已明说）
@@ -361,7 +361,7 @@ bash /tmp/r2ver/mutate.sh                                                       
 | A-8 调用关系 | 卡片 `void` 掉 promise | 失败 |
 | D6 | `poolMemberAccounts` 重新内联 | 失败 |
 
-**总评**：第三轮全部 5 项 + §10 第 6 项完成。两个反复出现的教训已各自形成回归检查：(1) **测试没有检查到目标行为**——"断言在正确与缺失实现下都成立"（D4 的 `expect(probes).toBe(0)`、H7/H8）；(2) **修一端漏另一端**（D5 只修了一个回调、A-8 只修了顺序没修调用关系）。检查本身也踩过一次同型错误（硬编码依赖数组，使正确改动失败）。
+**总评**：第三轮全部 5 项 + §10 第 6 项完成。两个反复出现的教训已各自形成回归检查：(1) **测试没有检查到目标行为**——"断言在正确与缺失实现下都成立"（D4 的 `expect(probes).toBe(0)`、H7/H8）；(2) **修一端漏另一端**（D5 只修了一个回调、A-8 只修了顺序没修调用关系）。检查本身也曾出现同类错误（硬编码依赖数组，使正确改动失败）。
 
 ---
 
@@ -465,7 +465,7 @@ bash /tmp/r2ver/mutate.sh                                                       
 | 断言里引用的文本**恰好也是注释** | 检查不 `strip()` 注释，删掉代码留注释即通过 |
 | 硬编码名字清单 | 换个别名（`poolAlias`）即绕过 |
 
-更严重的是**检查会被错误规则固定下来**：本轮的 P0 缺陷（见 13.2）正是因为 `tests/pool-e2e.spec.ts:1011-1053` 把 `if (!fresh()) return undefined` **写死为正则要求**，任何把它改成正确写法的编辑都会被自己的测试判红。
+更严重的是**检查会被错误规则固定下来**：本轮的 P0 缺陷（见 13.2）正是因为 `tests/pool-e2e.spec.ts:1011-1053` 把 `if (!fresh()) return undefined` **写死为正则要求**，任何把它改成正确写法的编辑都会被自己的测试判定失败。
 
 ### 13.2 P0：渲染测试发现的锁定条件反转
 
@@ -483,7 +483,7 @@ bash /tmp/r2ver/mutate.sh                                                       
 
 **修复（已实现）**：`src/client/WorkBuddyCard.tsx:396` 改为 `const stale = usageGuard.current.begin(region)`；`:407` 与 `:415` 都改为 `if (stale()) return undefined`；`:360-388` 新增注释说明极性陷阱。同步把 `tests/pool-e2e.spec.ts:1011-1053` 的正则改为 `/if \(stale\(\)\) return undefined/gu`。
 
-**回归确认**：变异副本 POLARITY 把两处翻回 `fresh` 形式 → **5/5 全红，KILLED**。
+**回归确认**：变异副本 POLARITY 把两处翻回 `fresh` 形式 → **5/5 全部失败，KILLED**。
 
 ### 13.3 同一轮的第二个真实产品缺陷：刷新失败会清空整个面板
 
@@ -535,7 +535,7 @@ setStatusByRegion(prev => {
 | M35 | 渲染期读取冻结成陈旧值 | **KILLED 5/14** | `expected +0 to be 1` |
 | M36 | checkin 503 的 `reason` 被删 | **KILLED 1/27** | `expected undefined to be 'pool-unavailable'` |
 | M24 | checkin 503 的 `reason` 改成 `pool-failed` | **KILLED 1/27** | `expected 'pool-failed' to be 'pool-unavailable'` |
-| M23 | `effectiveMembersOf` 偷偷排序 | **KILLED 2/65** | `expected [ 'a', 'b', 'c' ] to deeply equal [ 'c', 'a', 'b' ]` |
+| M23 | `effectiveMembersOf` 未按约定保持顺序 | **KILLED 2/65** | `expected [ 'a', 'b', 'c' ] to deeply equal [ 'c', 'a', 'b' ]` |
 
 **两条必须记录的教训**：
 
@@ -618,9 +618,9 @@ AssertionError: expected 0 to be greater than or equal to 1
 | **N10** | "恰一次"被重拼调用绕过 | 计数改为对**标识符**：`/onRefresh\s*\??\.\s*(?:\(|call\b|apply\b)/gu` | M39（`finally` 里 `onRefresh?.call(undefined)`）→ **KILLED 3** |
 | **N13** | N1 三态只由源码文本验证 | M15 / M18 已由 `tests/pool-card-render.spec.tsx` 行为检出（§13.5）；本轮复核 M14 亦 KILLED 2（含卡片级用例） | R6-M14 / M15 / M18 |
 | **N16** | D5 跳过规则是 **body-wide**，一个诱饵 lambda 即可关闭对该名的检查 | 决定性变异副本 M41 已由**渲染用例**检出。检查残留弱点**不再对应任何未检出缺陷**，因此不再用更复杂的文本分析去追（§13.1） | M41 KILLED 1 |
-| **N17** | D5 检查把**字符串里**提到的派生名当成读 → **正确代码被判红** | `stripLiterals()` 之后不再命中。这是一个**对照**而非变异副本：合法代码必须在套件里保持全部通过 | `CONTROL-N17-string` → 679 passed（**必须绿，已绿**） |
+| **N17** | D5 检查把**字符串里**提到的派生名当成读 → **正确代码被判定失败** | `stripLiterals()` 之后不再命中。这是一个**对照**而非变异副本：合法代码必须在套件里保持全部通过 | `CONTROL-N17-string` → 679 passed（**必须通过，已通过**） |
 
-**为什么要修 N17 而不是容忍它**：一条会误杀正确代码的检查，下一位维护者触发它时最便宜的改法是**满足它**（把 `saved` 塞进依赖数组）——那既消掉了红，又让真正的陈旧类（N5/N16）保持原样，还留下一条"正在通过"的检查。§13.2 的 P0 就是这条路径的成品。
+**为什么要修 N17 而不是容忍它**：一条会误杀正确代码的检查，下一位维护者触发它时最便宜的改法是**满足它**（把 `saved` 加入依赖数组）——那既消掉了红，又让真正的陈旧类（N5/N16）保持原样，还留下一条"正在通过"的检查。§13.2 的 P0 就是这条路径的成品。
 
 ### 14.4 本轮变异测试检出结果总表（全部串行执行）
 
@@ -640,7 +640,7 @@ AssertionError: expected 0 to be greater than or equal to 1
 | `M19fn` | L-5 将检查结果改成函数，**永远报 fresh** | **KILLED 1** | L-5 检查（新增 N7 绑定断言） |
 | `D3-revert` | 调度器被陈旧 target 饿死 | **KILLED 1** | 新 e2e「陈旧 target 仍必须刷新测量」 |
 | `SELECTALL-deps` | `selectAll` 丢 `pool` 依赖 | **KILLED 2** | 新渲染用例「刷新后全选按新名册」+ D5 prop 检查 |
-| `CONTROL-N17-string` | 合法代码在字符串里提到派生名 | **679 全部通过**（对照，必须绿） | 假阳性已消除 |
+| `CONTROL-N17-string` | 合法代码在字符串里提到派生名 | **679 全部通过**（对照，必须通过） | 假阳性已消除 |
 
 **I 报告 18 个未检出的变异副本的最终账**：第五轮 11 个（M14/M15/M16/M18/M19/M21/M23/M24/M35/M36/M39）+ 本轮 5 个（M01/M17/M28/M38b/M41）= **16 个已检出**；余 2 个（M20/M22）为**等价变异副本**。
 
@@ -665,7 +665,7 @@ AssertionError: expected 0 to be greater than or equal to 1
 2. **共享树哈希前后对照**，任何变化即 HARNESS ERROR（退出码 5）。
 3. **变异副本串行**——调度器用例对负载敏感（N15）；本轮还额外验证了"所有日志中都不存在调度器用例失败"。
 
-本轮踩到的一个**新**工装坑，记下来：`rsync` 时 `--exclude docs` 会让 `tests/platform-standing.spec.ts` 因**缺文件**而红（它读 `docs/WINDOWS.md` 等），于是每个变异副本都被**无关原因**判红。**一个变异副本只有在"失败原因恰好是它恢复的那个缺陷"时才算 KILLED**——所以工装必须包含测试要读的全部只读输入（`docs/` 等），并且每次检出都要核对 FAIL 行。
+本轮新增一项验证环境记录：`rsync` 时 `--exclude docs` 会让 `tests/platform-standing.spec.ts` 因**缺文件**而失败（它读 `docs/WINDOWS.md` 等），于是每个变异副本都被**无关原因**判定失败。**一个变异副本只有在"失败原因恰好是它恢复的那个缺陷"时才算 KILLED**——所以工装必须包含测试要读的全部只读输入（`docs/` 等），并且每次检出都要核对 FAIL 行。
 
 ### 14.7 状态
 

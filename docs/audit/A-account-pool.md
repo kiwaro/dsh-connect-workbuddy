@@ -79,7 +79,7 @@
 
 - **位置**：`:289`（`discard()`）与唯一被 `saving` 闸住的两个控件 `:737`、`:743`；未被闸住的编辑入口：`:413/421`（批量）、`:461/467`（全选/全不选）、`:556`（行复选框）、`:650`（开关）、`:692`（间隔）、`:712`（目标模型）、`:767`（解锁）
 - **问题**：`saving` 只禁用"保存/放弃"两个按钮，其余控件照常可编辑；写成功后的 `discard()` 清的是**当前**草稿（`setDraft(null)`），而不是"这次提交保存时的数据"。
-- **影响**：窗口 = 一次校验写入的 RTT（`account-selection.ts:152-171` 一次 host 端点往返 + 可能的 `scope.set`；`web-status.ts:834-886` 是一次 `settings.mutate`，无重试但含写入文件）。本机通常数十毫秒，用户"点保存后顺手再勾一个"有机会命中；命中后那次编辑**静默消失**，`dirty` 变 false，没有任何提示（草稿是唯一副本，符合 `:286-288` 自己写的"不可恢复"标准）。
+- **影响**：窗口 = 一次校验写入的 RTT（`account-selection.ts:152-171` 一次 host 端点往返 + 可能的 `scope.set`；`web-status.ts:834-886` 是一次 `settings.mutate`，无重试但含写入文件）。本机通常数十毫秒，用户"点保存后同时再勾一个"有机会命中；命中后那次编辑**静默消失**，`dirty` 变 false，没有任何提示（草稿是唯一副本，符合 `:286-288` 自己写的"不可恢复"标准）。
 - **复现**：点保存，在按钮回到"保存"字样之前立刻点另一个账号的复选框 → 写入成功后该勾选消失、界面回到保存前的值。
 - **修复方向**：在 `saving` 期间禁用编辑类控件；或 `setDraft(prev => prev === snapshot ? null : prev)`（按提交保存时的对象判断是否清除，保留期间的新编辑）。
 
@@ -98,7 +98,7 @@
 - **位置**：`:454-457`（`count: active.memberAccountIds.length, total: pool.accounts.length`）、`:487-490`（无选择警告判据是 `length === 0`）、`:413/421`（按钮判据同样是 `length`）、`:328` + `:326-327` 的注释（"Count the CHECKED accounts: they are what the batch will actually touch"）
 - **问题**：DSH 端 `poolMemberAccounts` 会按**现存账号**过滤（`src/index.ts:1037-1039`：`return accounts.filter(account => wanted.has(account.id))`），而客户端全程只数 `memberAccountIds.length`。当存储的成员里有已被删除的登录（其注释 `:1036` 明确承认这会发生：a removed sign-in cannot linger），会出现：`已选择 2 / 1`（count > total）、整张表所有复选框都没勾、"没勾任何账号"的警告不出现、按钮可点；点下去 Host 以 200 + `rows: []` 返回（`src/account-pool-run.ts:93-105` 空目标就是空数组），客户端日志却按 `:328` 报"签到开始（2 个账号）"再报"签到完成"——`:326-327` 注释声称这个数就是"实际会被处理的账号数"，与实现不符。
 - **复现**：先勾选账号 A 和 B 并**保存**（存储成员 = {A,B}）→ 在 WorkBuddy 侧删掉 B 的登录 → 刷新卡片：列表只剩 A 一行，A 的复选框仍是勾的；但计数是 `active.memberAccountIds.length = 2` 对 `pool.accounts.length = 1` → 显示 **"已选择 2 / 1"**。若删掉的是**唯一**成员：列表可能仍有其他未勾选账号，则所有复选框都未勾、"没勾任何账号"的警告（判据是 `length === 0`，实际为 1）不出现、按钮仍可点，点下去日志报"签到开始（1 个账号）"。
-- **修复方向**：计数与判据统一改为"现存账号 ∩ 成员"（`pool.accounts.filter(a => active.memberAccountIds.includes(a.accountId)).length`），并在有幽灵成员时提示。
+- **修复方向**：计数与判据统一改为"现存账号 ∩ 成员"（`pool.accounts.filter(a => active.memberAccountIds.includes(a.accountId)).length`），并在有已失效的成员记录时提示。
 
 ### A-8（低｜时序）保存成功后的 `discard()` 早于刷新完成：界面会回退到保存前的值；刷新失败则整块池区消失
 
@@ -126,7 +126,7 @@
 
 ### A-11（低｜健壮性）测试结果行的 `row.result.outcome` 未经校验解引用，且测试分支没有 checkin 分支那样的回退
 
-- **位置**：`:366-371`（`for (const row of (body?.rows ?? []) as WorkBuddyWebPoolTestRow[]) { … row.result.outcome … }`）对比 `:347-362`（checkin 分支用 `if/else` 把未知 `status` 兜成失败行）
+- **位置**：`:366-371`（`for (const row of (body?.rows ?? []) as WorkBuddyWebPoolTestRow[]) { … row.result.outcome … }`）对比 `:347-362`（checkin 分支用 `if/else` 把未知 `status` 归类为失败行）
 - **问题**：`:341-343` 的响应体只做了 `as` 断言，没有逐行校验；`row.result` 缺失时抛 `TypeError`，被 `:374-377` 的外层 catch 变成 `actionError`，日志停在中途且**不会**写 `poolLogTestDone`。
 - **影响**：批次此时已经在 Host 上真实执行完成（真实花费/领取积分），用户看到的却是一条 JS 报错式的失败信息加半个日志。该问题在版本错配或异常响应时触发，导致已执行批次与显示结果不一致。
 - **修复方向**：`const outcome = row?.result?.outcome`，缺失时按 `'failed'`（`outcomeText` 的 `default` 已经转换为 `row.probeFailed`）记一行。
@@ -175,7 +175,7 @@
 
 ## 5. 复现脚本说明
 
-用于 A-1 的纯逻辑复现把 `useState` + `useCallback` 的处理规则逐帧照抄（每次 setState 提交一帧、依赖逐项 `Object.is` 比较、闭包捕获当帧的 `saved`），只做模拟状态变化，不依赖 react-dom；脚本保存于 `/tmp/pool_sim*.mjs`，**已删除**，仓库内无任何遗留文件。A-1 的"加依赖即修复"用同一脚本的对照分支验证（`current -> ["a","c"]`；`+members dep -> ["a","b","c"]`）。
+用于 A-1 的纯逻辑复现把 `useState` + `useCallback` 的处理规则逐帧直接复制（每次 setState 提交一帧、依赖逐项 `Object.is` 比较、闭包捕获当帧的 `saved`），只做模拟状态变化，不依赖 react-dom；脚本保存于 `/tmp/pool_sim*.mjs`，**已删除**，仓库内无任何遗留文件。A-1 的"加依赖即修复"用同一脚本的对照分支验证（`current -> ["a","c"]`；`+members dep -> ["a","b","c"]`）。
 
 其余各条的复现路径都写在各条正文里，均为纯 UI 操作步骤，不需要脚本。
 
@@ -184,4 +184,4 @@
 1. **A-1**（会静默丢成员，自足可复现）与 **A-2**（点击一次即可触发"显示 B、计费 A"）都是"用户数据/扣费规则被破坏"级别，建议同批修。
 2. **A-3** / **A-4** 是确定性用户体验缺陷，改动都很小（判定基准改成 `saved`；clamp 挪到 blur）。
 3. 其余 8 条按低优先处理，其中 **A-9**（死代码）与 **A-10**（`sameIds`）是一行级改动，可一并处理。
-4. 修 A-1 时**不要**顺手把 `saved` 整个对象塞进依赖数组（会每帧重建回调），按字段加依赖。
+4. 修 A-1 时**不要**同时将 `saved` 整个对象加入依赖数组（会每帧重建回调），按字段加依赖。

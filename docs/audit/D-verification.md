@@ -49,7 +49,7 @@ src/client/AccountPool.tsx  b5a8117521d1   …（9/9 与报告一致）
 | --- | --- | --- | --- | --- |
 | **A-1 / L-3** | A / Lead（C 附录「模型 A」为同一根因） | **已复现** | `node … t2_memberloss.mjs`（真实卡 + 插件路由）<br>`0. saved members` = `[]` → 勾选唯一账号 → 保存 → `saved members ["ff4d…"]` → **再勾同一行** → `checked rows: 0`、`count label 已选 0 / 1`、保存按钮 `disabled=false` → 再保存 → **`saved members []`**（刚保存的成员被静默删除） | 报告描述的「需要外部写入者」偏保守：**自身保存路径即可命中**（C/Lead 的修正正确）。机制 = `useCallback` 依赖数组漏 `saved.memberAccountIds`，`discard()` 引发的重渲染先于重新读取完成、之后依赖不再变化 → 闭包持有旧 `saved`。变体（外部写入者完成成员 `[A]`→轮询→再勾一次）同脚本 V 段复现 |
 | **A-2 / C3-1 / L-1** | A / C / Lead（三方独立同结论） | **已复现** | `node … t1_unlock.mjs`<br>`STEP 1` 下拉 `disabled=true`、冲突提示在、徽标「自动轮换中」<br>`STEP 2` 点「关闭自动轮换」后 下拉 `disabled=false`、冲突提示消失、徽标消失<br>`STEP 3` Host 仍 `pool.rotateByCredits = true` | 组件渲染 + 真实 Host 两侧都验到。另确认父组件**没有第二道防线**：`switchAccount`（`WorkBuddyCard.tsx:438-456`）无任何轮换检查。C3-2 是同一状态变化规则的另一出口，单列 |
-| **B-1** | B | **已复现** | `node … t17_delta.mjs`：saved 成员 = 幽灵 id、磁盘只有 1 个真实登录<br>`client-side state` `已选 1 / 1 \| button disabled=false`<br>点击后 `upstream delta` = `{"upstream":0,"usage":0,"pool":1,"save":0}`；`log` = `["签到完成","开始签到 1 个账号（逐个执行）"]`；`actionError (none)` | **静默成功假象**成立：0 次上游请求、界面宣称完成。B 给的三条「已选 N/M / 按钮可用 / 行未勾」现象逐条对上 |
+| **B-1** | B | **已复现** | `node … t17_delta.mjs`：saved 成员 = 已失效的账号 id、磁盘只有 1 个真实登录<br>`client-side state` `已选 1 / 1 \| button disabled=false`<br>点击后 `upstream delta` = `{"upstream":0,"usage":0,"pool":1,"save":0}`；`log` = `["签到完成","开始签到 1 个账号（逐个执行）"]`；`actionError (none)` | **静默成功假象**成立：0 次上游请求、界面宣称完成。B 给的三条「已选 N/M / 按钮可用 / 行未勾」现象逐条对上 |
 | **B-2** | B | **已复现** | 纯函数 `resolveTargetModel([{id:'m1'}], 'ghost')` → `{"modelId":"ghost","source":"preferred"}`；挂载实测 `targetModelSource: preferred`、`targetModelId: ghost-model-not-in-catalog`、`id in catalog? false`；`node … t5b_target.mjs`：`test button disabled = false`、无「没有免费模型」告警、点击后 DSH 实际跑批：日志 `开始测试 1 个账号 × ghost-model-not-in-catalog` | 报告「`source=none` 与「有 id」互斥的另一半未被覆盖」准确。按钮禁用条件确实只拦 `'none'` |
 | **C3-3** | C | **已复现** | `node … t13_misc.mjs`：测试批次后 `rotatedTo 9c847…` → **把池开关关掉并保存**（`saved pool.enabled now false`）→ `rotatedTo` **仍是 9c847…**；手动测试路由此时 `409 {"error":"account pool is disabled for this region"}`；`applyRotation call sites` = **2**（`index.ts:913` 手动测试、`:1224` 定时测试，均在测试路径） | 「关闭池 → override 永不清理 → `current()` 继续优先它」在真实 Host 上成立。**开启方向滞后**亦成立：`duePoolRegions` 的 `enabledOf` 还要求区域开关（`index.ts:1180-1183`），`pool-e2e.spec.ts:370-376` 用真实定时器固定了「第一个 tick 只上弦」 |
 | **L-4** | Lead | **已复现** | `node … t4_l4.mjs`<br>(a) 池保存进行中：池保存按钮 `disabled=true`，**区域开关 `disabled=false`**（判定式实测为 `disabled={togglingRegion === region \|\| !canWrite}`）<br>(b) 受控交错：`[save #1] pool-preferences … 落地 100ms`、`[save #2] region-toggle … 完成于 220ms`（载荷 `{"value":{"cn":{"enabled":false,"pool":{…"memberAccountIds":[]}}}}` = **过期整槽**）→ 最终 `saved members []`，而池保存本已写入 `["ff4d…"]` | 报告结论（第三个写入者绕过串行门控、带已经过期的数据覆盖）成立。机制比报告更具体：`toggleRegion` 把**整个区域槽**（含过期的 `pool`）交给 `__save`，Host 按区域整体替换 → 池偏好一起被回退 |
@@ -84,7 +84,7 @@ src/client/AccountPool.tsx  b5a8117521d1   …（9/9 与报告一致）
 | A-4 | 中 | **已复现** | `node … dbg_num4.mjs`：清空字段 → 立刻变 `"5"`（`Number('')===0` 不被 `isFinite` 拦住）；逐键键入 `120` → 字段 `5 → 51 → 512 → 1440`，最终**持久化 1440**；`typing 30 -> "530"`、`typing 45 -> "545"`、`typing 12 -> "512"`、`typing 600 -> "1440"`、`typing 90 -> "590"` | 缺陷成立（受控输入每次按键 clamp，用户永远输不进目标值）。**但报告给出的具体数值与实际不符**：报告写「想输入 120 会得到 520 / 想输 30 得到 50」，那是「按键值整体替换」模型；真实按键是**在受控回写后的值上追加**，实测得 1440 / 530。数值见 §5 失准项 1 |
 | A-5 | 低 | **已复现** | `node … t7_ui.mjs`：保存进行中 `row checkbox disabled: false`；`during save draft 已选 2 / 2` → 保存写入完成后 `after the save resolved: draft 已选 1 / 2`，Host 只有 1 个成员（`the mid-flight edit survived: false`） | 期间的新编辑被 `discard()` 无条件丢弃，且无提示 |
 | A-6 | 低 | **已复现** | `node … t7_ui.mjs`：`cn draft 已选 1 / 1` → 切 global → 勾 1 个 → 切回 cn → `cn draft after returning 已选 0 / 1`，且 `cn "unsaved changes" hint: undefined` | 单槽草稿 + 无提示，与报告一致 |
-| A-7 | 低 | **已复现** | `node … t12_component.mjs`：saved 成员 = 2 个幽灵 id、1 个真实账号 → `count label 已选 2 / 1`（**count > total**）、`checkin button disabled: false`、所有行都没勾、无「没勾任何账号」警告 | 修复方向（取 现存账号 ∩ 成员）与报告一致 |
+| A-7 | 低 | **已复现** | `node … t12_component.mjs`：saved 成员 = 2 个已失效的账号 id、1 个真实账号 → `count label 已选 2 / 1`（**count > total**）、`checkin button disabled: false`、所有行都没勾、无「没勾任何账号」警告 | 修复方向（取 现存账号 ∩ 成员）与报告一致 |
 | A-8 | 低 | **已复现** | `node … t13_misc.mjs`：写入已实现而重读在途时 `checked 已选 0 / 1`、`dirty hint 修改任一设置后即可保存。`（已回落）、而 `Host has the member ["ff4d…"]`；重读写入完成后回到 `已选 1 / 1`。`t14_last.mjs` A-8b：让重读返回 500 → `write landed on the Host? ["ff4d…"]`、**`pool section still on screen? false`**（整块池区消失） | 「界面短时回退」与「刷新失败则池区消失」两半都复现 |
 | A-9 | 低 | **已复现** | 同 C4-2 证据 | |
 | A-10 | 低 | **已复现（函数的处理规则）** | `node … t12_component.mjs`：从源文件**逐字抽取** `sameIds` 并经 tsc 去类型后执行 → `sameIds(['a','a'],['a','b']) = true`、`sameIds(['a','b'],['a','a']) = false`、`sameIds(['a'],['a']) = true` | 单向包含确实不可靠。**触发条件比报告更低**：组件的编辑路径全部经 `Set` 去重，`draft.memberAccountIds` 只有在「基准已含重复 id 且用户只修改标量字段」时才带重复，而那种情况下标量差异本身已使 `dirty=true`；要出现「dirty 误为 false 且掩盖改动」需要「外部重复 id + 标量改回 + 外部再改成员」三段巧合。报告自己的「触发条件（触发范围）」是准确的，但可再收紧 |
@@ -147,7 +147,7 @@ src/client/AccountPool.tsx  b5a8117521d1   …（9/9 与报告一致）
 
 | 编号 | 来源 | 核查结论 | 证据 |
 | --- | --- | --- | --- |
-| A 的 V-1（siblingBusy 一帧残留窗口） | A | **报告有误（判级放过）** | 组件渲染实测：`t19_e5_sibling.mjs` (b) 模型草稿变脏后模型保存按钮 `disabled=false` → 池保存进行中变为 `disabled=true` → 池保存结束后回到 `disabled=false`；`t4_l4.mjs` (a) 池保存进行中池保存按钮 `disabled=true`。**即 `siblingBusy` 的双向互斥确实生效，A 对 V-1 本身的怀疑（一帧残留窗口）不成立** | 但 A 由此把这一整片区域判为「倾向：不算缺陷」并放过，而**同一片区域里有两个真缺口**：A-5（保存期间草稿控件仍可编辑、成功后无条件丢弃）与 L-4（第三个写入者 `toggleRegion` 完全不受门控）。**缺口的结论本身不错，判级方向错了**——它遮蔽了两个已复现的缺陷 |
+| A 的 V-1（siblingBusy 一帧残留窗口） | A | **报告有误（判级放过）** | 组件渲染实测：`t19_e5_sibling.mjs` (b) 模型草稿发生修改后模型保存按钮 `disabled=false` → 池保存进行中变为 `disabled=true` → 池保存结束后回到 `disabled=false`；`t4_l4.mjs` (a) 池保存进行中池保存按钮 `disabled=true`。**即 `siblingBusy` 的双向互斥确实生效，A 对 V-1 本身的怀疑（一帧残留窗口）不成立** | 但 A 由此把这一整片区域判为「倾向：不算缺陷」并放过，而**同一片区域里有两个实际缺陷**：A-5（保存期间草稿控件仍可编辑、成功后无条件丢弃）与 L-4（第三个写入者 `toggleRegion` 完全不受门控）。**缺口的结论本身不错，判级方向错了**——它遮蔽了两个已复现的缺陷 |
 | C 的待验证 1（C2-4 渲染） | C | 已复现（见 C2-4） | t15_c24.mjs |
 | C 的待验证 2（C1-5 分叉） | C | 已复现（见 C1-5） | t12_component.mjs（人为制造分叉即可，说明字段确实被丢弃） |
 | C 的待验证 3（C3-4 渲染面） | C | 已复现（见 C3-4） | t9_rotate.mjs |
@@ -204,7 +204,7 @@ src/client/AccountPool.tsx  b5a8117521d1   …（9/9 与报告一致）
 1. **A-1 / L-3**（已复现的自足路径：保存成员 → 再勾一次 → 再保存即丢成员）
 2. **A-2 / C3-1 / L-1**（一键解锁即出现「显示 A 计费 B」窗口）
 3. **L-4**（区域开关用过期整槽覆盖，静默回退池偏好）
-4. **B-1**（幽灵成员：界面宣称「开始签到 1 个账号 / 签到完成」，实际 0 次上游请求）
+4. **B-1**（已失效的成员记录：界面宣称「开始签到 1 个账号 / 签到完成」，实际 0 次上游请求）
 5. **C3-3**（关池后 override 永不清理，界面承诺「跟随你选择的账号」为假）
 6. **B-2**（`preferred` 可为目录外 id，按钮与批量均允许执行）
 7. A-3 / B-3 / B-4 / C4-2 / C2-1（显示与运行结果不一致类，改动都很小）
@@ -219,7 +219,7 @@ src/client/AccountPool.tsx  b5a8117521d1   …（9/9 与报告一致）
 
 1. **单实例 React**：`/tmp/dverify/render` 里 `npm install react@18.3.1 react-dom@18.3.1 jsdom` 后，把该目录的 `react` 换成指向仓库 `node_modules/react` 的 **symlink**，否则 react-dom 与组件各持一个 React 实例，hooks 直接崩。
 2. **.tsx 加载**：Node 的 `--experimental-strip-types` 不认 `.tsx`。用 `node:module` 的 `register()` 写一个 `load` 钩子，内部调 `typescript.transpileModule(src, { jsx: JsxEmit.ReactJSX })`，并把 `react/jsx-runtime` 指向上面那份 React。
-3. **DSH 加载要"会更新 config"**：`mount()` 照抄 `tests/pool-e2e.spec.ts:87-98`，但 FakeSettings 的 `mutate` 必须**就地写回传给 `apply()` 的那个 config 对象**（真实 Loader 就是这么提交的）——否则 `__save` 成功、`current()` 却看不到，`pool.enabled` / `memberAccountIds` 永远不变，A-1/B-1 这类复现全部失真。
+3. **DSH 加载要"会更新 config"**：`mount()` 直接复制 `tests/pool-e2e.spec.ts:87-98`，但 FakeSettings 的 `mutate` 必须**就地写回传给 `apply()` 的那个 config 对象**（真实 Loader 就是这么提交的）——否则 `__save` 成功、`current()` 却看不到，`pool.enabled` / `memberAccountIds` 永远不变，A-1/B-1 这类复现全部失真。
 4. **键盘要真敲**：`input.value = x` 会同时更新 React 的 value-tracker，React 会认为"没变"而**不触发 onChange**；而 `Object.getPrototypeOf(input)` 的原型 setter 在本机也没能触发。可用 `react-dom/test-utils` 的 `Simulate.change(input)`：先按一次按键应有的结果写好 DOM 值，再让 React 派发 onChange——这样受控回写（A-4 的 clamp）才是真实观察到的行为。
 
 浏览器侧 `fetch` 垫片：把 `/__save`、`/usage`、`/pool` 转发到插件路由（`routes.find(...)` 后直接调用 handler；`__save` 的 handler 用 `req.on('data'/'end')`，所以 fake req 要用 `node:stream` 的 `Readable`），其余 URL 当上游用桩。

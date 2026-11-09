@@ -44,7 +44,7 @@ RecoveryStream 按处理分支转发角色、usage 和其他字段，可能插�
 | `find_invoke_blocks`（两份） | `findInvokes` | 只带一份（修掉 2.2 缺陷 1） |
 | `parse_xml_tool_calls` / `repair_missing_tool_calls_wrapper` | `parseInvokes` / `repairMissingWrapper` | 保留 |
 | `parse_tool_calls(text, auto_repair)` | `parseToolCalls(text, options)` | 签名扩为 `{ declaredNames: ReadonlySet<string>, required?: ReadonlyMap<string, string[]>, toolChoice?: string }`；第 2/3 项检查在这里处理完成 |
-| `remove_tool_call_markup` | `removeMarkup` | 保留（只在提交成功后被调用，不从正文里「顺手」删标记） |
+| `remove_tool_call_markup` | `removeMarkup` | 保留（只在提交成功后被调用，不从正文里额外删标记） |
 | `ToolCallStreamBuffer`（别名 `DSMLStreamBuffer`） | `class DsmlStreamBuffer` | 保留 `add()` / `flush()` 处理规则与「只扣留可能的标签开头」策略；`add()` 返回 `{ text, calls? }` |
 | `should_emit_tool_calls()` / `get_detected_calls()` | 并入 `add()` 的返回值 | 去掉可变查询状态（更易测） |
 
@@ -102,7 +102,7 @@ src/dsml-recovery.ts 负责定位标记、匹配完整块和校验参数；src/s
 | 变异 | 结果 |
 |---|---|
 | 去掉检查 2（不校验声明工具名） | 3 项失败 |
-| 去掉检查 3（空声明也照做） | 1 项失败（首版不变红，见下） |
+| 去掉检查 3（空声明也照做） | 1 项失败（首版不失败，见下） |
 | 去掉忽略区域（围栏/代码段内的标记被劫持） | 23 项失败 |
 | 削弱检查 1（缺少结束标签也被当作完整调用） | 2 项失败 |
 | 去掉检查 4（不校验必填参数） | 1 项失败 |

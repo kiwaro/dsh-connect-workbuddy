@@ -73,7 +73,7 @@ H-5  FIXED : 计数 已选 0/1、签到按钮禁用
 | **H-2** | `rotationLocked` 读已保存值 + `rotationUnlockPending` | ✅ **已修复** | 四步：①已保存轮换 ON → 下拉禁用、冲突提示在、徽标「自动轮换中」；②点「关闭自动轮换」（**仅改草稿**）→ **下拉仍禁用**、提示「保存后生效 —— 在那之前插件仍在轮换。」、Host 仍 `rotateByCredits=true`（**显示与计费一致**）；③「放弃修改」→ 回到锁定态，无残留；④改草稿+保存 → Host `false`、下拉解锁、冲突消失。回退版第②步下拉立刻可点 → 原缺陷复现。**用户提的"下拉一直禁用会不会困惑"：有显式提示 + 可点的保存按钮，不存在"点了没反应"** |
 | **H-3** | `loader/volatile-update` 与启动都调用 `applyRotation` | ❌ **未完全修复（存在新竞态）** | 基本路径已修：启动即轮换 ✓；关池+提交事件后 override 清除 ✓；重新开启后恢复 ✓。**但修复引入新缺陷** → 详见 **§3.1** |
 | **H-4** | tab 开关加入 `saving \|\| poolBusy`；两个保存按钮加入 `togglingRegion` | ✅ **已修复** | 组件渲染 + 慢速 `__save`（400ms）在途探测：(a) 池保存在途时 **cn 与 global 的 tab 开关都禁用**、模型保存按钮禁用；(b) 区域开关在途时 **池保存按钮禁用**、模型保存按钮禁用。回退版 (a)(b) 都露出缺口 → 脚本有判别力 |
-| **H-5** | DSH 返回 `effectiveMemberAccountIds`，客户端据此计数与禁用 | ⚠️ **部分修复（测试按钮仍启用）** | 计数与签到按钮已修：`memberAccountIds:['ghost-id']` → 计数「已选 0 / 1」、签到按钮 `disabled=true`、幽灵成员提示出现。**但测试按钮仍用 `active.memberAccountIds.length`** → 复现见 **§3.2** |
+| **H-5** | DSH 返回 `effectiveMemberAccountIds`，客户端据此计数与禁用 | ⚠️ **部分修复（测试按钮仍启用）** | 计数与签到按钮已修：`memberAccountIds:['ghost-id']` → 计数「已选 0 / 1」、签到按钮 `disabled=true`、已失效的成员记录提示出现。**但测试按钮仍用 `active.memberAccountIds.length`** → 复现见 **§3.2** |
 | **H-6** | `resolveTargetModel` 新增 `'stale'`，stale 时省略 `modelId` | ✅ **已修复** | 五案例矩阵全部符合预期：目录内 id → `preferred`/按钮可用/200；目录外 → `stale`/`modelId` **省略**/按钮禁用/409 `reason=target-model-stale`；无 id+有免费 → `free`/200；无 id+无免费 → `none`/409 `no-free-model`；**目录从未加载 → `stale`**（fail-safe 方向正确） |
 
 ---
@@ -108,7 +108,7 @@ VERDICT B: STALE OVERRIDE SURVIVES A DISABLE
 
 这与 L-5 的"按请求顺序丢弃旧响应的检查"是同一类修法，可同批做。
 
-### 3.2 【未修复】H-5 的测试按钮：幽灵成员仍可点，界面宣称完成但零请求
+### 3.2 【未修复】H-5 的测试按钮：已失效的成员记录仍可点，界面宣称完成但零请求
 
 计数与**签到**按钮已用 `effectiveMembers`，但**测试**按钮仍判 `active.memberAccountIds.length === 0`（`AccountPool.tsx:627`），DSH 路由的 409 检查也只判 `preference.memberAccountIds.length === 0`（`web-status.ts`），因此"成员全是幽灵"这一状态**仍能进入批量路径**。
 
@@ -190,7 +190,7 @@ placeholder for the stale id present: false      ← 占位项没有渲染
 - **跨卸载残留**：实测**存在且是有意的**（`t17_maps.mjs`：卸载卡片再挂载，同一 region 的历史仍在）。这正是 C2-1 的修复前提（没有它，折叠卡片就会丢历史并写假记录）。
 - **区域隔离**：实测**成立**——cn 的历史不会出现在 global 标签页（`t17_maps.mjs`），跨区轮换记录也不串（`t14_c23.mjs`：global 日志不含 cn 的账号 id）。→ **C2-3 已修**。
 - **内存上界**：`logStore` 每 region 最多 60 行、`rotationMemory` 每 region 一个对象、`checkinStateCache` 每 region 每账号一条。前两者具有固定上限；签到缓存的总量随账号数量变化，不能仅凭每账号一条证明固定内存上界，仍需核对账号移除后的清理。
-- **"插件重载残留脏数据"**：**是真实存在的处理规则**（模块级 Map 在插件重新 `apply()` 时不会重置，因为模块缓存不清），但影响面为**每 region 60 行活动日志**与**一个 `last/primed` 标记**，且两者都只是显示层。最坏情况：重载后第一条轮换记录可能因 `primed=true` 而被跳过。**属可接受的设计取舍**，建议在注释里点明"进程内缓存、不随插件重载重置"。
+- **"插件重载残留残留数据"**：**是真实存在的处理规则**（模块级 Map 在插件重新 `apply()` 时不会重置，因为模块缓存不清），但影响面为**每 region 60 行活动日志**与**一个 `last/primed` 标记**，且两者都只是显示层。最坏情况：重载后第一条轮换记录可能因 `primed=true` 而被跳过。**属可接受的设计取舍**，建议在注释里点明"进程内缓存、不随插件重载重置"。
 - 未发现正确性缺陷。
 
 ---
@@ -208,12 +208,12 @@ placeholder for the stale id present: false      ← 占位项没有渲染
 | `M-5: does not read check-in state while the pool is off` | 删掉池关闭跳过 | **失败** | ✅ 有判别力 |
 | `M-5: caches check-in state across polls` | 删掉 TTL 缓存 | **失败** | ✅ 有判别力 |
 
-**变异副本仍能通过测试的原因**：`H-5: the batch still refuses` 断言 `rows === []` 且 `upstream === 0`。但**幽灵 id 本来就解析不出凭据**，`poolMemberAccounts()` 过滤后为空 → 批量本来就不发任何请求。也就是说该测试断言的正是"修复**没有**改变的行为"，**与 `effectiveMemberAccountIds` 无关**；它在回退版上必然也通过。
+**变异副本仍能通过测试的原因**：`H-5: the batch still refuses` 断言 `rows === []` 且 `upstream === 0`。但**已失效的账号 id 本来就解析不出凭据**，`poolMemberAccounts()` 过滤后为空 → 批量本来就不发任何请求。也就是说该测试断言的正是"修复**没有**改变的行为"，**与 `effectiveMemberAccountIds` 无关**；它在回退版上必然也通过。
 
 你在自查里修掉的两个隔离问题（把 usage 面板的签到读取算进批量、断言增量必须为 0）**确实修对了方向**，但这条漏了同一类问题的另一面。
 
 
-**建议**：把断言换成能区分的行为 —— 例如断言"点击测试按钮时按钮应处于 `disabled`"（这才能捕获 §3.2 的缺口），或断言 DSH 路由对"全幽灵成员"返回 409。
+**建议**：把断言换成能区分的行为 —— 例如断言"点击测试按钮时按钮应处于 `disabled`"（这才能捕获 §3.2 的缺口），或断言 DSH 路由对"全部成员均失效"返回 409。
 
 **这条测试通过，并不能排除 §3.2 的缺口。**
 

@@ -81,8 +81,8 @@ body{
 .dsm-workbuddy-usage-status{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:500;color:var(--dsw-alias-label-primary)}
 .dsm-workbuddy-usage-dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
 .dsm-workbuddy-usage-text{margin:0;font-size:14px;line-height:22px;color:var(--dsw-alias-label-secondary)}
-/* 账号选择器已整块删除：账号一律在账号池里管（成员勾选就是选择面），
-   而池开启时由排序决定谁服务，一个「改了也不生效」的下拉比没有更糟。 */
+/* 账号选择器已整块删除：账号统一在账号池中管理（通过勾选设置成员），
+   启用账号池时由排序规则选择请求账号，因此不显示不会影响结果的选择控件。 */
 .dsm-workbuddy-account-state{color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}
 .wb-models-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .wb-models-title{margin:0;font-size:15px;font-weight:600;color:var(--dsw-alias-label-primary)}
@@ -616,7 +616,7 @@ function renderCurrent(){
   el.querySelector('.pool-bar-name').textContent = `当前使用：${cur.name} · ${cur.masked}`;
   // 此处显示下一次请求首先使用的账号。
   // 换号只为一次请求借用额度，不写回选择，所以这两者在换号发生后会不同。
-  // 演示里如实区分，免得把「当前使用」误解成「上一条请求的计费方」。
+  // 本页分别展示，避免将「当前使用」误解成「上一条请求的计费方」。
   const bits = [`积分 ${fmt(cur.credits)}`, `${$('selModel').value === 'auto' ? '免费目标模型' : $('selModel').value} 可用性：${probeText(cur.probe)}`];
   if (cur.expiringSoon > 0) bits.push(`${cur.expiringSoon} 积分 3 天内过期`);
   meta.textContent = bits.join(' · ');
@@ -812,7 +812,7 @@ function renderAutoPick(){
     // 国内版静态目录里没有倍率为 0 的模型：不静默回退到收费模型
     note.innerHTML = `<b style="color:var(--dsw-alias-state-warn-primary)">本区域暂无免费模型</b>
       自动模式需要目录中存在明确标记为免费的模型。
-      为避免产生你没预期的开销，<b>不会</b>自动回退到收费模型；请先刷新模型目录，或手动指定一个目标模型。`;
+      为避免产生未预期的费用，<b>不会</b>自动回退到收费模型；请先刷新模型目录，或手动指定一个目标模型。`;
     return;
   }
   note.innerHTML = `自动选中 <b class="mono">${target.id}</b>
@@ -820,16 +820,16 @@ function renderAutoPick(){
     。自动模式从本区域免费模型中选择上下文窗口最大的模型。`;
 }
 
-/* ---- 模拟一次失败请求：把「自动换号」跑给人看 ---- */
+/* ---- 失败请求模拟：展示自动换号过程 ---- */
 /*
  * 本页模拟以下路径：请求先发给「当前使用」的账号 → 上游报 429/402/401/502 →
- * 插件依次取池内其他**可用**账号重发同一个请求 → 有人接住就正常返回 →
- * 全部不可用才把错误报出来。这里按同一顺序演一遍，好让规则可验证，而不只是可读。
+ * 插件依次取池内其他**可用**账号重发同一个请求 → 其他账号请求成功时正常返回 →
+ * 全部不可用时返回错误。本页按相同顺序展示，用于验证处理规则。
  *
- * 两个刻意的设计在这段演示里也能看出来：
- *   - **「当前使用」始终不变**：换号只是为这一次请求借用额度；
- *   - **从没测试过的账号可作为候选**：所以「当前账号被限流」时，只要池里还有没测过的
- *     账号，该账号仍可成为重试候选；真实请求是否成功需由上游响应确认。
+ * 本页同时展示以下两项设计约束：
+ *   - **「当前使用」始终不变**：换号仅改变本次请求的计费账号；
+ *   - **未测试账号可作为候选**：当前账号被限流时，池内尚未测试的
+ *     账号仍可成为重试候选；真实请求是否成功需由上游响应确认。
  */
 async function runSimulatedRequest(){
   if (running) return;
@@ -848,7 +848,7 @@ async function runSimulatedRequest(){
     return;
   }
 
-  // 让「当前使用」的账号这一次失败，制造需要换号的局面。
+  // 让「当前使用」的账号这一次失败，触发换号流程。
   if (primary){
     primary.probe = 'rate-limited';
     primary.probeRetryDue = false;   // 冷却未过：真实场景里它会被排除
@@ -859,7 +859,7 @@ async function runSimulatedRequest(){
   }
   await sleep(550);
 
-  // 依次找下一个可用账号：跳过的会说明原因，而不是默默略过。
+  // 依次找下一个可用账号：跳过的会说明原因，不得静默跳过。
   const tried = [currentId];
   for (const cand of accounts){
     if (cand.probe === 'testing'){
@@ -877,13 +877,13 @@ async function runSimulatedRequest(){
     await sleep(450);
     addLog(`改用 ${cand.name} 重发同一个请求 → 成功返回`, 'log-ok');
     persistRuntime(`本次请求由 ${cand.name} 承接；当前使用仍是 ${primary ? primary.name : '（无）'}`);
-    addLog('排序不写回你保存的选择：关闭账号池后仍然是你选定的那个账号生效', 'log-swap');
+    addLog('排序不覆盖手动保存的账号选择：关闭账号池后仍使用手动选定的账号', 'log-swap');
     render();
     running = false; setBusy(false);
     return;
   }
 
-  // 全部不可用：把原始错误报出来，并注明尝试过几个账号。
+  // 全部不可用：返回原始错误，并注明已尝试的账号数量。
   addLog(`池内没有其他可用账号（尝试过 ${tried.length} 个）：原样报出上游错误 429 soft_rate`, 'log-err');
   addLog('本演示使用固定恢复时间；正式插件显示的时间可能来自上游响应、套餐刷新时间或本地冷却规则', 'log-warn');
   render();
@@ -899,7 +899,7 @@ $('swEnabled').addEventListener('change', e => {
   editPref('enabled', e.target.checked);
   addLog(e.target.checked
     ? '（草稿）账号池：启用，失败时依次用池内其他可用账号重试'
-    : '（草稿）账号池：关闭，跟随你选的账号，失败如实报错', e.target.checked ? 'log-ok' : 'log-warn');
+    : '（草稿）账号池：关闭，使用手动选定的账号，失败时返回错误', e.target.checked ? 'log-ok' : 'log-warn');
 });
 $('btnSavePool').addEventListener('click', savePrefs);
 $('btnDiscardPool').addEventListener('click', discardPrefs);
@@ -910,7 +910,7 @@ $('selModel').addEventListener('change', e => {
 renderPrefs();
 render();
 addLog('账号池就绪：池内 3 个账号，目标模型由本区域 catalog 自动挑选');
-addLog('点「模拟一次失败请求」可以看到自动换号：当前账号被限流后，请求改由池内下一个可用账号跑完');
+addLog('点击「模拟一次失败请求」可查看换号过程：当前账号被限流后，请求由池内下一个可用账号继续执行');
 if (!$('swEnabled').checked) addLog('账号池当前关闭：失败不会换号，会如实报错');
 </script>
 </body>

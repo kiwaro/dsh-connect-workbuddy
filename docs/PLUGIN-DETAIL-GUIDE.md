@@ -1,9 +1,9 @@
-# 给 DSH 0.2.2+ 插件详情页写一段 100 字以内的简介
+# DSH 0.2.2+ 插件详情页短简介配置
 
-> 可整篇转发给其他 DSH 插件作者照做。以 `dsh-connect-workbuddy` 为例，但步骤与包名无关。
+> 本文供其他 DSH 插件作者参考。以 `dsh-connect-workbuddy` 为例，但步骤与包名无关。
 > 适用宿主：DSH **0.2.2-alpha.2 及以上**（0.2.1-rc.5 及更早没有这个详情页）。
 >
-> ⚠️ **本插件自己不再使用这套做法。** 5.19.0 把配置界面搬去设置页后，详情页只剩
+> ⚠️ **本插件自己不再使用这套做法。** 5.19.0 将配置界面迁移至设置页后，详情页只剩
 > 「这是什么」，而短简介的唯一作用就是缩短显示文本；它依赖「路径与语言链同时正确」这类
 > 隐式约定，失败时静默回落到 README、界面看不出问题。所以两份 `DETAIL` 文档、两行
 > `meta.detail` 与对应的守卫单测都已移除，本插件的详情页显示完整 README。
@@ -23,15 +23,15 @@
 2. 找到就渲染它指向的 Markdown；
 3. **一个都没找到，就回落到包根目录的 README**（`README.md` / `README.markdown` / `README`）。
 
-我们的 README 有 700 多行，于是整篇被塞进一个 560px 高的可滚动框里。宿主把它限制了高度，
-不会撑坏页面，但观感很差。相关实现：`@deepseek-ai/dsh-plugin-detail` 的 `readPackageDocument`，
+本项目的 README 有 700 多行，于是整篇被放入一个 560px 高的可滚动框里。宿主把它限制了高度，
+不会破坏页面布局，但阅读区域受限。相关实现：`@deepseek-ai/dsh-plugin-detail` 的 `readPackageDocument`，
 以及 `@deepseek-ai/dsh-client-ui-primitives` 的 `DetailDocument`。
 
 ## 具体做法（5 步）
 
 ### 1. 新建两份短文档，放在包内任意目录
 
-推荐 `docs/DETAIL.zh.md`（中文）与 `docs/DETAIL.md`（英文）。内容就是给普通用户看的一段话，
+推荐 `docs/DETAIL.zh.md`（中文）与 `docs/DETAIL.md`（英文）。内容应为面向普通用户的简短说明，
 **不要写实现细节、issue 编号、内部路径**。
 
 `docs/DETAIL.zh.md`（实测 92 字符，含标点）：
@@ -46,7 +46,7 @@
 WorkBuddy in DSH: live credit rates, per-model image/reasoning, account pool, check-in, credits.
 ```
 
-填空模板（填完自己数一遍）：
+内容模板（填写后核对字符数）：
 
 ```markdown
 把 <对象> 接入 DSH：<核心能力 1>、<核心能力 2>、<核心能力 3>，并提供 <能力 4>。
@@ -78,14 +78,14 @@ WorkBuddy in DSH: live credit rates, per-model image/reasoning, account pool, ch
 }
 ```
 
-`detail` 与 `title` / `description` 同级。注意：**`en.json` 必须写**，它是语言链的最终兜底；
+`detail` 与 `title` / `description` 同级。注意：**`en.json` 必须写**，它是语言链的最终回退值；
 只写 `zh.json` 的话，英文界面会走到「无 detail」并回落 README 全文。若还支持 ja/es 等语言，
 要么各自补一份对应语言的 detail，要么接受它们显示英文版。
 
 ### 3. 把两份文档加进 `package.json` 的 `files` 白名单
 
-有 `files` 白名单的包，没列进去的文件不会进 npm 包。加两条明确路径（不要指望
-`docs/assets` 这类已有目录顺带覆盖）：
+有 `files` 白名单的包，没列进去的文件不会进 npm 包。加两条明确路径（不能假设
+`docs/assets` 这类已有目录同时覆盖）：
 
 ```json
 "files": [

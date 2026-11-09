@@ -29,7 +29,7 @@ A [DeepSeek Harness (DSH)](https://github.com/deepseek-ai/deepseek-harness) bund
 
 > **WorkBuddy has begun restricting requests from unofficial clients. This project does not promise that these endpoints will keep working; the day upstream tightens its rules, the plugin may stop working. Read the [Disclaimer](#disclaimer) at the end of this file and judge the account risk for yourself. Using the official WorkBuddy client is always the safest choice.**
 
-It is worth stating what this plugin is actually for: **saving you the trip back and forth between the WorkBuddy client and DSH.** You are already signed in to WorkBuddy on your own machine; the plugin simply connects that existing sign-in to DSH's model picker so you can use it where you write code — it does not supply accounts, share credentials, or bypass billing. Every call spends **your own account's** quota at the multiplier upstream reports, and the plugin does not grant additional account privileges. Balance reads are read-only; chat, media generation and check-in make the corresponding upstream requests.
+The plugin connects the existing local WorkBuddy sign-in to DSH's model picker, allowing users to access WorkBuddy models from DSH. It does not supply accounts, share credentials, or bypass billing. Every call spends **your own account's** quota at the multiplier upstream reports, and the plugin does not grant additional account privileges. Balance reads are read-only; chat, media generation and check-in make the corresponding upstream requests.
 
 It depends on the WorkBuddy client's own endpoints (not a public API), so the plugin may need to follow along when upstream changes them — that is normal for a tool of this kind, and it is the reason this notice exists. **Judge the account risk yourself before deciding to install.**
 
@@ -364,7 +364,7 @@ This route uses CodeBuddy as a **tool** rather than as a model provider: the plu
 
 **What this actually buys, stated plainly.** The provider route has to make a request look like a CodeBuddy client to pass the gateway's channel check; since 4.15.x that check matches an exact substring mid-prompt, and the plugin dodges it with zero-width spaces at punctuation boundaries. That is an arms race, and it is no longer free: issue #98 has produced an **account-level** restriction (`code 11140`, "the account shows abnormal behaviour and has been restricted").
 
-The CLI route escapes the **client-fingerprint layer**, not the account layer. It hands the CLI `CODEBUDDY_AUTH_TOKEN` taken from this plugin's own vault — the same WorkBuddy accounts. So the claim "the process talking to the gateway really is the signed-in CodeBuddy CLI, there is no identity to forge, therefore the account cannot be restricted" **does not hold**: the identity is the same set of accounts, `11140` is account-level, and the same accounts are just as restricted on this route. What is genuinely bypassed is "does this request's client fingerprint look like CodeBuddy" — a real gain against the channel check, but not immunity from blocking. The two routes are complementary fallbacks, not a replacement.
+The CLI route escapes the **client-fingerprint layer**, not the account layer. It hands the CLI `CODEBUDDY_AUTH_TOKEN` taken from this plugin's own vault — the same WorkBuddy accounts. So the claim "the process talking to the gateway really is the signed-in CodeBuddy CLI, there is no identity to forge, therefore the account cannot be restricted" **does not hold**: the identity is the same set of accounts, `11140` is account-level, and the same accounts are just as restricted on this route. The CLI route bypasses "does this request's client fingerprint look like CodeBuddy" — a real gain against the channel check, but not immunity from blocking. The two routes are complementary fallbacks, not a replacement.
 
 <a id="prerequisites"></a>
 
@@ -551,7 +551,7 @@ dsh plugin --profile desktop add /Users/<you>/DshProject/dsh-connect-workbuddy
 
 `lib/` is a build product and is gitignored, while a `link:` install runs **no lifecycle scripts**
 (`prepare` never fires). Install from a source checkout that was never built and the files named by
-`package.json`'s `main` / `exports` simply are not there, so DSH's plugin market answers:
+`package.json`'s `main` / `exports` are absent, so DSH's plugin market answers:
 
 ```
 声明的入口产物缺失(源码检出或构建被拦),下次启动会失败

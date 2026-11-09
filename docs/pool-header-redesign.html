@@ -117,12 +117,12 @@ body{
       <p class="marker-label">↑ 靠右</p>
       <div class="before-actions"><button class="dsm-btn dsm-btn-primary marker">签到勾选的账号</button><button class="dsm-btn dsm-btn-outline marker">测试勾选的账号</button></div>
       <p class="marker-label">↑ 靠左，与上一行不同轴</p>
-      <p class="dsm-workbuddy-pool-note before-note"><span class="marker" style="display:inline-block">你指定的模型：deepseek-v4.1-flash</span></p>
-      <p class="marker-label">↑ 目标模型在这里说了第二遍（副标题已说过）</p>
+      <p class="dsm-workbuddy-pool-note before-note"><span class="marker" style="display:inline-block">指定模型：deepseek-v4.1-flash</span></p>
+      <p class="marker-label">↑ 目标模型重复显示，副标题已有相同信息</p>
     </div>
   </section>
 
-  <div class="arrow"><hr /><span>改成下面这样</span><hr /></div>
+  <div class="arrow"><hr /><span>调整后的布局</span><hr /></div>
 
   <!-- ============================ 改后 ============================ -->
   <section class="panel">
@@ -130,7 +130,7 @@ body{
     <div class="panel-body">
 
       <div class="dsm-workbuddy-pool" style="margin-top:12px">
-        <!-- 头部：只有标题与徽章。副标题（账号数/目标模型）与那句说明都已删除。 -->
+        <!-- 头部：只有标题与徽章。副标题（账号数/目标模型）与状态说明均已删除。 -->
         <div style="display:flex;align-items:center;justify-content:space-between;gap:16px">
           <h3 class="dsm-workbuddy-pool-title">账号池</h3>
           <span class="dsm-workbuddy-pool-current-badge">当前使用：示例账号 A</span>
@@ -152,7 +152,7 @@ body{
           <span class="dsm-workbuddy-pool-set-ctl"><select class="dsm-workbuddy-pool-select"><option>示例账号 A</option><option>示例账号 B</option></select></span>
         </div>
 
-        <!-- 工具栏：两组按钮，左=对账号做的事，右=发现新账号 -->
+        <!-- 工具栏：两组按钮，左侧为账号操作，右侧为账号检测 -->
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;border-top:1px solid var(--dsw-alias-border-l2);padding-top:12px">
           <div style="display:flex;gap:8px">
             <button class="dsm-btn dsm-btn-primary">签到勾选的账号</button>

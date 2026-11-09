@@ -171,7 +171,7 @@
 - **严重级**：中。问题发生在读取时机；B-4 与「轮换不写记录」的旧缺陷外观相同，容易被误判为回归。
 - **修复方向**：`runAction` 成功分支补一次 `onSaved?.()`。
 
-### B-5（中｜契约·缺失 vs false 的**反向**混淆）`checkedInToday` 客户端三态正确，但 Host 在**每次轮询都对全池做一次签到状态请求**，把「读不到」放大成 N 次上游请求
+### B-5（中｜契约·缺失 vs false 的**反向**混淆）`checkedInToday` 客户端三态正确，但 Host 在**每次轮询都对全池做一次签到状态请求**，把「无法读取」放大成 N 次上游请求
 
 - **位置**：`index.ts:873-883` —— `checkedInToday` 对**每个账号**调一次 `client.fetchCheckinStatus`，任一失败即 `undefined`（`:879-880`）并被 Host 丢弃（`web-status.ts:607` 只在有值时带字段）。
 - **三态结论（客户端侧正确，无需改）**：`AccountPool.tsx:597-602` 明确区分 `undefined → '—'`（`poolCheckinUnknown`）、`true → 已签到`、`false → 未签到`；`locales.ts:129` 的 `'—'` 是有意为之，不是漏写。**该项修复已通过核对**（「签到列永远显示未签到」已修）。

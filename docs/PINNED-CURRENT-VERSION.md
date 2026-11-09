@@ -13,7 +13,7 @@
 
 | 渠道 | 版本 | 状态 |
 | --- | --- | --- |
-| npm `dsh-connect-workbuddy` | 5.17.0 | 最新可安装版本，`dsh plugin add` / 市场拿到的都是它。发布于 2026-11-01 04:44 UTC |
+| npm `dsh-connect-workbuddy` | 5.17.0 | 最新可安装版本，`dsh plugin add` / 市场获取到的都是它。发布于 2026-11-01 04:44 UTC |
 | git tag `v5.18.0` | 5.18.0 | 已推送，指向提交 `06006e4` |
 | GitHub Releases | v5.17.0（Latest） | 没有 v5.18.0 的 Release，tag 有、Release 没有 |
 | npm 5.18.0 | — | 未发布，等 2026-11-05 |

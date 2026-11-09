@@ -26,12 +26,12 @@
 | sessionProjections | ⚠️ 弃用但可用 | `stateOf(session, key)` 在 0.2.2 标记 deprecated，首次调用打一条 warn 后仍返回状态；本插件只在 CLI 桥的目录源里调用它（§5.1） |
 | 主题 token | ✅ 无需改 | 定义集 190 → 201 项，**只增不减**，唯一被删的 `--dsw-specific-sidebar-nav-item-hover` 本插件未使用（§3.7） |
 | 客户端模块 | ✅ 无需改 | 4 个 `dsh.client.inject` 模块全部照旧；本机客户端已加载并完成注册（§3.2） |
-| **本仓库测试** | ✅ 全绿 | 183 文件 / 3098 条通过（2 条按平台跳过；含本次新增 1 条）；`tsc` 两个项目 0 error（§6） |
+| **本仓库测试** | ✅ 全部通过 | 183 文件 / 3098 条通过（2 条按平台跳过；含本次新增 1 条）；`tsc` 两个项目 0 error（§6） |
 
-一句话：**0.2.2-rc.1 是本插件自 0.2.1-rc.5 以来改动最大的一次宿主（2623 个提交、vendor 全线升版），
+结论：**0.2.2-rc.1 是本插件自 0.2.1-rc.5 以来改动最大的一次宿主（2623 个提交、vendor 全线升版），
 但改动全部落在本插件不碰的面上。** 需要动作的只有一条弃用 API，且不紧急。
 
-## 二、0.2.2-rc.1 到底改了什么
+## 二、0.2.2-rc.1 的变更内容
 
 `dsh-v0.2.1-rc.5..dsh-v0.2.2-rc.1` 共 **2623 个提交**（含大量 merge 与 release 提交），是一次大版本的
 功能合集。与本插件相关的结构变化只有四类：
@@ -122,7 +122,7 @@ react                     18.3.1  OK  (^18.2.0)
 `dsh-client-ui-settings-plugins`、`dsh-client-locale`）在 0.2.2 模块注册表里均可解析的证据。
 缺少任何一项时，整张卡会是「依赖失败」，而不是账本里出现 `dsh-connect-workbuddy-client`。
 
-### 3.3 Web 路由：宿主契约未变，本机全绿
+### 3.3 Web 路由：宿主契约未变，本地检查全部通过
 
 `dsh-host-webserver` 的 `register()` 在 0.2.2 新增了 `WebResourceRoute`（`{kind, path, resource}`）与
 `readResource()`，但**原有的 `handler` 形态原样保留**（`register(route: WebRoute | WebResourceRoute)`），
@@ -263,7 +263,7 @@ stateOf(session, key) {
 （`src/index.ts` 的 `WORKING_DIRECTORY_PROJECTION_KEY`），且 `cliBridgeEnabled` 默认 false，
 所以今天连这条告警都不会出现。
 
-推荐的迁移（下个功能版顺手做，不单独发版）：把
+推荐的迁移（下个功能版同步处理，不单独发版）：把
 
 ```ts
 state = reader.stateOf(session, 'workingDirectory')
@@ -294,7 +294,7 @@ imageOffloadCountQuantum: number    // 默认 min(10, maxRequestImages)
 - 今天 `pnpm typecheck` 通过，是因为 devDeps 还钉在 `0.1.7-rc.1`，类型里没有这两个字段；
 - 一旦把 devDeps 升到 `0.2.2-rc.1`，`src/adapter.ts` 的 `profileFor` 会因缺两个必填字段而**编译失败**。
 
-届时补字段要**有意识地选值**，不能照抄 50：本插件今天没有张数上限，填 `maxRequestImages: 50` 等于
+届时补字段要**有意识地选值**，不能直接复制 50：本插件今天没有张数上限，填 `maxRequestImages: 50` 等于
 主动收紧行为。建议按 WorkBuddy 上游的真实单请求上限填（未知则填一个明显高于正常用量的值，并在
 `REQUEST_IMAGE_BUDGETS` 旁写明理由）。
 
@@ -304,7 +304,7 @@ imageOffloadCountQuantum: number    // 默认 min(10, maxRequestImages)
   `{ text: LocalizedText, tone }` 徽章，由模型选择器自己渲染。这正是本插件
   conversation.input.model.label 插槽已用于显示类似信息。该插槽为 single，本插件与 qoder、trae 存在占位冲突
   （`-0.5` 输给 qoder 的 `-1`，徽章在选 qoder 时静默消失）。若将来愿意，可以把「积分倍率」改由
-  `badge` 发布，既不用抢槽、又能跟随语言。**注意**：这会让徽章出现在**所有** WorkBuddy 模型行上，
+  `badge` 发布，既不用争用插槽、又能跟随语言。**注意**：这会让徽章出现在**所有** WorkBuddy 模型行上，
   与现在「只在选中 WorkBuddy 模型时由 gate 渲染」的语义不同，属于产品决策，不是兼容性修复。
 - **`llm/models-updated(provider)`**：宿主新增的事件，表示某个 route 的模型目录/展示元数据变了、
   消费者应重新 `listModels()`。本插件目前靠 `adapter.invalidate()` + `registerModelDiscovery` 让宿主
@@ -349,7 +349,7 @@ rc.5 那轮把 `@deepseek-ai/dsh*` 全量 alias 到 rc.5 产物跑了一遍夹�
 
 1. **本版不改代码。** 0.2.2-rc.1 没有需要同步适应的破坏性宿主变更。
 2. **不升版本号。** 本文件是纯文档；按本仓库惯例，`docs:` 提交不伴随版本号变更。
-3. **下个功能版顺手做两件小事**：① 把 CLI 桥的 `stateOf` 换成 `snapshot(session, ['workingDirectory'])`；
+3. **下个功能版同步处理两件小事**：① 把 CLI 桥的 `stateOf` 换成 `snapshot(session, ['workingDirectory'])`；
    ② 升级 devDeps 到 0.2.2 线时给 `profileFor` 补 `maxRequestImages` / `imageOffloadCountQuantum`
    （值要有依据，见 §5.2）。两件都不需要单独发版。
 4. **可选增强不进待办**：`LlmModelInfo.badge` 与 `llm/models-updated` 是产品选择，不是兼容性缺口。
