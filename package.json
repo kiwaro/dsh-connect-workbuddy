@@ -38,6 +38,7 @@
     "@deepseek-ai/schemastery": "3.18.4"
   },
   "files": [
+    "docs/UPSTREAM-INTEGRATION-2026-11-09.md",
     "lib",
     "native",
     "icons",

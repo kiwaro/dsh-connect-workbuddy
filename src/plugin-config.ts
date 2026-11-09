@@ -280,6 +280,8 @@ export interface Config {
    * the same content, and the Plugins page keeps the first one.
    */
   sidebarPanel?: boolean
+  /** 账号表自动刷新间隔（毫秒），默认五分钟。 */
+  pollIntervalMs?: number
   /**
    * When scanned messages are perturbed with invisible characters.
    *
@@ -738,6 +740,17 @@ export const Config: z<Config> = z.object({
       .default('balanced')
       .description('Outbound identity profile. "balanced" (default) makes every request claim the same client (WorkBuddy product/IDE/agent headers, X-CodeBuddy-Request, Accept-Language, X-Root-Request-ID, and a per-account X-Machine-ID/X-Session-ID pair) and gives the billing routes a User-Agent plus Origin/Referer. "conservative" restores the 5.16.0 bytes exactly, including X-Product: SaaS.'),
   ) as unknown as z<'conservative' | 'balanced'>,
+  pollIntervalMs: asVolatile(
+    z.union([
+      z.const(60_000),
+      z.const(5 * 60_000),
+      z.const(10 * 60_000),
+      z.const(30 * 60_000),
+      z.const(60 * 60_000),
+    ])
+      .default(5 * 60_000)
+      .description('How often the card refreshes its account table: 60000 (1 min), 300000 (5 min, default), 600000 (10 min), 1800000 (30 min) or 3600000 (60 min), in milliseconds. One refresh costs a credits read plus a check-in read per pooled account, so this is the setting that decides the plugin\'s upstream request volume. The composer account panel follows this value so the two surfaces cannot disagree about one account.'),
+  ) as unknown as z<number>,
   deviceSdkEnabled: asVolatile(
     z.boolean()
       .default(false)

@@ -11,6 +11,15 @@
  */
 
 export const en = {
+  'row.pollIntervalLead': 'Refresh frequency',
+  'row.pollIntervalLabel': 'Refresh the account table',
+  'row.pollIntervalHint': 'How often the card re-reads credits and check-in state. One refresh costs a credits read plus a check-in read per pooled account, so this is the setting that decides the plugin\'s upstream request volume. The composer account panel follows this value, so the two never disagree about one account. Takes effect on the next poll — no Save needed.',
+  'row.pollIntervalAria': 'Refresh frequency for the account table',
+  'row.pollInterval1m': 'Every 1 minute',
+  'row.pollInterval5m': 'Every 5 minutes (default)',
+  'row.pollInterval10m': 'Every 10 minutes',
+  'row.pollInterval30m': 'Every 30 minutes',
+  'row.pollInterval60m': 'Every 60 minutes',
   'row.iconStyleLead': 'Appearance',
   'nav.panel': 'WorkBuddy',
   'row.iconStyleLabel': 'Icon style',
@@ -261,6 +270,7 @@ export const en = {
   'row.transferNoToken': 'no token in this record',
   'row.transferCancel': 'Cancel',
   'row.transferError': 'Transfer failed: {message}',
+  'row.transferNoService': 'Could not reach the local plugin service ({size} KiB sent). The file may be too large, or the service may be restarting — try again, and if it keeps failing, trim the file and retry.',
 
   // ---- Account pool ----
   'row.poolTitle': 'Account pool',
@@ -735,6 +745,16 @@ export const en = {
 export type WorkBuddySettingsKey = keyof typeof en
 
 export const zh: Record<WorkBuddySettingsKey, string> = {
+  'row.transferNoService': '与本地插件服务通信失败（本次发送 {size} KiB）。可能是文件过大，或服务正在重启——请重试；若持续失败，请精简文件后再导入。',
+  'row.pollIntervalLead': '刷新频率',
+  'row.pollIntervalLabel': '刷新账号表',
+  'row.pollIntervalHint': '卡片多久重读一次积分与签到状态。每次刷新要为池内每个账号各读一次积分和一次签到状态，所以这一项决定插件的上游请求量。输入框的账号面板跟随同一个值，两处不会对同一个账号给出不同说法。下一次轮询即生效，不用保存。',
+  'row.pollIntervalAria': '账号表的刷新频率',
+  'row.pollInterval1m': '每 1 分钟',
+  'row.pollInterval5m': '每 5 分钟（默认）',
+  'row.pollInterval10m': '每 10 分钟',
+  'row.pollInterval30m': '每 30 分钟',
+  'row.pollInterval60m': '每 60 分钟',
   'row.iconStyleLead': '图标外观',
   'nav.panel': 'WorkBuddy',
   'row.iconStyleLabel': '图标样式',

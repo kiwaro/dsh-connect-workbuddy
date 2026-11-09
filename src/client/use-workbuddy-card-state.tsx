@@ -1,5 +1,5 @@
-import { regionNewModelsShownOf, nextRegionNewModelsShown } from '../status-paths.ts'
-import { writeRegionNewModelsShown } from './account-selection.ts'
+import { WORKBUDDY_POLL_INTERVALS_MS, WORKBUDDY_DEFAULT_POLL_INTERVAL_MS, regionNewModelsShownOf, nextRegionNewModelsShown } from '../status-paths.ts'
+import { pollIntervalMsOf, writePollIntervalMs, writeRegionNewModelsShown } from './account-selection.ts'
 /** 从 WorkBuddyCard.tsx 按职责提取；来源及许可证说明见原文件头与 THIRD_PARTY_NOTICES.md。 */
 import { useCallback, useEffect, useRef, useState } from 'react'
 
@@ -16,7 +16,7 @@ import { createLatestWins } from '../account-pool.ts'
 
 import { imageDefaultFor } from '../native-modality.ts'
 
-import { type WorkBuddyCardProps, POLL_INTERVAL_MS, STATUS_RETRY_BASE_MS, STATUS_RETRY_MAX_MS, readMediaRoster, type WorkBuddyDraft } from './workbuddy-card-view.tsx'
+import { type WorkBuddyCardProps, STATUS_RETRY_BASE_MS, STATUS_RETRY_MAX_MS, readMediaRoster, type WorkBuddyDraft } from './workbuddy-card-view.tsx'
 export function useWorkBuddyCardState({ t, settingsScope, view, surface, backToConversation }: WorkBuddyCardProps) {
   if (t === undefined) throw new Error('WorkBuddy plugin card requires its translation function')
   const pageSurface = surface === 'page'
@@ -135,6 +135,8 @@ export function useWorkBuddyCardState({ t, settingsScope, view, surface, backToC
    */
   const [sidebarPanelOn, setSidebarPanelOn] = useState<boolean | undefined>(undefined)
   const [sidebarPanelBusy, setSidebarPanelBusy] = useState(false)
+  const [pollIntervalOn, setPollIntervalOn] = useState<number | undefined>(undefined)
+  const [pollIntervalBusy, setPollIntervalBusy] = useState(false)
   /**
    * The quick-adjust pins of the CLI route (model, effort, region order) made
    * by THIS card instance.
@@ -420,6 +422,9 @@ export function useWorkBuddyCardState({ t, settingsScope, view, surface, backToC
    * has to say behind a tab.
    */
   const signedIn = status.status === 'signed-in'
+  // Host readback determines the timer; invalid values use the shared default.
+  const rawInterval = 'pollIntervalMs' in status ? status.pollIntervalMs : undefined
+  const pollIntervalMs = typeof rawInterval === 'number' && WORKBUDDY_POLL_INTERVALS_MS.includes(rawInterval) ? rawInterval : WORKBUDDY_DEFAULT_POLL_INTERVAL_MS
 
   /**
    * Whether the ACTIVE region knows of any account at all.
@@ -441,12 +446,15 @@ export function useWorkBuddyCardState({ t, settingsScope, view, surface, backToC
     // account list is the real precondition for wanting a refresh.
     if (!open || !hasAccounts) return
     const controller = new AbortController()
-    const timer = window.setInterval(() => { void refreshUsage(activeRegion, controller.signal) }, POLL_INTERVAL_MS)
+    const timer = window.setInterval(
+      () => { void refreshUsage(activeRegion, controller.signal) },
+      pollIntervalMs,
+    )
     return () => {
       window.clearInterval(timer)
       controller.abort()
     }
-  }, [open, activeRegion, refreshUsage, status.status])
+  }, [open, activeRegion, refreshUsage, status.status, pollIntervalMs])
 
   /**
    * 设备头设置：卡片打开时读一次。
@@ -861,6 +869,40 @@ export function useWorkBuddyCardState({ t, settingsScope, view, surface, backToC
     const fromHost = (statusByRegion[activeRegion] as { sidebarPanelEnabled?: unknown } | undefined)?.sidebarPanelEnabled
     if (typeof fromHost === 'boolean') return fromHost
     return sidebarPanelEnabledOf(settingsScope?.getSnapshot().value)
+  }
+
+  /** Read the saved refresh interval, preferring this card's verified write. */
+  const pollIntervalValue = (): number => {
+    // This card's own successful write wins: it is the only source that is
+    // certain to be current the instant a save returns, while the settings
+    // mirror is documented as unreliable for this namespace.
+    if (pollIntervalOn !== undefined) return pollIntervalOn
+    const fromSettings = pollIntervalMsOf(settingsScope?.getSnapshot().value)
+    // Then the Host's answer, which is what the TIMER is actually using — a
+    // picker showing anything else would be describing a cadence nobody runs.
+    if ('pollIntervalMs' in status
+      && typeof status.pollIntervalMs === 'number'
+      && WORKBUDDY_POLL_INTERVALS_MS.includes(status.pollIntervalMs)) {
+      return status.pollIntervalMs
+    }
+    return fromSettings
+  }
+
+  const changePollInterval = async (intervalMs: number): Promise<void> => {
+    if (settingsScope === undefined) return
+    setPollIntervalBusy(true)
+    try {
+      await writePollIntervalMs(settingsScope, intervalMs)
+      if (mounted.current) setPollIntervalOn(intervalMs)
+      // Re-read so the new cadence is visible in the very document the timer
+      // will next read — a save that only changed local state would leave the
+      // card polling at the OLD interval until the next unrelated refresh.
+      await refreshUsage(activeRegion)
+    } catch (error: unknown) {
+      if (mounted.current) setAccountError(error instanceof Error ? error.message : t('row.requestFailed'))
+    } finally {
+      if (mounted.current) setPollIntervalBusy(false)
+    }
   }
 
   /**
@@ -1710,5 +1752,5 @@ export function useWorkBuddyCardState({ t, settingsScope, view, surface, backToC
       if (mounted.current) setSaving(false)
     }
   }
-  return { dropAllThinkingValue, dropAllThinkingBusy, newModelsShownOn, toggleNewModels, togglingNewModels, status, activeRegion, refreshUsage, activeRegionOn, creditPositionOn, togglingCredits, canWrite, saving, poolBusy, changeCreditPosition, imageToolOn, toggleImageTool, videoToolOn, toggleVideoTool, mediaByRegion, preferredVideoModelOf, pinningVideoModel, pinVideoModel, mediaBusy, setMediaBusy, loadMediaModels, mounted, mediaError, cliBridgeSwitchedOn, cliBridgeBusy, toggleCliBridge, sidebarPanelSwitchedOn, sidebarPanelBusy, toggleSidebarPanel, cliBridgeModelValue, visibleModels, cliBridgeEffortValue, cliBridgeRegionOrderValue, cliBridgeModelBusy, cliBridgeEffortBusy, cliBridgeRegionOrderBusy, pickCliBridgeModel, pickCliBridgeEffort, pickCliBridgeRegionOrder, usageIdentityValue, usageIdentityBusy, setUsageIdentityOn, keepPromptLastValue, keepPromptLastBusy, setKeepPromptLastOn, sessionTitleValue, sessionTitleBusy, setSessionTitleOn, toggleUpstreamSwitch, extraInjectedPrefixes, channelRejectContinueValue, channelRejectContinueBusy, creditsShownOn, toggleCredits, pageSurface, statusByRegion, regionOn, setActiveRegion, setAccountError, togglingRegion, toggleRegion, signedIn, panel, setPanel, accountError, switchingAccount, switchAccount, rescanAccounts, busy, setPoolBusy, deviceSettings, changeDeviceMode, saveDeviceProfile, dirty, activeEnabledIds, refreshModels, sweeping, sweepEnabledModels, tpsSweeping, tpsBusy, sweepTpsEnabledModels, probeError, sweepSummary, toggleModel, busyLevels, activeImageIds, toggleImage, offBlocked, activeOffIds, toggleOff, activeContextBudgets, setContextBudget, probing, probeModels, tpsProbing, measureTpsFor, activeDefaultEfforts, setDefaultThinkingEffort, probes, tpsResults, tpsMeasuredAt, saveError, discardModels, saveModels, loading, statusRetries, open, setCardOpen, cardOpen }
+  return { pollIntervalValue, changePollInterval, pollIntervalBusy, dropAllThinkingValue, dropAllThinkingBusy, newModelsShownOn, toggleNewModels, togglingNewModels, status, activeRegion, refreshUsage, activeRegionOn, creditPositionOn, togglingCredits, canWrite, saving, poolBusy, changeCreditPosition, imageToolOn, toggleImageTool, videoToolOn, toggleVideoTool, mediaByRegion, preferredVideoModelOf, pinningVideoModel, pinVideoModel, mediaBusy, setMediaBusy, loadMediaModels, mounted, mediaError, cliBridgeSwitchedOn, cliBridgeBusy, toggleCliBridge, sidebarPanelSwitchedOn, sidebarPanelBusy, toggleSidebarPanel, cliBridgeModelValue, visibleModels, cliBridgeEffortValue, cliBridgeRegionOrderValue, cliBridgeModelBusy, cliBridgeEffortBusy, cliBridgeRegionOrderBusy, pickCliBridgeModel, pickCliBridgeEffort, pickCliBridgeRegionOrder, usageIdentityValue, usageIdentityBusy, setUsageIdentityOn, keepPromptLastValue, keepPromptLastBusy, setKeepPromptLastOn, sessionTitleValue, sessionTitleBusy, setSessionTitleOn, toggleUpstreamSwitch, extraInjectedPrefixes, channelRejectContinueValue, channelRejectContinueBusy, creditsShownOn, toggleCredits, pageSurface, statusByRegion, regionOn, setActiveRegion, setAccountError, togglingRegion, toggleRegion, signedIn, panel, setPanel, accountError, switchingAccount, switchAccount, rescanAccounts, busy, setPoolBusy, deviceSettings, changeDeviceMode, saveDeviceProfile, dirty, activeEnabledIds, refreshModels, sweeping, sweepEnabledModels, tpsSweeping, tpsBusy, sweepTpsEnabledModels, probeError, sweepSummary, toggleModel, busyLevels, activeImageIds, toggleImage, offBlocked, activeOffIds, toggleOff, activeContextBudgets, setContextBudget, probing, probeModels, tpsProbing, measureTpsFor, activeDefaultEfforts, setDefaultThinkingEffort, probes, tpsResults, tpsMeasuredAt, saveError, discardModels, saveModels, loading, statusRetries, open, setCardOpen, cardOpen }
 }

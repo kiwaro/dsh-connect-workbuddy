@@ -58,6 +58,8 @@
     "tests/busy-icon-card.spec.tsx",
     "tests/model-label-slot.spec.tsx",
     "tests/model-label-slot-coexistence.spec.tsx",
+    "tests/model-label-seat.spec.tsx",
+    "tests/model-label-wiring.spec.tsx",
     "tests/cli-bridge-live-pill.spec.tsx",
     "tests/issue120-picker-rate-duplicate.spec.tsx",
     "tests/card-media-models.spec.tsx",
@@ -71,6 +73,7 @@
     "tests/capabilities-layout.spec.tsx",
     "tests/model-label-diagnostics.spec.ts",
     "tests/plugin-icon.spec.tsx",
-    "tests/sticky-boundary.spec.tsx"
+    "tests/sticky-boundary.spec.tsx",
+    "tests/poll-interval.spec.tsx"
   ]
 }

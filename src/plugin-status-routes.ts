@@ -1,4 +1,5 @@
 /** 从 index.ts 按职责提取；参考来源及许可证说明见原文件头与 THIRD_PARTY_NOTICES.md。 */
+import { WORKBUDDY_POLL_INTERVALS_MS, WORKBUDDY_DEFAULT_POLL_INTERVAL_MS } from './status-paths.ts'
 import { Config, unwrapVolatile } from './plugin-config.ts'
 import { regionStateOf, regionEnabled, type WorkBuddyRegionStack, REGION_KEYS, REAL_TIER_AVAILABILITY } from './plugin-regions.ts'
 
@@ -43,7 +44,7 @@ import { oauthPoll, oauthStart } from './oauth.ts'
 import { mergeTransferRecords, parseTransferFile, previewTransferFile, transferRecordOf } from './transfer.ts'
 import { effectiveMembersOf } from './account-pool.ts'
 import { readPoolProbes, writePoolProbes } from './account-pool-store.ts'
-import { summarizeAutoCheckin } from './auto-checkin.ts'
+import { checkinReadingFresh, todaySummary } from './auto-checkin.ts'
 import type { AutoCheckinState } from './auto-checkin.ts'
 
 import { WorkBuddyUpstreamClient, knownRegionOf } from './upstream.ts'
@@ -301,6 +302,10 @@ export function installPluginStatusRoutes(webCtx: Parameters<typeof registerWork
      * that every installed bundle shares, so an absent value must read as "not
      * asked for" rather than as consent. Volatile, hence the unwrap.
      */
+    pollIntervalMs: () => {
+      const raw = unwrapVolatile(dependencies.current().pollIntervalMs)
+      return typeof raw === 'number' && WORKBUDDY_POLL_INTERVALS_MS.includes(raw) ? raw : WORKBUDDY_DEFAULT_POLL_INTERVAL_MS
+    },
     sidebarPanelEnabled: () => unwrapVolatile(dependencies.current().sidebarPanel) === true,
     /**
      * The model / reasoning effort the optional CodeBuddy CLI route runs on.
@@ -518,13 +523,14 @@ export function installPluginStatusRoutes(webCtx: Parameters<typeof registerWork
         const accounts = await store.accounts()
         const now = Date.now()
         const entries = await Promise.all(accounts.map(async account => {
-          // Serve from the cache while it is fresh. The card polls every 60
+          // Serve from the cache while it is fresh. The card uses its configured interval. Cached readings are also day-bounded.
+          // Previously it polled every 60
           // seconds, but "did this account check in today" only changes when a
           // check-in runs or the day rolls over — so re-reading it on every
           // poll meant ~14,400 requests/day for a 10-account pool. A check-in
           // this plugin performs invalidates its own entry (see `checkin`).
           const cached = dependencies.checkinStateCache[region]?.[account.id]
-          if (cached !== undefined && now - cached.atMs < dependencies.CHECKIN_CACHE_MS) {
+          if (cached !== undefined && checkinReadingFresh(cached.atMs, now, dependencies.CHECKIN_CACHE_MS)) {
             return [account.id, cached.checkedIn] as const
           }
           const credential = await store.credentialFor(account.id).catch(() => undefined)
@@ -555,7 +561,7 @@ export function installPluginStatusRoutes(webCtx: Parameters<typeof registerWork
         const state = dependencies.checkinStateCache[region] ?? {}
         const cached: Record<string, boolean> = {}
         for (const [accountId, entry] of Object.entries(state)) {
-          if (now - entry.atMs >= dependencies.CHECKIN_CACHE_MS) continue
+          if (!checkinReadingFresh(entry.atMs, now, dependencies.CHECKIN_CACHE_MS)) continue
           cached[accountId] = entry.checkedIn
         }
         return cached
@@ -677,7 +683,7 @@ export function installPluginStatusRoutes(webCtx: Parameters<typeof registerWork
         if (state === undefined) return undefined
         // The denominator came with the state, so this runs on the card's poll
         // without enumerating the credential store (see `scopeSize`).
-        return summarizeAutoCheckin(state)
+        return todaySummary(state, Date.now())
       },
       checkin: async region => {
         const rows = await checkinAllAccounts(

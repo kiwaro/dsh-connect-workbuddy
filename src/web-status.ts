@@ -75,6 +75,8 @@ import {
   WORKBUDDY_TRANSFER_PATH,
   WORKBUDDY_ACCOUNT_CREDITS_PATH,
   WORKBUDDY_USAGE_PATH,
+  WORKBUDDY_POLL_INTERVALS_MS,
+  WORKBUDDY_DEFAULT_POLL_INTERVAL_MS,
 } from './status-paths.ts'
 import type {
   WorkBuddyTransferExportAnswer,
@@ -275,6 +277,18 @@ export interface WorkBuddyStatusRouteOptions {
    * stale `true` here would draw a row the Host does not honour.
    */
   sidebarPanelEnabled?(): boolean
+  /**
+   * How often the card should re-read this document, in milliseconds.
+   *
+   * Carried on the Host's answer rather than read from the browser's settings
+   * mirror, for the same measured reason as the two flags above: that mirror is
+   * stale for this namespace on the affected 0.1.7 deployments, and a stale
+   * interval would make the card poll at a cadence the Host never stored.
+   *
+   * Optional, and absent reads as the 5-minute default — which is what an older
+   * Host (and any build before the setting existed) should do.
+   */
+  pollIntervalMs?(): number
   /**
    * The model the OPTIONAL CodeBuddy CLI route runs on, or `''` for "the CLI's
    * own default".
@@ -745,6 +759,10 @@ const UPSTREAM_SWITCH_FIELDS: ReadonlySet<string> = new Set([
   // 字段；把它加进来是因为它决定一个 GLOBAL 座位（`sidebar.panellist` 行 +
   // `main` 页）存不存在，而这个决定只有用户能下。
   'sidebarPanel',
+  // 卡片的刷新频率。一个顶层数字，自己一条路径，没有需要保留的兄弟字段。
+  // 它决定插件的上游请求量（每次刷新按池内账号数各读一次积分与签到状态），
+  // 所以必须能由用户从卡片上改，而不是只能手改配置文件。
+  'pollIntervalMs',
 ])
 
 /** A non-null, non-array object: the only shape the slot merge applies to. */
@@ -790,30 +808,83 @@ function jsonPrivate(res: ServerResponse, status: number, body: unknown): void {
   res.end(payload)
 }
 
-/** Request-body cap for the probe route: model ids only, never content. */
+/** Request-body cap for the PROBE route: model ids only, never content. */
 const PROBE_BODY_LIMIT = 64 * 1024
 
 /**
- * Read a small JSON request body.
+ * Request-body cap for routes that carry a FILE the user chose.
  *
- * Bounded, unlike the settings route's reader: this endpoint takes a list of
- * model ids and has no legitimate use for a large payload, so an oversized body
- * is refused rather than buffered.
+ * WHY THIS IS NOT `PROBE_BODY_LIMIT` (issue #229, second report). The transfer
+ * route takes the whole text of an account-export file, and those are not small:
+ * a single account from a sibling tool measured 108 KiB, because the file carries
+ * two raw upstream snapshots (`quota_raw` + `usage_raw`, ~59 KiB together) that
+ * this plugin never reads. One account already exceeded the probe's 64 KiB, so a
+ * perfectly valid import failed — with the *worst possible* error message (the
+ * socket was destroyed, so the browser reported `Failed to fetch`).
+ *
+ * The number matches the chat route's limit for the same reason: a cap exists to
+ * stop unbounded buffering, not to express an opinion about how big a user's
+ * export file is allowed to be.
  */
-function readJsonBody(req: IncomingMessage): Promise<Record<string, unknown>> {
+const TRANSFER_BODY_LIMIT = 64 * 1024 * 1024
+
+/**
+ * Raised when a request body exceeds its route's cap.
+ *
+ * A CLASS, not a message, so the caller can answer 413 instead of 500: the
+ * protocol says the client sent too much, and a 500 would send the reader
+ * looking for a server-side fault that does not exist. Same reasoning (and the
+ * same shape) as `RequestBodyTooLargeError` in `shim.ts`.
+ */
+export class JsonBodyTooLargeError extends Error {
+  constructor(readonly limitBytes: number) {
+    super('request body too large (limit ' + String(limitBytes) + ' bytes)')
+    this.name = 'JsonBodyTooLargeError'
+  }
+}
+
+/**
+ * Read a JSON object request body, bounded.
+ *
+ * AN OVER-LIMIT BODY IS STOPPED, NOT DESTROYED (issue #229). This used to call
+ * `req.destroy()`, which tears down the SOCKET — so the error response could
+ * never reach the client, and the browser reported a bare `Failed to fetch`.
+ * The user then had no way to learn that the file was merely too large. The
+ * chat route fixed exactly this in #174 ("the 413 can never reach the client
+ * ... it saw a reset connection instead of an answer"); this reader was left
+ * behind, and because the transfer route is the one route that takes a FILE, it
+ * is the place the flaw actually bit. So the stream is paused and its listeners
+ * dropped, the response still goes out, and the caller answers 413.
+ *
+ * @param req - The request to read.
+ * @param limitBytes - The route's cap; defaults to the probe's small limit.
+ */
+function readJsonBody(
+  req: IncomingMessage,
+  limitBytes: number = PROBE_BODY_LIMIT,
+): Promise<Record<string, unknown>> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = []
     let size = 0
+    let settled = false
     req.on('data', (chunk: Buffer) => {
+      if (settled) return
       size += chunk.length
-      if (size > PROBE_BODY_LIMIT) {
-        reject(new Error('request body too large'))
-        req.destroy()
+      if (size > limitBytes) {
+        settled = true
+        // Drop what was buffered before answering: holding a partial multi-MB
+        // body while writing a one-line error is pure waste.
+        chunks.length = 0
+        req.removeAllListeners('data')
+        req.removeAllListeners('end')
+        req.pause()
+        reject(new JsonBodyTooLargeError(limitBytes))
         return
       }
       chunks.push(chunk)
     })
     req.on('end', () => {
+      if (settled) return
       try {
         const parsed: unknown = JSON.parse(Buffer.concat(chunks).toString('utf8'))
         if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
@@ -1171,6 +1242,20 @@ export async function workBuddyWebStatus(
   // claims a sidebar seat every bundle shares, so an absent answer (an older
   // Host that cannot answer) must never read as "the user asked for this".
   const sidebarPanelEnabled = deps.sidebarPanelEnabled?.() === true
+  /**
+   * The card's refresh cadence, resolved once per document.
+   *
+   * Coerced against the offered set here as well as on the Host: this value
+   * drives `setInterval`, and an unrecognized number (an older Host, a
+   * hand-edited profile) must degrade to the default rather than to something
+   * like `0`, which would poll continuously.
+   */
+  const pollIntervalMs = (() => {
+    const raw = deps.pollIntervalMs?.()
+    return typeof raw === 'number' && WORKBUDDY_POLL_INTERVALS_MS.includes(raw)
+      ? raw
+      : WORKBUDDY_DEFAULT_POLL_INTERVAL_MS
+  })()
   // The route's three quick-adjust pins. Absent reads as `''` (the CLI's own
   // default), never as a made-up value: an older Host without the deps simply
   // cannot answer, and the card's pickers then fall back to the settings
@@ -1198,7 +1283,7 @@ export async function workBuddyWebStatus(
     // is only reachable when a sign-in landed between the two calls. A
     // credential just appeared: there is nothing to diagnose, and a list of
     // failed probe paths would contradict what the user is looking at.
-    return { status: 'signed-out', accounts: [], selectionExplicit, enabled, showCreditsInMainUi, showNewModelsInMainUi, imageToolEnabled, videoToolEnabled, preferredVideoModels, cliBridgeEnabled, sidebarPanelEnabled, cliBridgeModel, cliBridgeEffort, cliBridgeRegionOrder, busyLevels }
+    return { status: 'signed-out', accounts: [], selectionExplicit, enabled, showCreditsInMainUi, showNewModelsInMainUi, imageToolEnabled, videoToolEnabled, preferredVideoModels, cliBridgeEnabled, sidebarPanelEnabled, pollIntervalMs, cliBridgeModel, cliBridgeEffort, cliBridgeRegionOrder, busyLevels }
   }
   let credential
   try {
@@ -1236,6 +1321,7 @@ export async function workBuddyWebStatus(
       preferredVideoModels,
       cliBridgeEnabled,
       sidebarPanelEnabled,
+      pollIntervalMs,
       cliBridgeModel,
       cliBridgeEffort,
       cliBridgeRegionOrder,
@@ -1276,6 +1362,7 @@ export async function workBuddyWebStatus(
     preferredVideoModels,
     cliBridgeEnabled,
     sidebarPanelEnabled,
+    pollIntervalMs,
     cliBridgeModel,
     cliBridgeEffort,
     cliBridgeRegionOrder,
@@ -2336,7 +2423,10 @@ export function registerWorkBuddyStatusRoute(ctx: Context, deps: WorkBuddyStatus
             // let it reach a cache.
             return jsonPrivate(res, 200, answer)
           }
-          const body = await readJsonBody(req) as { text?: unknown, indexes?: unknown }
+          // THE FILE ROUTE GETS THE FILE CAP, not the probe's. `text` is the whole
+          // export file, and a single account from a sibling tool measured 108 KiB
+          // (issue #229) — past the probe's 64 KiB, so a valid import failed.
+          const body = await readJsonBody(req, TRANSFER_BODY_LIMIT) as { text?: unknown, indexes?: unknown }
           if (typeof body.text !== 'string' || body.text.trim() === '') {
             return json(res, 400, { error: 'text must be the transfer file\'s JSON content' })
           }
@@ -2351,6 +2441,12 @@ export function registerWorkBuddyStatusRoute(ctx: Context, deps: WorkBuddyStatus
           }
           return json(res, 200, await transfer.importAccounts(region, body.text, indexes))
         } catch (error: unknown) {
+          // TOO LARGE IS THE CLIENT'S ERROR, NOT OURS (issue #229): 413 is what the
+          // protocol says, and 500 sends the reader hunting for a server-side fault
+          // that does not exist. The message names the limit so the user can act.
+          if (error instanceof JsonBodyTooLargeError) {
+            return json(res, 413, { error: safeMessage(error) })
+          }
           json(res, 500, { error: safeMessage(error) })
         }
       },

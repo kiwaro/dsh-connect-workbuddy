@@ -47,7 +47,7 @@ export type WorkBuddyCardProps =
   Partial<WorkBuddyCardInjected>
   & { view?: string; surface?: 'card' | 'page' | 'section' | 'settings'; backToConversation?: () => void }
 
-export const POLL_INTERVAL_MS = 60_000
+// Account-table refresh uses the Host pollIntervalMs setting (default five minutes).
 
 /**
  * Retry cadence for a status read that FAILED.

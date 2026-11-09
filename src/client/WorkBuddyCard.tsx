@@ -1,3 +1,4 @@
+import { WORKBUDDY_POLL_INTERVALS_MS } from '../status-paths.ts'
 import { useState } from 'react'
 import { resolveCnGateway } from '../cn-gateway.ts'
 import { regionCnBaseOf, nextRegionCnBase } from '../status-paths.ts'
@@ -151,7 +152,7 @@ export function WorkBuddyCard(props: WorkBuddyCardProps) {
 function WorkBuddyCardBody(props: WorkBuddyCardProps) {
   const { t, settingsScope, view, surface, backToConversation } = props
   if (t === undefined) throw new Error('WorkBuddy plugin card requires its translation function')
-  const { newModelsShownOn, toggleNewModels, togglingNewModels, status, activeRegion, refreshUsage, activeRegionOn, creditPositionOn, togglingCredits, canWrite, saving, poolBusy, changeCreditPosition, imageToolOn, toggleImageTool, videoToolOn, toggleVideoTool, mediaByRegion, preferredVideoModelOf, pinningVideoModel, pinVideoModel, mediaBusy, setMediaBusy, loadMediaModels, mounted, mediaError, cliBridgeSwitchedOn, cliBridgeBusy, toggleCliBridge, sidebarPanelSwitchedOn, sidebarPanelBusy, toggleSidebarPanel, cliBridgeModelValue, visibleModels, cliBridgeEffortValue, cliBridgeRegionOrderValue, cliBridgeModelBusy, cliBridgeEffortBusy, cliBridgeRegionOrderBusy, pickCliBridgeModel, pickCliBridgeEffort, pickCliBridgeRegionOrder, usageIdentityValue, usageIdentityBusy, setUsageIdentityOn, keepPromptLastValue, keepPromptLastBusy, setKeepPromptLastOn, sessionTitleValue, sessionTitleBusy, setSessionTitleOn, toggleUpstreamSwitch, extraInjectedPrefixes, channelRejectContinueValue, channelRejectContinueBusy, dropAllThinkingValue, dropAllThinkingBusy, creditsShownOn, toggleCredits, pageSurface, statusByRegion, regionOn, setActiveRegion, setAccountError, togglingRegion, toggleRegion, signedIn, panel, setPanel, accountError, switchingAccount, switchAccount, rescanAccounts, busy, setPoolBusy, deviceSettings, changeDeviceMode, saveDeviceProfile, dirty, activeEnabledIds, refreshModels, sweeping, sweepEnabledModels, tpsSweeping, tpsBusy, sweepTpsEnabledModels, probeError, sweepSummary, toggleModel, busyLevels, activeImageIds, toggleImage, offBlocked, activeOffIds, toggleOff, activeContextBudgets, setContextBudget, probing, probeModels, tpsProbing, measureTpsFor, activeDefaultEfforts, setDefaultThinkingEffort, probes, tpsResults, tpsMeasuredAt, saveError, discardModels, saveModels, loading, statusRetries, open, setCardOpen, cardOpen } = useWorkBuddyCardState(props)
+  const { newModelsShownOn, toggleNewModels, togglingNewModels, status, activeRegion, refreshUsage, activeRegionOn, creditPositionOn, togglingCredits, canWrite, saving, poolBusy, changeCreditPosition, imageToolOn, toggleImageTool, videoToolOn, toggleVideoTool, mediaByRegion, preferredVideoModelOf, pinningVideoModel, pinVideoModel, mediaBusy, setMediaBusy, loadMediaModels, mounted, mediaError, cliBridgeSwitchedOn, cliBridgeBusy, toggleCliBridge, sidebarPanelSwitchedOn, sidebarPanelBusy, toggleSidebarPanel, cliBridgeModelValue, visibleModels, cliBridgeEffortValue, cliBridgeRegionOrderValue, cliBridgeModelBusy, cliBridgeEffortBusy, cliBridgeRegionOrderBusy, pickCliBridgeModel, pickCliBridgeEffort, pickCliBridgeRegionOrder, usageIdentityValue, usageIdentityBusy, setUsageIdentityOn, keepPromptLastValue, keepPromptLastBusy, setKeepPromptLastOn, sessionTitleValue, sessionTitleBusy, setSessionTitleOn, toggleUpstreamSwitch, extraInjectedPrefixes, channelRejectContinueValue, channelRejectContinueBusy, dropAllThinkingValue, dropAllThinkingBusy, creditsShownOn, toggleCredits, pageSurface, statusByRegion, regionOn, setActiveRegion, setAccountError, togglingRegion, toggleRegion, signedIn, panel, setPanel, accountError, switchingAccount, switchAccount, rescanAccounts, busy, setPoolBusy, deviceSettings, changeDeviceMode, saveDeviceProfile, dirty, activeEnabledIds, refreshModels, sweeping, sweepEnabledModels, tpsSweeping, tpsBusy, sweepTpsEnabledModels, probeError, sweepSummary, toggleModel, busyLevels, activeImageIds, toggleImage, offBlocked, activeOffIds, toggleOff, activeContextBudgets, setContextBudget, probing, probeModels, tpsProbing, measureTpsFor, activeDefaultEfforts, setDefaultThinkingEffort, probes, tpsResults, tpsMeasuredAt, saveError, discardModels, saveModels, loading, statusRetries, open, setCardOpen, cardOpen , pollIntervalValue, changePollInterval, pollIntervalBusy } = useWorkBuddyCardState(props)
 
   const [cnBaseDraft, setCnBaseDraft] = useState<string | undefined>(undefined)
   const [cnBaseSaving, setCnBaseSaving] = useState(false)
@@ -427,6 +428,35 @@ function WorkBuddyCardBody(props: WorkBuddyCardProps) {
    * tool uses whichever region is BOTH enabled and switched on (CN first), so
    * ticking it here only ever authorizes spending on THIS tab.
    */
+  const pollIntervalPreference = (
+    <div className="dsm-workbuddy-prefs">
+      <span className="dsm-workbuddy-pref-hint">{t('row.pollIntervalLead')}</span>
+      <label className="dsm-workbuddy-pref dsm-workbuddy-upstream-pref" title={t('row.pollIntervalHint')}>
+        <span className="dsm-workbuddy-pref-copy">
+          <span className="dsm-workbuddy-pref-label">{t('row.pollIntervalLabel')}</span>
+          <span className="dsm-workbuddy-pref-hint">{t('row.pollIntervalHint')}</span>
+          <select
+            className="dsm-workbuddy-credit-position"
+            value={String(pollIntervalValue())}
+            disabled={!canWrite || saving || poolBusy || pollIntervalBusy}
+            aria-label={t('row.pollIntervalAria')}
+            onChange={(event: { currentTarget: { value: string } }) => {
+              const next = Number(event.currentTarget.value)
+              if (!WORKBUDDY_POLL_INTERVALS_MS.includes(next)) return
+              void changePollInterval(next)
+            }}
+          >
+            <option value={String(60_000)}>{t('row.pollInterval1m')}</option>
+            <option value={String(5 * 60_000)}>{t('row.pollInterval5m')}</option>
+            <option value={String(10 * 60_000)}>{t('row.pollInterval10m')}</option>
+            <option value={String(30 * 60_000)}>{t('row.pollInterval30m')}</option>
+            <option value={String(60 * 60_000)}>{t('row.pollInterval60m')}</option>
+          </select>
+        </span>
+      </label>
+    </div>
+  )
+
   const { cliBridgePreference, cliBridgePickers, imageToolPreference, videoToolPreference, videoModelPreference, mediaModelsPreference, upstreamSwitches, channelRejectContinuePreference, sidebarPanelPreference, dropAllThinkingPreference } = createCapabilityPreferences({ t, activeRegionOn, imageToolOn, activeRegion, togglingCredits, canWrite, saving, poolBusy, toggleImageTool, videoToolOn, toggleVideoTool, mediaByRegion, preferredVideoModelOf, pinningVideoModel, pinVideoModel, mediaBusy, setMediaBusy, loadMediaModels, mounted, mediaError, cliBridgeSwitchedOn, cliBridgeBusy, toggleCliBridge, sidebarPanelSwitchedOn, sidebarPanelBusy, toggleSidebarPanel, cliBridgeModelValue, visibleModels, cliBridgeEffortValue, cliBridgeRegionOrderValue, cliBridgeModelBusy, cliBridgeEffortBusy, cliBridgeRegionOrderBusy, pickCliBridgeModel, pickCliBridgeEffort, pickCliBridgeRegionOrder, usageIdentityValue, usageIdentityBusy, setUsageIdentityOn, keepPromptLastValue, keepPromptLastBusy, setKeepPromptLastOn, sessionTitleValue, sessionTitleBusy, setSessionTitleOn, toggleUpstreamSwitch, extraInjectedPrefixes, channelRejectContinueValue, channelRejectContinueBusy, dropAllThinkingValue, dropAllThinkingBusy })
   const creditPreferences = (
     <div className="dsm-workbuddy-prefs">
@@ -1255,6 +1285,7 @@ function WorkBuddyCardBody(props: WorkBuddyCardProps) {
                 {cnBasePreference}
                 {creditPreferences}
                 {sidebarPanelPreference}
+                {pollIntervalPreference}
 
                 {upstreamSwitches}
                 {channelRejectContinuePreference}

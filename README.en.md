@@ -1,3 +1,5 @@
+> 2026-11-09: configurable refresh intervals and single/keyed model-label compatibility. See [integration scope and checks](docs/UPSTREAM-INTEGRATION-2026-11-09.md).
+
 <p align="center">
   <img src="docs/assets/dsh-connect-workbuddy-usage-card.png" width="875" alt="Actual DSH model settings: catalog, multipliers, reasoning effort and context budgets" />
 </p>

@@ -1,3 +1,5 @@
+> 2026-11-09：新增五档自动刷新设置，并适配模型标签插槽；修复与验证范围见[上游合入记录](docs/UPSTREAM-INTEGRATION-2026-11-09.md)。
+
 # dsh-connect-workbuddy
 
 在 DeepSeek Harness 中使用 WorkBuddy 国内版和国际版模型，管理账号、模型、积分和每日签到。
