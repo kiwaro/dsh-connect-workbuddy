@@ -145,13 +145,15 @@ Balance readings remain valid for ranking for 10 minutes. Chat reuses these read
 | --- | --- |
 | Usable | Immediately eligible |
 | Rate limited | Upstream reset time, or after 30 minutes when absent |
-| Credits exhausted | After the recorded credit-package refresh time |
+| Credits exhausted | After a later positive balance confirms replenishment; the package refresh is not a recovery countdown |
 | Connection or server failure | After 30 minutes |
 | Credential rejected | After credentials are updated and a manual test succeeds |
 | Model removed | After selecting another test model and a manual test succeeds |
 | Account restricted | After upstream resolves the restriction and a manual test succeeds |
 
 These are local eligibility rules, not guarantees of upstream recovery. Account ids are hashes of uin or uid, so signing in again retains the same stored restriction. A successful manual test restores eligibility. When a locked reserve remains and no preceding candidate is usable, the request stops. Other empty-candidate cases retain the saved-account fallback. A selection error stops the request rather than bypassing the reserve rule.
+
+Credit recovery does not require an open card. Manual and automatic check-in immediately refresh balances and selection. Before a chat request, the plugin also checks depleted members, at most once per minute per region, sharing concurrent queries. Zero, invalid and failed readings keep the recorded failure. A zero balance alone does not exclude free-model accounts. The model result shows replenishment guidance instead of a monthly countdown. Removing the latest failure leaves the row untested; ordinary chat success does not write a probe. While the composer panel is open it owns usage polling; closing it restores the readout timer.
 
 <a id="saving-model-settings-and-pool-settings"></a>
 

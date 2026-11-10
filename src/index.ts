@@ -543,7 +543,10 @@ export function apply(ctx: Context, config: Config): void {
       // renders "could not produce a useful summary", so this is the only route
       // the observation takes to a surface the user can see.
       reportRefusal: report => { recordRefusal(report) },
-      prepareAccount: () => applyPoolSelection(region),
+      prepareAccount: async () => {
+        await refreshDepletedPoolCredits(region)
+        return applyPoolSelection(region)
+      },
       failoverAccount: triedAccountIds => failoverAccountFor(region, triedAccountIds),
       // Asked only after a request has ALREADY failed and the pool found nowhere
       // to go, so the reply can say why instead of only that it tried. It runs at
@@ -1714,11 +1717,9 @@ export function apply(ctx: Context, config: Config): void {
    * without fetching one.
    *
    * Balances contribute after eligibility, expiry and manual order, and need upstream reads per
-   * member. A chat request must never pay that: it happens on the hot path, and
-   * `fetchCredits` per member would turn one page of conversation into N extra
-   * requests. So the request path uses whatever the pool last read (the card's
-   * 60-second poll, a batch test, or a save) and simply skips the key when the
-   * snapshot is too old to speak for today's balances.
+   * member. Normal ranking reuses the last UI/check-in snapshot and omits stale
+   * balances. A separate rate-limited recovery query reads depleted members
+   * only and updates their known balances without extending snapshot freshness.
    */
   const creditsSnapshot: Partial<Record<WorkBuddyRegion, ReadonlyMap<string, WorkBuddyPoolCredits>>> = {}
   /** How long a credits reading may steer routing. */
@@ -1732,9 +1733,9 @@ export function apply(ctx: Context, config: Config): void {
    * the probe store, plus the credits snapshot when it is fresh.
    *
    * The request path calls this on every chat completion, so it must not touch
-   * the network. `poolMembersOf` is the honest-but-expensive version (it fetches
-   * credits per member) and stays on the card's route, which is where those
-   * readings come from in the first place.
+   * the network. UI and check-in paths use `poolMembersOf`; before a request,
+   * `refreshDepletedPoolCredits` separately checks recorded credit failures at
+   * most once per minute, even with no card open.
    */
   async function localPoolMembers(region: WorkBuddyRegion): Promise<WorkBuddyPoolMember[]> {
     const accounts = await poolMemberAccounts(region)
@@ -1757,6 +1758,56 @@ export function apply(ctx: Context, config: Config): void {
   }
 
   /**
+   * Recover credit failures without requiring an open card. Only depleted pool
+   * members incur a balance read, never a model request. Concurrent requests
+   * share the read; zero/failed readings are retried after a minute. Time merely
+   * schedules evidence collection and never clears a failure by itself.
+   */
+  const depletedRefreshAt: Partial<Record<WorkBuddyRegion, number>> = {}
+  const depletedRefreshInFlight: Partial<Record<WorkBuddyRegion, Promise<void>>> = {}
+  async function refreshDepletedPoolCredits(region: WorkBuddyRegion): Promise<void> {
+    if (!poolPreferencesOf(current(), region).enabled) return
+    const pending = depletedRefreshInFlight[region]
+    if (pending !== undefined) return pending
+    if (Date.now() < (depletedRefreshAt[region] ?? 0)) return
+    const refresh = async (): Promise<void> => {
+      const members = (await localPoolMembers(region)).filter(member => member.probe?.outcome === 'out-of-credit')
+      if (members.length === 0) return
+      // Set before awaiting upstream so a failed query cannot create a hot loop.
+      depletedRefreshAt[region] = Date.now() + 60_000
+      const readings = await Promise.all(members.map(async member => {
+        const credential = await stacks[region].store.credentialFor(member.account.id).catch(() => undefined)
+        if (credential === undefined) return undefined
+        const startedAtMs = Date.now()
+        const credits = await client.fetchCredits(credential).catch(() => undefined)
+        return credits === undefined ? undefined : { accountId: member.account.id, startedAtMs, total: credits.total }
+      }))
+      const validReadings = readings.filter(reading => reading !== undefined)
+      await reconcilePoolCredits(region, validReadings)
+      // 备用规则也读取余额。只更新已有快照中的这些余额，不延长其他成员的
+      // 快照有效期，避免旧的零余额让已恢复账号继续解锁备用。
+      const snapshot = creditsSnapshot[region]
+      if (snapshot !== undefined) {
+        const updated = new Map(snapshot)
+        for (const reading of validReadings) {
+          const previous = updated.get(reading.accountId)
+          if (previous !== undefined && Number.isFinite(reading.total) && reading.total >= 0) {
+            updated.set(reading.accountId, { ...previous, total: reading.total })
+          }
+        }
+        creditsSnapshot[region] = updated
+      }
+    }
+    const task = refresh()
+    depletedRefreshInFlight[region] = task
+    try {
+      await task
+    } finally {
+      delete depletedRefreshInFlight[region]
+    }
+  }
+
+  /**
    * Record a failure a LIVE request hit, so the NEXT request starts from a
    * usable account.
    *
@@ -1773,8 +1824,8 @@ export function apply(ctx: Context, config: Config): void {
    * sideline a good account over a bad body.
    *
    * The reset time comes from the upstream's own words — the 429 body carries
-   * 「将在 … 重置」 — which `cooldownOf` parses. When it states no time, the store's
-   * own short window applies rather than a guess at a long one.
+   * 「将在 … 重置」 — which `cooldownOf` parses. Transient failures use the short
+   * local window when no time is stated; credit exhaustion requires evidence.
    *
    * 月度刷新时间仅作为上游积分包的记录保留，不能代表最早恢复时间：签到或充值
    * 也可能补充积分。积分耗尽状态不再按此时间自动解除；poolMembersOf 会在后续

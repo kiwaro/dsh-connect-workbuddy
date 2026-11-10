@@ -347,10 +347,12 @@ export function parseUpstreamResetAt(message: string): number | undefined {
 }
 
 /**
- * Resolve the next permitted retry time. Successful probes have no cooldown.
+ * Resolve upstream reset metadata. Successful probes have no cooldown.
  *
  * Failed probes use Retry-After first, then a reset time parsed from the body.
- * Out-of-credit results may fall back to the region's quota refresh time.
+ * Out-of-credit results may retain the region's quota refresh time as metadata,
+ * never as a minimum wait or recovery evidence: check-in or purchases may
+ * replenish credits sooner. Credit-exhaustion views show replenishment actions.
  * For model-busy results without either upstream time, the plugin applies
  * MODEL_BUSY_COOLDOWN_MS as a local waiting period. It is longer than the
  * upstream's approximate one-minute suggestion and does not promise recovery.

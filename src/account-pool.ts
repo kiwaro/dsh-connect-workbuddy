@@ -94,10 +94,12 @@ export interface WorkBuddyPoolProbe {
    */
   source?: WorkBuddyPoolProbeSource
   /**
-   * When this account may be usable again, when the upstream stated a time.
+   * The upstream's reset timestamp, interpreted according to the outcome.
    *
    * Present for a `rate-limited` outcome whose failure body carried a reset
    * sentence, and for an `out-of-credit` outcome with a known quota refresh.
+   * For credit exhaustion this is package metadata, not a minimum wait or
+   * proof of replenishment; later positive balance evidence clears the failure.
    * ABSENT when the upstream named no time — that absence is meaningful and
    * must never be turned into a locally invented countdown.
    */
@@ -375,8 +377,8 @@ export function exclusionOf(
  * Whether an account's cooldown has elapsed (or was never stated).
  *
  * Transient failures without a stated retry time use the local short waiting
- * period. Credit exhaustion does not call this helper: only a later balance
- * reading or a successful model request can establish that credits are usable.
+ * period. Credit exhaustion requires later positive balance evidence or an
+ * explicit successful pool test; ordinary chat success does not update probes.
  *
  * `fallbackMs` lets one outcome carry a SHORTER clock than the generic one: the
  * model-scoped throttle is upstream's own "about a minute", and applying the
@@ -419,8 +421,8 @@ function retryDue(
   const reserveAllowed = ordered.slice(0, -1).every(member =>
     member.credits?.total === 0 || ['rate-limited', 'out-of-credit'].includes(exclusionOf(member.probe, nowMs) ?? ''))
   const rows = members.map(member => {
-    const excludedBy = member.credits?.total === 0 ? 'out-of-credit'
-      : member.account.id === reserveId && !reserveAllowed ? 'reserved'
+    // 零余额仍可能使用免费模型；备用资格另按全池规则计算。
+    const excludedBy = member.account.id === reserveId && !reserveAllowed ? 'reserved'
       : exclusionOf(member.probe, nowMs)
     return {
       account: member.account,

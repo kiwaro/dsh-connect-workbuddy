@@ -523,6 +523,7 @@ export function installPluginStatusRoutes(webCtx: Parameters<typeof registerWork
         const accounts = await store.accounts()
         const now = Date.now()
         const entries = await Promise.all(accounts.map(async account => {
+          // 企业账号不支持签到，不发送该查询。
           if (account.enterprise === true) return undefined
           // Serve from the cache while it is fresh. The card uses its configured interval. Cached readings are also day-bounded.
           // Previously it polled every 60
@@ -537,6 +538,7 @@ export function installPluginStatusRoutes(webCtx: Parameters<typeof registerWork
           const credential = await store.credentialFor(account.id).catch(() => undefined)
           if (credential === undefined) return undefined
           const status = await dependencies.client.fetchCheckinStatus(credential).catch(() => undefined)
+          // 个人账号也可能没有有效签到活动。
           if (status === undefined || !status.active) return undefined
           dependencies.checkinStateCache[region] = {
             ...dependencies.checkinStateCache[region],

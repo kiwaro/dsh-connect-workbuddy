@@ -19,6 +19,7 @@ import * as WorkBuddy from '../src/index.ts'
 import { WORKBUDDY_POOL_PATH, WORKBUDDY_USAGE_PATH } from '../src/status-paths.ts'
 import { WorkBuddyUpstreamClient } from '../src/upstream.ts'
 import { readPoolProbes, writePoolProbes } from '../src/account-pool-store.ts'
+import * as Shim from '../src/shim.ts'
 
 /** Mounted context; disposed after each test. */
 let context: Context | undefined
@@ -213,6 +214,126 @@ afterEach(async () => {
 })
 
 describe('the mounted plugin: promises the UI makes', () => {
+  describe('request-side credit recovery', () => {
+    let previousDshHome: string | undefined
+    beforeEach(async () => {
+      previousDshHome = process.env['DSH_HOME']
+      process.env['DSH_HOME'] = await mkdtemp(join(tmpdir(), 'wb-request-recovery-'))
+    })
+    afterEach(async () => {
+      await context?.fiber.dispose()
+      context = undefined
+      if (previousDshHome === undefined) delete process.env['DSH_HOME']
+      else process.env['DSH_HOME'] = previousDshHome
+    })
+
+    it('locks the reserve again after request-side replenishment replaces a cached zero balance', async () => {
+      const authFile = await writeAuthFixture(root)
+      await writeSecondAuthFixture(root)
+      const ids = await discoverAccountIds(authFile)
+      const accountId = ids[0] as string
+      const shim = vi.spyOn(Shim, 'createWorkBuddyShim')
+      let replenished = false
+      const credits = vi.spyOn(WorkBuddyUpstreamClient.prototype, 'fetchCredits')
+        .mockImplementation(async credential => credential.uin === '100000000001'
+          ? { total: replenished ? 100 : 0, expiringSoon: 0, packages: [] }
+          : { total: 10000, expiringSoon: 10000, packages: [] })
+      const realFetch = globalThis.fetch
+      globalThis.fetch = (async () => new Response(JSON.stringify({ code: 0, data: {} }))) as typeof fetch
+      try {
+        await mount({ authFile, regions: { cn: { enabled: true, pool: {
+          enabled: true, memberAccountIds: ids, orderAccountIds: ids,
+        } } } })
+        await call(WORKBUDDY_USAGE_PATH, { url: `${WORKBUDDY_USAGE_PATH}?region=cn` })
+        await writePoolProbes('cn', { [accountId]: { outcome: 'out-of-credit', atMs: Date.now() - 1000 } })
+        replenished = true
+        const options = shim.mock.calls[0]?.[0]
+        expect(options).toBeDefined()
+        await options?.prepareAccount?.()
+        expect((await readPoolProbes('cn'))[accountId]).toBeUndefined()
+        // 前序余额恢复后，旧的零余额不能继续解锁临期积分更多的备用账号。
+        expect((await options?.store.current())?.uin).toBe('100000000001')
+      } finally {
+        globalThis.fetch = realFetch
+        credits.mockRestore()
+        shim.mockRestore()
+      }
+    })
+
+    it('reconciles depleted members before a request without opening a status card, sharing concurrent reads', async () => {
+      const authFile = await writeAuthFixture(root)
+      await writeSecondAuthFixture(root)
+      const ids = await discoverAccountIds(authFile)
+      const accountId = ids[0] as string
+      const otherId = ids[1] as string
+      const shim = vi.spyOn(Shim, 'createWorkBuddyShim')
+      let release: (() => void) | undefined
+      const credits = vi.spyOn(WorkBuddyUpstreamClient.prototype, 'fetchCredits').mockImplementation(async () => {
+        await new Promise<void>(resolve => { release = resolve })
+        return { total: 100, expiringSoon: 0, packages: [] }
+      })
+      const chat = vi.spyOn(WorkBuddyUpstreamClient.prototype, 'chatStream')
+      try {
+        await mount({ authFile, regions: { cn: { enabled: true, pool: { enabled: true, memberAccountIds: ids } } } })
+        await writePoolProbes('cn', {
+          [accountId]: { outcome: 'out-of-credit', atMs: Date.now() - 1000 },
+          [otherId]: { outcome: 'rate-limited', atMs: Date.now(), retryAtMs: Date.now() + 60_000 },
+        })
+        const prepare = shim.mock.calls[0]?.[0].prepareAccount
+        expect(prepare).toBeTypeOf('function')
+        const requests = Promise.all([prepare?.(), prepare?.()])
+        await waitFor(async () => release !== undefined, 'the request balance query')
+        expect(credits).toHaveBeenCalledTimes(1)
+        release?.()
+        await requests
+        const probes = await readPoolProbes('cn')
+        expect(probes[accountId]).toBeUndefined()
+        expect(probes[otherId]?.outcome).toBe('rate-limited')
+        expect(chat).not.toHaveBeenCalled()
+      } finally {
+        release?.()
+        shim.mockRestore()
+        credits.mockRestore()
+        chat.mockRestore()
+      }
+    })
+
+    it('retains depleted state after zero or failed reads and retries only after the request check interval', async () => {
+      const authFile = await writeAuthFixture(root)
+      const accountId = await discoverAccountId(authFile)
+      const shim = vi.spyOn(Shim, 'createWorkBuddyShim')
+      const credits = vi.spyOn(WorkBuddyUpstreamClient.prototype, 'fetchCredits')
+        .mockResolvedValueOnce({ total: 0, expiringSoon: 0, packages: [] })
+        .mockRejectedValueOnce(new Error('fixture query failure'))
+        .mockResolvedValue({ total: 100, expiringSoon: 0, packages: [] })
+      const start = Date.now()
+      const clock = vi.spyOn(Date, 'now').mockReturnValue(start)
+      try {
+        await mount({ authFile, regions: { cn: { enabled: true, pool: { enabled: true, memberAccountIds: [accountId] } } } })
+        await writePoolProbes('cn', { [accountId]: { outcome: 'out-of-credit', atMs: start - 1000 } })
+        const prepare = shim.mock.calls[0]?.[0].prepareAccount
+        expect(prepare).toBeTypeOf('function')
+        await prepare?.()
+        expect((await readPoolProbes('cn'))[accountId]?.outcome).toBe('out-of-credit')
+        await prepare?.()
+        expect(credits).toHaveBeenCalledTimes(1)
+        clock.mockReturnValue(start + 60_000)
+        await prepare?.()
+        expect((await readPoolProbes('cn'))[accountId]?.outcome).toBe('out-of-credit')
+        expect(credits).toHaveBeenCalledTimes(2)
+        clock.mockReturnValue(start + 120_000)
+        await prepare?.()
+        expect((await readPoolProbes('cn'))[accountId]).toBeUndefined()
+        expect(credits).toHaveBeenCalledTimes(3)
+      } finally {
+        clock.mockRestore()
+        credits.mockRestore()
+        shim.mockRestore()
+      }
+    })
+
+  })
+
   it('releases a depleted account only after a later pool balance query confirms credits', async () => {
     const authFile = await writeAuthFixture(root)
     const accountId = await discoverAccountId(authFile)

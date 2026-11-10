@@ -306,6 +306,8 @@ export async function writePoolProbes(
  * 只有失败记录写入之后发起的余额查询，才能解除积分耗尽状态。
  * 持锁重读可避免较早的查询结果覆盖并发请求刚记录的新失败；其他异常保持原样。
  * 删除失败记录只表示余额恢复，不会伪造一次成功的模型测试。
+ * 恢复后界面显示“未测试”：存储仅保留最近记录，没有此前成功测试的历史，
+ * 余额到账不能证明某个模型可用，再次测试才会产生新的结论。
  */
 export async function reconcilePoolCredits(
   region: WorkBuddyRegion,

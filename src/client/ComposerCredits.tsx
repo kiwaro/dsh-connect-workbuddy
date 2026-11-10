@@ -482,7 +482,8 @@ export function ComposerCredits(props: ComposerCreditsProps) {
   // back on, the scope subscription (or a remount) brings us back.
   const hostHidden = hostCreditsShownOf(usage) === false
   useEffect(() => {
-    if (owned === undefined || hostHidden) return undefined
+    // 面板打开时由面板统一轮询 usage，关闭后恢复读数的定时器。
+    if (owned === undefined || hostHidden || open) return undefined
     let cancelled = false
     let timer: number | undefined
     const controller = new AbortController()
@@ -495,7 +496,7 @@ export function ComposerCredits(props: ComposerCreditsProps) {
       if (timer !== undefined) window.clearInterval(timer)
       controller.abort()
     }
-  }, [owned, hostHidden, fetchUsage])
+  }, [owned, hostHidden, open, fetchUsage])
 
   /**
    * Per-account figures are read on OPEN, then kept fresh while the panel stays

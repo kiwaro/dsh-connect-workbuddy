@@ -138,6 +138,35 @@ function rowOf(name: string): Element | undefined {
 }
 
 describe('the panel keeps its account rows current while it is open', () => {
+  it('uses one usage polling timer while open and restores readout polling on close', async () => {
+    fakeIntervals()
+    const calls = stubFetch(url => ({ body: url.includes('account-credits')
+      ? { accounts: [{ id: 'a-1', accountName: 'A One', selected: true, credits: 100 }] }
+      : { ...usageOf(100), pollIntervalMs: 300_000 },
+    }))
+    const m = await mount(ComposerCredits as any, { t, provider: 'workbuddy', settingsScope: scopeOf({ accounts: {} }) })
+    await m.settle()
+    vi.advanceTimersByTime(1000)
+    await m.click(m.buttons()[0] as Element)
+    await m.settle()
+    const usageCalls = () => calls.filter(call => call.url.includes('/usage')).length
+    const opened = usageCalls()
+    // Offset the two possible timers and settle between their ticks so an
+    // in-flight guard cannot hide a duplicate timer behind the same request.
+    vi.advanceTimersByTime(299_000)
+    await m.settle()
+    expect(usageCalls()).toBe(opened)
+    vi.advanceTimersByTime(1000)
+    await m.settle()
+    expect(usageCalls() - opened).toBe(1)
+    await m.click(m.buttons()[0] as Element)
+    await m.settle()
+    const closed = usageCalls()
+    vi.advanceTimersByTime(300_000)
+    await m.settle()
+    expect(usageCalls() - closed).toBe(1)
+  })
+
   it('updates pool state alongside credits after automatic check-in without a model test', async () => {
     fakeIntervals()
     let replenished = false
