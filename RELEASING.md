@@ -22,7 +22,7 @@ pnpm run check
 npm pack --dry-run
 ```
 
-`check` 按脚本顺序完成类型检查、测试和构建。
+`check` 按当前脚本依次完成 typecheck、build、check:pii 和 test。构建产物亦纳入隐私扫描；具体顺序以 `package.json.scripts.check` 为准。
 
 打包预览显示将要发布的文件，用于核对包入口及资源是否齐备。发布清单以 `package.json.files` 为准。
 
@@ -50,6 +50,22 @@ grep -F "dsh-codex-connect" README.md README.en.md
 
 修改范围时，先核对对应 DSH 版本和接口，再运行兼容性测试，并更新 README 的“支持的 DSH 版本”与变更说明。测试见 `tests/dsh-line.spec.ts`。
 
+### 2.4 文档与实现
+
+核对双语 README、CHANGELOG、接口说明和源码使用同一套参数、默认值及失败条件。技术标识应保留原形，历史实验应注明日期；压缩正文时不能删除请求头、响应字段或实验对照。
+
+### 2.5 本地安装与发布目标
+
+本地开发和部署使用 `main`；PR 分支只用于向上游提交建议。核对 `git remote -v` 与 `package.json.name`，确认 fork、上游包和本地实体安装副本各自的用途。
+
+### 2.6 发布文件核对
+
+逐项核对 `npm pack --dry-run` 与 `package.json.files`。包内入口、语言资源、图标、README 引用的图片及第三方声明必须齐备；临时诊断文件和凭据不得进入发布包。构建文件使用字节或行为核对，不能仅凭压缩包整体哈希判断内容是否一致。
+
+### 2.7 隐私核对
+
+按 [PRIVACY.md](docs/PRIVACY.md) 执行 `node scripts/check-pii.mjs`，退出码必须为 0。检查范围包括源码、注释、文档、构建产物和发布文件；新增或修改图片时，必须打开最终成品复核全部敏感区域，文本扫描不能代替像素检查。发现历史泄露时，按隐私文档处理修正版，不能仅删除工作区中的明文后认定公开副本也已消失。
+
 ## 3. 更新版本与变更记录
 
 将 `package.json.version` 更新为目标版本 `X.Y.Z`。在 CHANGELOG 顶部添加 `## X.Y.Z (YYYY-MM-DD)`，说明功能、修复及文档变化。
@@ -76,7 +92,7 @@ npm publish
 
 根据 npm 提示完成浏览器授权。链接失效时，重新执行命令生成授权会话，再完成确认。
 
-npm 可能使用暂存发布。返回 `202 Accepted` 表示发布请求已受理，维护者还需在 npm 网站的 Staged Packages 中审核并批准。相关版本是否已经公开，使用第 5 节的 registry 查询确定。
+npm 可能使用暂存发布。返回 `202 Accepted` 表示发布请求已受理；若日志明确说明 staged，则在 npm 网站的 Staged Packages 中审核并批准。单凭 202 不能区分暂存审批与普通异步处理。相关版本是否已经公开，使用第 5 节的 registry 查询确定。
 
 历史环境记录中，npm 11.15.0 及以上提供 `npm stage list` 和 `npm stage approve <stage-id>`；使用前应检查所装 npm 的命令帮助及账号权限。
 
@@ -127,7 +143,7 @@ gh release list
 | 授权链接返回 404 | 重新生成授权会话，再完成确认 |
 | `Cannot publish over previously staged version` | 检查 npm 的暂存包，处理该版本的审核状态 |
 | `previously published versions` | 查询 registry，核对版本和构建校验值 |
-| 返回 202 后版本仍未公开 | 检查暂存发布审批状态 |
+| 返回 202 后版本仍未公开 | 检查原日志中的 processing / staged 状态，再核对审批与 registry |
 | `npm view` 返回旧版本 | 使用在线查询及直接 registry 读取排除缓存影响 |
 | `npm whoami` 返回 E401 | 更新 npm 登录凭据 |
 | `gh release create` 提示 tag 缺失 | 核对 tag 指向并推送该 tag |

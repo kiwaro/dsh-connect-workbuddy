@@ -1,5 +1,7 @@
 # 文档语言检查记录
 
+> 2026-11-10 完整性复核：本记录中的措辞扫描和段落检查不能证明文档保留了上游的全部技术信息。后续对照已发现技术名称被泛化、研究记录被压缩及事实错误，详见[上游文档完整性对照记录](UPSTREAM-DOCUMENT-AUDIT-2026-11-10.md)。原有检查结果仅按本记录注明的范围解释，已按对照记录第 7 节修复确认的问题，修复范围与验证分别记录；本记录不构成全部文档逐句完整性验收。
+
 ## 1. 检查范围与方法
 
 检查日期：2026-11-09。基线为本仓库 `main` 分支。
@@ -93,3 +95,97 @@
 | [docs/pool-header-redesign.html](pool-header-redesign.html) | 自动扫描＋命中段落复核修订 | 保留原有技术结论，修订命中表达 |
 | [docs/reasoning-investigation.md](reasoning-investigation.md) | 自动扫描未发现需修改项 | 保留原文；不计入全文人工通读 |
 | [native/turing-sdk/README.md](../native/turing-sdk/README.md) | 自动扫描未发现需修改项 | 保留原文；不计入全文人工通读 |
+
+## 5. 第二轮：句段完整性修订
+
+本轮根据用户反馈，按句段补全执行主体、动作、处理对象、适用条件和结果，并补充相邻句的顺序、因果及指代关系。上一轮的词语替换和检查结果不能替代本轮句法复核。
+
+本轮对 67 份已跟踪 Markdown 与 HTML 文档执行了候选表达和编码扫描。扫描只用于定位复核范围，不构成语法质量通过结论。实际人工通读或部分复核范围逐文件列于下表；未通读的历史资料没有重新验证其技术结论。
+
+本轮修订了 13 份既有文档，另更新本检查记录。标题、表头、参数值、原始报文和引文允许保留短语或原文，不机械补句。
+
+### 5.1 源码依据与修订边界
+
+渠道校验说明对照 `src/upstream.ts` 中的 `CHANNEL_GATE_PHRASES`、`rewriteChannelFingerprintPhrases`、`rewriteChannelFingerprintPhrasesInBody` 及 `prepareChatBody` 调用核对。说明明确了处理对象是已知固定提示句，并保留 5.13.1、5.14.0 的历史版本信息。其他段落补全既有说明中的主体及逻辑关系，不改变账号排序、接口、计费或权限规则。
+
+同时修正 README 历史安装示例中正文版本号与命令不一致的问题，并将模块拆分记录中不存在的文档链接指向本检查记录。
+
+### 5.2 验证与部署
+
+- 修改前后的既有代码围栏、外部 URL 和显式 HTML 锚点对比通过。
+- `git diff --check` 通过。
+- `node scripts/check-pii.mjs` 通过，扫描 452 个文件；既有图标的 eXIf 备注不含可读身份文本。
+- 本轮只修改文档，未修改源码、费用数据、协议参数或图片；未重新执行类型检查、全量功能测试及真实账号扣费实验。
+- 已将 3 份变更的随包文档同步到 local-plugins 与 desktop/node_modules 两处实体安装副本，共 6 个文件的 SHA256 与工作区一致。同步前已将原文件备份到 `$DSH_HOME/backups/document-sentences-20261109-162852`。本轮仅更新文档，无需重启 DSH。
+
+### 5.3 本轮逐文件状态
+
+| 文件 | 实际检查状态与结果 |
+| --- | --- |
+| `AGENTS.md` | 全文通读；补充完整句及段落衔接要求 |
+| `CHANGELOG.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `CONTRIBUTING.md` | 全文通读；将检查项改为明确的维护者动作 |
+| `README.en.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `README.md` | 全文分段通读；修订安装、账号池、模型、媒体、排障与开发说明 |
+| `RELEASING.md` | 部分段落复核；未修改 |
+| `THIRD_PARTY_NOTICES.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `awesome-dsh-plugin-submission/README.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `docs/ACCOUNT_POOL_PLAN.md` | 全文通读；补全成员、测试及验证主体 |
+| `docs/CACHE-HIT-70-RESEARCH.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `docs/CACHE_EVIDENCE.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `docs/CHANNEL-FINGERPRINT-RESEARCH.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `docs/CN_GATEWAY_FALLBACK.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `docs/CREDIT-JOURNAL.md` | 全文通读；补全日志写入和验证主体，标明历史集成版本 |
+| `docs/DESIGN.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `docs/DOCUMENT-LANGUAGE-REVIEW-2026-11-09.md` | 编写并复核本轮范围和检查记录；原有逐文件表保留为上一轮记录 |
+| `docs/DSH-0.2.1-RC1-FOLLOWUP.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `docs/DSH-0.2.1-RC3-FOLLOWUP.md` | 候选命中段落及相邻上下文复核；补全主体、动作和对象，未全文改写 |
+| `docs/DSH-0.2.1-RC5-FOLLOWUP.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `docs/DSH-0.2.2-RC1-FOLLOWUP.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `docs/DSML-LEAK-RESEARCH.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `docs/DSML-RECOVERY-PLAN.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `docs/DSML-RECOVERY-WINDOWS-VERIFY.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `docs/IMAGE_GEN.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `docs/ISSUE-184-REPLY.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `docs/ISSUE-189-REPLY.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `docs/ISSUE-213-REPLY.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `docs/ISSUE-214-REPLY.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `docs/ISSUE-25-26-WINDOWS-VERIFY.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `docs/MAC-VERIFY-PR188-REPORT.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `docs/MAC-VERIFY-PR188.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `docs/MODEL-LABEL-SPEC.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `docs/MODULE-SPLIT-PLAN.md` | 全文通读；补全重构目标、完成条件和执行记录 |
+| `docs/PINNED-11128-RETRY.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `docs/PINNED-CURRENT-VERSION.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `docs/PINNED-UPGRADE-LAG.md` | 部分段落复核；区分历史版本与当前来源，补充实体副本同步步骤 |
+| `docs/PLUGIN-DETAIL-GUIDE.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `docs/PRIVACY.md` | 部分段落复核；未修改 |
+| `docs/PROMO_BADGE.md` | 候选命中段落及相邻上下文复核；补全主体、动作和对象，未全文改写 |
+| `docs/README-REVIEW.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `docs/RELEASE_EXPERIENCE.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `docs/TEST-WINDOWS-3.4.3.md` | 候选命中段落及相邻上下文复核；补全主体、动作和对象，未全文改写 |
+| `docs/UPSTREAM-0.7.0-REVIEW.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `docs/UPSTREAM-INTEGRATION-2026-11-08.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `docs/UPSTREAM-INTEGRATION-2026-11-09.md` | 全文通读；补全插槽、刷新、签到缓存、导入和部署操作的主体 |
+| `docs/VIDEO_GEN.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `docs/WB400-FIX-PLUGIN-RESEARCH.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `docs/WINDOWS.md` | 候选命中段落及相邻上下文复核；补全主体、动作和对象，未全文改写 |
+| `docs/assets/account-pool-demo.html` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `docs/assets/quota-notice-inline-mock.html` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `docs/audit/A-account-pool.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `docs/audit/B-contract.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `docs/audit/C-interaction.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `docs/audit/D-verification.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `docs/audit/E-fix-log.md` | 候选命中段落及相邻上下文复核；补全主体、动作和对象，未全文改写 |
+| `docs/audit/F-fix-verification.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `docs/audit/G-round2-verification.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `docs/audit/H-round3-verification.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `docs/audit/I-round4-verification.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `docs/audit/ISSUE59-BILLING.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `docs/audit/ISSUE59-OPTIONS.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `docs/audit/ISSUE59-VERIFY.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `docs/audit/LEAD-cross-layer.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `docs/audit/MASTER.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `docs/pool-header-redesign.html` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `docs/reasoning-investigation.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |
+| `native/turing-sdk/README.md` | 仅自动扫描；未进行本轮全文人工通读或改写 |

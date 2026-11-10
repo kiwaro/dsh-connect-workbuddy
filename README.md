@@ -12,7 +12,7 @@
 
 本仓库基于上游 5.20.3 维护，修改统一保存在 main 分支。增加的响应积分记录及账号归属说明见 [积分日志](docs/CREDIT-JOURNAL.md)。npm 包由上游作者发布；安装本仓库修改版的方法见[开发](#开发)。
 
-已合入上游至 5.20.32 的有效功能，包含导入格式兼容、冷却到期复测、促销徽标和设置布局修复。能力页新增默认关闭的历史思考剥离开关，开启后下一轮请求不携带历史 thinking，模型也将失去这些历史推理内容。完整来源、取舍和验证见[合入记录](docs/UPSTREAM-INTEGRATION-2026-11-08.md)。
+本仓库已合入上游截至 5.20.32 的适用功能，包括导入格式兼容、冷却到期复测、促销徽标和设置布局修复。插件还在能力页提供了默认关闭的历史思考剥离开关。用户开启该开关后，插件会在下一轮请求中移除历史 thinking，模型因此无法读取这些历史推理内容。完整来源、取舍和验证见[合入记录](docs/UPSTREAM-INTEGRATION-2026-11-08.md)。
 
 ## 阅读导航
 
@@ -37,13 +37,13 @@ WorkBuddy 对第三方客户端请求设有限制。使用本插件可能导致�
 
 ## 1. 安装
 
-需要已登录的 WorkBuddy 账号。可复用桌面端登录，或使用插件中的浏览器登录入口。插件自 v2.1.0 起要求 DSH 0.1.7-rc.1 及以上，自 v2.1.2 起兼容上限为 `<0.3.0-0`。DSH 0.1.5 及更早版本使用插件 v2.0.15。
+用户需要先登录 WorkBuddy 账号，插件才能调用该账号的模型。插件可以读取桌面端已有的登录状态；用户也可以通过插件设置中的浏览器登录入口添加账号。
 
-国内版出现渠道校验 HTTP 400 / `11128` 时，先核对插件版本。5.13.1 增加发出请求前的已知固定句处理，5.14.0 补充 Web GUI 第二句，见 [#167](https://github.com/dingminhua/dsh-connect-workbuddy/issues/167)。
+插件自 v2.1.0 起要求 DSH 0.1.7-rc.1 及以上版本，自 v2.1.2 起将兼容上限设为 `<0.3.0-0`。使用 DSH 0.1.5 及更早版本的用户应安装插件 v2.0.15。
 
-更早版本的三级处理对同一 body 曾全部返回 400，记录见 [#164](https://github.com/dingminhua/dsh-connect-workbuddy/issues/164)。
+国内版返回渠道校验错误 HTTP 400 / `11128` 时，用户应先核对插件版本。插件从 5.13.1 起，在发送请求前改写已知会触发校验的固定提示句；5.14.0 又将 Web GUI 提示段落中的第二句纳入处理范围，详见 [#167](https://github.com/dingminhua/dsh-connect-workbuddy/issues/167)。
 
-排查当前版本的渠道校验错误时，还需检查被拒请求的消息正文。
+更早版本曾对同一请求体执行三级处理，但三次请求均返回了 HTTP 400，详见 [#164](https://github.com/dingminhua/dsh-connect-workbuddy/issues/164)。因此，排查当前版本的同类错误时，用户还应检查被拒请求的消息正文，不能仅凭插件版本判断原因。
 
 <a id="受支持的宿主范围"></a>
 
@@ -51,7 +51,7 @@ WorkBuddy 对第三方客户端请求设有限制。使用本插件可能导致�
 
 ### 1.1 受支持的 DSH 范围
 
-DSH 的 `evaluatePluginCompatibility` 位于 `packages/boot/app-boot/src/plugin-compatibility.ts`，按插件声明的 peer 范围检查依赖。组合包被记录到 `skippedBundles` 时，provider、卡片和模型将跳过注册；原因输出到 stderr。
+DSH 的 `evaluatePluginCompatibility` 位于 `packages/boot/app-boot/src/plugin-compatibility.ts`，按插件声明的 peer 范围检查依赖。依赖不符合要求时，DSH 会将组合包记入 `skippedBundles`，停止注册其 provider、设置卡片和模型，并将跳过原因写入 stderr。
 
 | DSH 版本 | 判定 |
 | --- | --- |
@@ -100,9 +100,9 @@ dsh plugin --profile dsh-tui add dsh-connect-workbuddy # TUI
 
 pnpm 的 `minimumReleaseAge` 会限制新版本安装。使用精确版本号便于发现等待期拒绝；浮动范围可能选择较早版本。以下是两个隔离目录检查的历史结果，保留供比较：
 
-两轮检查使用隔离目录及 --lockfile-only，保留用户配置。
+维护者在两轮检查中均使用了隔离目录及 `--lockfile-only` 选项，没有修改用户配置。
 
-第一轮使用 pnpm 12.3.4，对应 4.4.x 发布期间：
+维护者在插件 4.4.x 发布期间使用 pnpm 12.3.4 进行了第一轮检查，结果如下：
 
 > | 目标写法 | 解析到的版本 |
 > | --- | --- |
@@ -130,9 +130,9 @@ pnpm 的 `minimumReleaseAge` 会限制新版本安装。使用精确版本号便
 dsh: plugin command failed; diagnostics: …/operation-xxxx/pnpm.log
 ```
 
-本插件的运行依赖为 `@deepseek-ai/schemastery`，包内缺少 preinstall、install、postinstall 及原生安装模块；`native/turing-sdk/worker.cjs` 为 JavaScript。pnpm add 会重新检查整个 profile 的依赖树，错误应按 `Ignored build scripts:` 后列出的包定位。
+本插件的运行依赖为 `@deepseek-ai/schemastery`，插件包没有声明 preinstall、install、postinstall 脚本，也不包含需要安装编译的原生模块；`native/turing-sdk/worker.cjs` 是 JavaScript 文件。执行 `pnpm add` 时，pnpm 会重新检查整个 profile 的依赖树。因此，用户应根据 `Ignored build scripts:` 后列出的包定位失败原因。
 
-当其他包声明构建脚本且尚未获准时，pnpm 11 默认的 `strictDepBuilds: true` 可使整个安装失败。历史在同一 profile 中安装 dsh-better-sidebar、dsh-better-reasoning-effort 得到相同错误，空 profile 中安装本插件用时 1.5 秒。
+当其他包声明构建脚本且尚未获准时，pnpm 11 默认的 `strictDepBuilds: true` 可使整个安装失败。维护者曾在同一 profile 中安装 dsh-better-sidebar 和 dsh-better-reasoning-effort，两个安装过程均返回了相同错误；在空 profile 中安装本插件则成功完成，用时 1.5 秒。
 
 ```
 [ERR_PNPM_IGNORED_BUILDS] Ignored build scripts: dsh-purge@file:../../vendor/dsh-purge
@@ -223,9 +223,9 @@ pnpm 11 对 file 依赖要求完整标识，例如 `dsh-purge@file:vendor/dsh-pu
 
 入口通过扩展条目的 `label` 和图标生成。关闭时通过 `dispose` 注销注册，避免留下空白按钮；实现见 `src/client/panel-switch.ts`。
 
-侧边栏注册发生在 apply 阶段，关闭时执行 dispose。组件返回 null 仅表示内容为空，注册条目本身需另行注销。
+插件在 `apply` 阶段注册侧边栏入口，并在用户关闭该功能时调用 `dispose` 注销入口。组件返回 `null` 只会隐藏内容，因此插件还必须注销注册条目，才能移除按钮。
 
-首次显示状态读取用量接口的 `sidebarPanelEnabled`。部分 DSH 0.1.7 版本中的浏览器设置副本会保留较早的值，因此这里使用 DSH 返回的状态。打开整页设置时关闭入口，`ui-layout` 会清除失效的 `activePanelId`，中间栏随之返回会话。
+客户端首次显示入口时，会读取用量接口返回的 `sidebarPanelEnabled`，以确定入口是否启用。部分 DSH 0.1.7 版本中的浏览器设置副本会保留较早的值，因此这里使用 DSH 返回的状态。打开整页设置时关闭入口，`ui-layout` 会清除失效的 `activePanelId`，中间栏随之返回会话。
 
 macOS 检查记录见 [验证报告](docs/MAC-VERIFY-PR188-REPORT.md)，检查方法见[验证清单](docs/MAC-VERIFY-PR188.md)。
 
@@ -282,9 +282,9 @@ macOS 检查记录见 [验证报告](docs/MAC-VERIFY-PR188-REPORT.md)，检查�
 
 插件通过上游两个状态接口读取补偿、赠礼等福利。仅在 `active && !claimed` 时显示领取入口，已领取或过期后移除。活动状态以上游为准；`end_time` 仅用于 3 天内临期提示。
 
-读取与签到信息共用缓存流程，每账号缓存 30 分钟，账号池关闭时停止这类读取。接口失败时标记为未读取，后续可重试。
+插件通过与签到信息相同的缓存流程读取福利状态，并为每个账号缓存 30 分钟。账号池关闭后，插件停止读取这些信息；接口查询失败时，插件将相应状态标记为未读取，后续查询可以重试。
 
-“领取”按钮一次处理一个账号的一项活动，写接口要求 `accountId`。领取前重新查询状态，已领取或过期返回 409。提交后重新读取上游状态并刷新卡片，同时清除账号福利缓存；界面根据新状态显示结果。
+用户每次点击“领取”，插件只处理对应账号的一项活动，并在写接口中提交 `accountId`。提交前，插件会重新查询活动状态；如果活动已领取或已过期，接口会返回 409。提交后，插件清除该账号的福利缓存，重新读取上游状态，再根据新状态刷新卡片。
 
 <a id="积分与凭据诊断"></a>
 
@@ -294,7 +294,7 @@ macOS 检查记录见 [验证报告](docs/MAC-VERIFY-PR188-REPORT.md)，检查�
 
 插件按 macOS、Windows 和 Linux 的目录规则发现凭据，也支持环境变量和卡片指定路径。登录失败时，卡片分别列出路径不存在、读取失败、缺少可用 token、加密字段缺少解密支持及属于其他区域等原因。其他区域的可用凭据会提示切换标签页；加密支持缺失时提示安装或定位 WorkBuddy 桌面端。
 
-折叠列表提供具体路径。
+用户可以展开凭据诊断列表，查看插件检查过的具体路径及各路径的读取结果。
 
 每个区域的 loopback shim 使用随机端口和进程内随机 secret，WorkBuddy token 保留在插件中。`status`、`doctor`、`logout` 可在终端按区域检查登录、积分与 DSH 状态。
 
@@ -308,11 +308,11 @@ macOS 检查记录见 [验证报告](docs/MAC-VERIFY-PR188-REPORT.md)，检查�
 
 ### 3.5 自动换号
 
-开启账号池后，每次请求使用排序最靠前的可用成员。“当前使用”显示状态查询时选出的账号；发送请求时会重新选号。账号限流或积分耗尽时，插件按顺序尝试其他可用成员；凭据失效及连接失败也按换号条件处理，全部失败后报告错误和尝试的账号数量。
+用户开启账号池后，插件会在每次请求前选择排序最靠前的可用成员。“当前使用”显示状态查询时选出的账号；发送请求时会重新选号。账号限流或积分耗尽时，插件按顺序尝试其他可用成员；凭据失效及连接失败也按换号条件处理，全部失败后报告错误和尝试的账号数量。
 
 请求参数错误、渠道校验失败及模型繁忙按对应错误处理。响应开始传输后发生中断时，插件直接报告失败，避免将重复回答拼接到已输出的内容中。
 
-插件跳过冷却期内及凭据已被拒绝的成员；尚未测试的成员按默认可用参与。运行时选择与手动保存的账号分别记录，关闭账号池后恢复使用保存的账号。
+插件会跳过仍在冷却期内或凭据已被拒绝的成员，并允许尚未测试的成员以默认可用状态参与选择。运行时选择与手动保存的账号分别记录，关闭账号池后恢复使用保存的账号。
 
 请求失败时，插件为已勾选成员记录失败原因和上游给出的恢复时间，后续请求据此选择账号。请求本身的参数错误只报告给会话。换号原因以 warn 级别写入 DSH 日志。
 
@@ -335,7 +335,9 @@ macOS 检查记录见 [验证报告](docs/MAC-VERIFY-PR188-REPORT.md)，检查�
 
 ### 3.7 排序规则
 
-账号池有两个及以上成员时，按保存顺序将最后一个作为备用。只有前面所有成员都积分为 0、积分耗尽或仍处于账号限流期，备用账号才进入自动候选。余额未知、模型繁忙、登录失效等情况不解锁备用账号。前序账号恢复后，备用账号重新退出候选。查询失败时停止请求，避免回到已保存的备用账号。
+账号池包含两个及以上成员时，插件会按保存顺序将最后一个成员设为备用账号。只有前面的每个成员都满足积分为 0、积分耗尽或仍处于账号限流期之一，插件才允许备用账号参与自动选择。
+
+前序账号的余额未知、模型繁忙或登录失效时，插件不会因此启用备用账号；任一前序账号恢复可用后，插件会再次将备用账号排除在候选之外。如果选号所需的查询失败，插件会停止请求，避免转而使用已保存的备用账号。
 
 插件按以下顺序比较可用成员，前一条件相同时继续比较下一条件：
 
@@ -382,7 +384,7 @@ issue #70 调整了临期积分的优先级。此前先比较总积分，只有�
 | --- | --- |
 | 可用 | 参与选择 |
 | 被限流 | 按上游重置时间恢复；缺少时间时默认等待 30 分钟 |
-| 积分耗尽 | 按月周期积分包的刷新时间恢复 |
+| 积分耗尽 | 签到、充值或套餐刷新后，插件查询确认余额大于 0，才解除积分耗尽状态 |
 | 连接失败或上游异常 | 默认等待 30 分钟后恢复 |
 | 凭据被拒绝 | 更新登录凭据后手动测试 |
 | 模型已不存在 | 重新选择测试模型后手动测试 |
@@ -390,7 +392,7 @@ issue #70 调整了临期积分的优先级。此前先比较总积分，只有�
 
 账号限制以账号 id 保存；该 id 由 uin 或 uid 计算，重新登录同一账号后 id 保持不变。测试通过后，该账号重新成为轮换候选。备用账号尚未解锁且前序账号没有可用候选时，插件停止请求并提示刷新账号状态；不会回退到已保存的备用账号。
 
-限流、积分耗尽及临时连接故障有对应等待时间。凭据拒绝、模型移除和账号限制则需要处理原因后手动测试。插件通过这些状态区分暂时等待与需要人工处理的情况。
+限流及临时连接故障按对应等待时间处理。积分耗尽时，支持签到且今天未签到的账号提示“签到后重试”，今天已签到的账号提示“明日签到后重试”；不支持签到或尚未读取签到状态时，面板提示“等待积分补充”。月度积分包的刷新时间不再作为必须等待的期限，到达刷新时间或跨过午夜均不代表积分已经到账。凭据拒绝、模型移除和账号限制则需要处理原因后手动测试。
 
 <a id="保存与草稿"></a>
 
@@ -421,7 +423,7 @@ issue #70 调整了临期积分的优先级。此前先比较总积分，只有�
 
 ### 4.1 模型目录与保存
 
-刷新从上游取得完整模型目录、倍率、上下文及输出上限、推理档位。目录和价格立即保存并生效。模型勾选与上下文预算保留在草稿中，图片输入及默认推理档位也按草稿保存，点击模型分区的保存按钮后生效。
+用户刷新模型目录时，插件会从上游读取完整模型列表、积分倍率、上下文窗口、输出上限和推理档位，并立即保存和应用新的目录及价格。用户编辑的模型勾选、上下文预算、图片输入和默认推理档位则保留在页面草稿中，只有用户点击模型分区的“保存”后才会生效。
 
 issue #214 曾记录刷新后 `glm-5.3` 倍率为 0.69，卡片继续显示 0.79 的情况。目录刷新与用户草稿分别处理，用于保证卡片和 `/usage` 使用同一次读取的价格。
 
@@ -445,7 +447,7 @@ issue #214 曾记录刷新后 `glm-5.3` 倍率为 0.69，卡片继续显示 0.79
 
 ### 4.4 关闭思考
 
-每个模型行的 `off` 勾选框决定是否提供完全关闭思考档位，与默认推理强度分开设置。初始状态由内置复核表给出，首次保存后使用保存的勾选。
+每个模型行的 `off` 勾选框决定是否提供完全关闭思考档位，与默认推理强度分开设置。插件首次显示该设置时，会根据内置复核表确定勾选状态；用户保存设置后，插件改用已保存的选择。
 
 已验证拒绝 `off` 的 9 个模型显示“拒绝 off”及悬停说明，勾选框禁用。其他模型按声明和用户设置处理。
 
@@ -469,7 +471,7 @@ pi-ai 会将已启用的 `off` 用于所有未指定档位的请求，包含压�
 
 刷新国内版目录时，插件通过 `POST /v2/chat/busy` 读取模型负载，每次最多 50 个 id，该查询免费。正常显示 1 个黄色人形图标，轻微拥堵为 2 个橙色，极度拥堵为 3 个红色；空闲显示绿色火箭，不可用显示划线人形。图标按 12px 设计，颜色随主题调整，`title` 提供悬停文字。
 
-`unknown` 保持无图标。负载仅保存在运行进程中；查询失败记录 warn，目录刷新继续执行。历史检查中，CLI 与 App 身份返回相同结果；62 个 id 返回 HTTP 400，19 个模型耗时 186 ms。
+模型负载为 `unknown` 时，插件不显示负载图标。插件只在运行进程中保存负载数据；查询失败时，插件会记录 warn 日志，并继续刷新模型目录。历史检查中，CLI 与 App 身份返回相同结果；62 个 id 返回 HTTP 400，19 个模型耗时 186 ms。
 
 国际版网关 `www.workbuddy.ai` 对 `/v2/chat/busy`、`/v3/chat/busy` 和 `/v2/models/busy` 均返回 404。同一凭据的 `/v3/config` 可读取 28 个模型，响应中缺少负载及排队字段。因此，国际版显示模型名和活动徽标，繁忙程度以服务端后续提供的数据为准。
 
@@ -509,7 +511,7 @@ DSH 默认使用模型声明的原生窗口，3.5.0 起沿用此规则。上游�
 
 ### 5.1 图片生成与编辑
 
-图片生成模式由 image 决定，工具未设置 mode 参数或一次生成四张的批量数量参数。
+`workbuddy_draw_image` 根据调用方是否提供 `image` 参数选择文生图或图片编辑模式。该工具不提供独立的 `mode` 参数，也不提供一次生成四张图片的批量数量参数。
 
 图片工具 `workbuddy_draw_image` 默认关闭，在能力分区按国内版、国际版分别授权“允许模型自主生图”。启用后，模型可根据对话要求调用工具，例如“帮我画一只在窗台上晒太阳的猫”，并在回答中返回图片。DSH 的工具调用流程由模型发起，启用此功能即允许这些调用产生积分费用。
 
@@ -519,11 +521,11 @@ DSH 默认使用模型声明的原生窗口，3.5.0 起沿用此规则。上游�
 
 传入 `image` 时执行图片编辑，使用 `POST /v2/images/edits` 及带 `image-to-image` 标签的模型；国内版模型为 `hunyuan-image-alpha-edit`，国际版为 `hy-image-3.5`。省略图片时执行文生图，工具通过图片参数选择模式。
 
-支持工程文件路径、`file://`、`http(s)`、data URL 和未带 data URL 头的 base64，输入上限 8 MB。当前生图工具还接受参考图数组，按原顺序解析后发送给上游。图片内容转换为 data URL，保留尺寸、裁切范围及格式；读取失败、类型错误或大小超限时，在请求前报告错误。
+图片工具支持从工程文件路径、`file://`、`http(s)`、data URL 和未带 data URL 头的 base64 读取输入图，输入大小上限为 8 MB。当前生图工具还接受参考图数组，按原顺序解析后发送给上游。图片内容转换为 data URL，保留尺寸、裁切范围及格式；读取失败、类型错误或大小超限时，在请求前报告错误。
 
 2026-10-25 的尺寸检查中，`1024x1536`、`2048x2048`、`2048x1536`、`2560x1440`、`2560x1600` 均成功，输出尺寸与请求一致；`2560x2560` 被拒绝。对应像素上限约为 419 万。可参考：16:9 桌面图用 2560x1440、方图用 2048x2048、横图用 2048x1536，竖图交换长短边。
 
-更大尺寸需要另外使用超分辨率处理。
+如果用户需要超过上述生成尺寸的图片，可以在生成后另行使用超分辨率工具放大图片。
 
 请求失败后默认冷却 30 秒；参数错误、未登录及模型不存在这类请求前失败可立即处理后重试。工具使用手写 JSON Schema，依赖沿用项目现有模块。协议及检查记录见 [IMAGE_GEN.md](docs/IMAGE_GEN.md)。
 
@@ -533,7 +535,7 @@ DSH 默认使用模型声明的原生窗口，3.5.0 起沿用此规则。上游�
 
 `workbuddy_draw_video` 默认关闭，在能力分区按区域开启“允许模型自主生视频”。模型可根据“帮我把这段描述做成 5 秒视频”等要求调用。结果下载为 mp4，回答返回 `file://` 链接。
 
-视频生成使用异步任务：`POST /v2/videos/generations` 返回 `taskId`，插件每 5 秒请求 `POST /v2/videos/tasks`，直到 `completed`，最长等待 10 分钟。完成后保存到 `os.tmpdir()/workbuddy-video-gen/`。
+视频生成使用异步任务：`POST /v2/videos/generations` 返回 `taskId`，插件每 5 秒请求 `POST /v2/videos/tasks`，直到 `completed`，最长等待 10 分钟。任务完成后，插件会将视频下载到 `os.tmpdir()/workbuddy-video-gen/`。
 
 提供 `image` 时使用 `image-to-video` 模型，比例由输入图决定；省略时使用文生视频模型。图片输入形式与生图一致。视频仅接收一张图，单元素字符串数组按单张处理，多张图需先合成为一张参考图。
 
@@ -551,7 +553,7 @@ DSH 默认使用模型声明的原生窗口，3.5.0 起沿用此规则。上游�
 
 历史国内版价格记录：minimax-video-h3 的 4 秒图生视频为 57.14 积分，kling-video-v3 为 68.57 积分；5 秒文生视频为 71.43 或 128.57 积分。输出为 H.264 + AAC、24fps，尺寸为 `1280x720` 或 `1344x768`；请求 `resolution: "1080p"` 时被拒并改用默认尺寸。
 
-测得码率 3.7–11.5 Mbps，请求 5 秒得到 5.09–5.17 秒，以帧数为准。完整记录见 [VIDEO_GEN.md](docs/VIDEO_GEN.md)。
+该次检查得到的视频码率为 3.7–11.5 Mbps；请求时长为 5 秒时，实际视频时长为 5.09–5.17 秒，具体时长取决于输出帧数。完整记录见 [VIDEO_GEN.md](docs/VIDEO_GEN.md)。
 
 <a id="进阶功能"></a>
 
@@ -585,9 +587,9 @@ DSH 默认使用模型声明的原生窗口，3.5.0 起沿用此规则。上游�
 
 `channelRejectContinue` 默认关闭。上游以 HTTP 400 和 `11128` 拒绝请求，且本次请求内的三次处理已经完成后，当前调用结束。启用该选项时，插件等待 300ms，再通过 `agent.followup` 发送“继续”，来源为 `workbuddy-continue`。
 
-该操作会产生新请求，只适用于被拒内容随轮次变化的情况。已知固定 system 内容由 `prepareChatBody` 在发出前按句处理；5.13.1 增加处理，5.14.0 补充 Web GUI 第二句，见 #163、#167。
+该操作会产生新请求，只适用于被拒内容随轮次变化的情况。对于已知会触发校验的固定 system 提示句，插件会通过 `prepareChatBody` 在发送请求前逐句改写。插件从 5.13.1 起执行这项处理，5.14.0 又将 Web GUI 提示段落中的第二句纳入处理范围，详见 #163、#167。
 
-`channelRejectContinue.maxConsecutive` 默认 1，统计连续发送次数。成功完成一轮或用户发送消息后清零，插件消息保留计数。历史默认值为 3，同一固定内容连续发送 3 次也曾全部失败。子代理会话、正在运行的会话及收件箱已有排队消息时跳过。
+`channelRejectContinue.maxConsecutive` 默认 1，统计连续发送次数。一轮请求成功完成或用户发送消息后，插件会清零连续发送次数；插件自动发送的消息不会清零该计数。历史默认值为 3，同一固定内容连续发送 3 次也曾全部失败。对于子代理会话、正在运行的会话或收件箱已有排队消息的会话，插件会跳过自动继续操作。
 
 此开关在能力分区修改后立即生效，每次继续均消耗一次请求。也可在 `cordis.patch.yml` 中设置：
 
@@ -614,7 +616,7 @@ CLI 使用凭据库中的账号，账号级限制 `11140` 同样适用；客户�
 
 ### 7.1 更新上游发布包
 
-先运行 `npm view dsh-connect-workbuddy version` 查询上游发布版本，再按完整版本号安装，并用 doctor 检查实际版本。以下 5.15.1 是原说明中的历史命令示例，执行时应换成查询到的版本：
+先运行 `npm view dsh-connect-workbuddy version` 查询上游发布版本，再按完整版本号安装，并用 doctor 检查实际版本。以下命令以历史版本 5.20.2 为例；用户执行时应将版本号替换为查询结果：
 
 ```sh
 dsh plugin --profile desktop add dsh-connect-workbuddy@5.20.2
@@ -646,7 +648,7 @@ dsh plugin --profile desktop exec dsh-connect-workbuddy doctor   # 第一行就�
 
 等待期内重复执行会得到相同限制，应等待到期或按[版本等待期说明](docs/PINNED-UPGRADE-LAG.md)处理。
 
-版本可从 doctor 第一行，历史示例为 `WorkBuddy Connect 5.15.1 on …`，或 `status --json` 顶层 `version` 读取。`/codebuddy` 用于 CLI 任务；卡片诊断分区显示区域、域名、账号、登录有效期、模型数、账号池及最近错误。安装后应重新启动，再核对版本。
+用户可以从 `doctor` 输出的第一行读取插件版本，历史输出示例为 `WorkBuddy Connect 5.15.1 on …`；也可以运行 `status --json`，读取返回对象顶层的 `version` 字段。`/codebuddy` 用于 CLI 任务；卡片诊断分区显示区域、域名、账号、登录有效期、模型数、账号池及最近错误。安装后应重新启动，再核对版本。
 
 
 <a id="6-平台支持"></a>
@@ -763,10 +765,10 @@ CLI 入口由 CodeBuddy CLI 进程构造请求，通过 `CODEBUDDY_AUTH_TOKEN` �
 
 ### 9.4 两个入口
 
-| 入口 | 谁触发 | 工作目录 | 花谁的额度 |
+| 入口 | 触发方式 | 工作目录 | 计费范围 |
 | --- | --- | --- | --- |
 | `codebuddy_ask` 工具 | 模型自己决定调用 | 会话工作区；或调用方传的 `working_dir`；或 `cliBridge.workingDir` | CodeBuddy 的配额 + 那一次回注唤醒的 DSH token（`injectResult` 默认开） |
-| `/codebuddy` 指令 | 用户敲 | **自动取当前会话的工作区** | 同上；指令直接交给 CLI，默认将完成结果发送给会话模型 |
+| `/codebuddy` 指令 | 用户输入指令 | **自动取当前会话的工作区** | 同上；指令直接交给 CLI，默认将完成结果发送给会话模型 |
 
 `/codebuddy` 后留空时，检查工作区未提交改动，强制使用只读 `dontAsk` 并要求 CLI 读取 git diff。附上文字时，原样作为任务指令。以 `--edit` 开头时，本次使用 `acceptEdits`，例如 `/codebuddy --edit 修一下这个空指针`；单独使用 --edit 时检查并修复发现的问题。
 
@@ -800,9 +802,9 @@ permissionMode 默认 dontAsk，允许 Read、Glob、Grep 等只读工具，写�
 
 <a id="工作目录四级阶梯--允许根"></a>
 
-### 9.7 工作目录：四级阶梯 + 允许根
+### 9.7 工作目录的选择顺序与允许范围
 
-按顺序使用 working_dir 参数、当前会话 session.header.cwd、cliBridge.workingDir；以上均缺失且 allow_unattended 开启时，使用临时目录。缺少可用目录时，返回错误及配置方法。
+插件依次检查 `working_dir` 参数、当前会话的 `session.header.cwd` 和 `cliBridge.workingDir`，并使用第一个已提供的目录。如果三项均未提供，且调用方开启了 `allow_unattended`，插件会使用临时目录；否则，插件会返回错误并说明配置方法。
 
 例如 / 或 ~/.ssh 这样的调用参数也须经过允许目录检查。
 
@@ -836,9 +838,9 @@ permissionMode 默认 dontAsk，允许 Read、Glob、Grep 等只读工具，写�
 
 ### 9.9 边界
 
-CodeBuddy 接收当前指令及自己的历史。DSH 对话中需要它使用的信息应写入指令。4.14 起，同一 DSH 会话默认通过 --session-id 续接 CodeBuddy 对话；sessionContinuity=off 每次创建新对话，显式 session_id 优先。
+CodeBuddy 只能读取本次任务指令及自身对话历史。用户或模型如果需要让 CodeBuddy 使用 DSH 对话中的信息，应将这些信息写入任务指令。插件从 4.14 起默认通过 `--session-id` 续接同一 DSH 会话对应的 CodeBuddy 对话；将 `sessionContinuity` 设为 `off` 后，插件会为每次调用创建新对话。调用方显式提供 `session_id` 时，插件优先使用该值。
 
-默认权限只读，acceptEdits 可修改工作区文件。允许目录约束任务启动位置；CLI 进程的后续访问还受其工具权限影响，目录限制本身只检查启动路径。
+插件默认以只读权限启动 CLI；用户选择 `acceptEdits` 后，CLI 可以修改工作区文件。允许目录规则只检查任务的启动路径，CLI 进程启动后的文件访问还受其工具权限约束。
 
 CodeBuddy 配额与 DSH 模型费用分别计算。结果发送给会话模型会增加一轮费用，每会话及全部会话的每小时上限用于限制重复调用。
 
@@ -857,7 +859,7 @@ dsh plugin --profile <web|desktop|dsh-tui> exec dsh-connect-workbuddy doctor   #
 dsh plugin --profile <web|desktop|dsh-tui> exec dsh-connect-workbuddy logout   # 清理插件持有的凭据副本
 ```
 
-status 和 doctor 支持 --json。登录状态、余额及实际运行版本可用于安装后的核对。
+`status` 和 `doctor` 命令均支持 `--json`。用户安装插件后，可以通过这两个命令核对登录状态、余额和实际运行版本。
 
 <a id="设备身份相关的环境变量"></a>
 
@@ -910,11 +912,11 @@ wireProfile 和 deviceTier 在卡片中设置。以下环境变量用于指定�
 
 插件依赖 WorkBuddy 客户端接口，上游更新后可能需要适配。桌面端账号发现使用历史 auth 备份；默认跟随桌面端当前登录，手动选择后按保存的账号处理，历史文件可能被清理或因退出登录失效。
 
-保存的账号标识已消失时，卡片提示“保存的账号已不存在”。重新选择账号，或点击“跟随 App 当前登录”清除保存选择后，可重新解析账号。
+插件无法找到已保存的账号标识时，卡片会提示“保存的账号已不存在”。用户可以重新选择账号，或点击“跟随 App 当前登录”清除原选择；插件随后会重新解析所用账号。
 
 2.0.0 之前的顶层 accountId 只作为所属区域的迁移来源。显式设置 `accounts.<区域> = ""` 后，该区域使用跟随模式。卡片显示“使用保存的账号”或“跟随 App 当前登录”，便于判断清除结果。
 
-Windows 的 cordis.patch.yml 被其他程序占用时，临时文件替换可能失败，底层 set() 的完成状态也可能缺少错误。因此插件重新读取并核对保存结果，成功后再显示“已清除”；失败保留选择，关闭占用程序后重试。
+Windows 上的 `cordis.patch.yml` 被其他程序占用时，配置写入过程可能无法用临时文件替换目标文件，而底层 `set()` 的完成状态也可能没有包含错误。因此，插件会重新读取并核对保存结果，确认成功后才显示“已清除”；写入失败时，插件保留原选择，用户关闭占用程序后可以重试。
 
 Windows 和 Linux 的路径候选按平台规则生成。Windows 11 已检查默认 auth 与 WorkBuddy.exe 路径，其他候选及 Linux 的现场范围见[平台支持](#平台支持)。可用 WORKBUDDY_AUTH_FILE 指定实际文件。
 
@@ -926,11 +928,11 @@ Windows 和 Linux 的路径候选按平台规则生成。Windows 11 已检查默
 
 WorkBuddy 5.6.0 起，macOS 和 Windows 的 auth token 可被加密，需要对应 App 的原生绑定提供字段密钥。App 缺失或位置无法识别时，doctor 显示解密支持不可用，并提示安装或通过 WORKBUDDY_APP_EXECUTABLE 指定路径。
 
-Windows 还会查询安装注册表。
+插件在 Windows 上还会查询安装注册表，以补充桌面 App 的候选位置。
 
 字段密钥由 App 构建提供，升级时可能改变。插件每次从已安装 App 读取，仅在进程内缓存，App 升级后按新构建取值。
 
-macOS 按 Info.plist 的 CFBundleExecutable 定位程序，WorkBuddy 的值为 Electron。候选含 WorkBuddy.app、WorkBuddy AI.app，并扫描 /Applications 下一级子目录，例如 /Applications/IDE/WorkBuddy.app，核对 bundle id 后使用。
+插件在 macOS 上读取 `Info.plist` 的 `CFBundleExecutable` 来定位可执行文件，WorkBuddy 对应的值为 `Electron`。插件会检查 `WorkBuddy.app` 和 `WorkBuddy AI.app`，并扫描 `/Applications` 下的一级子目录，例如 `/Applications/IDE/WorkBuddy.app`；确认 bundle id 匹配后，插件才会使用该安装。
 
 <a id="策略拒绝模型繁忙和积分耗尽"></a>
 
@@ -980,11 +982,11 @@ total token 从 696,966 增至 758,005，压缩阈值为 800,000。
 
 跨 provider 的 foreignAssistant() 消息带 api: dsh-foreign，缺少 thinkingSignature。插件在请求前移除这类外来 thinking，保留正文、工具调用和消息身份。issue #163 曾记录 14,410 字及 4,225 字、5,138 字的 reasoning 被当正文发送，三次请求内处理及三轮继续均返回 11128。
 
-同一路由换模型的处理由默认关闭的 dropForeignThinking 控制，例如 hy3 → deepseek-v4.1-flash。关闭时保留该路径原始字节；跨 provider 的处理按上述固定规则执行。自动移除且开关关闭时记录 warn，同时更新 latestForeignThinking。
+同一路由换模型的处理由默认关闭的 dropForeignThinking 控制，例如 hy3 → deepseek-v4.1-flash。关闭时保留该路径原始字节；跨 provider 的处理按上述固定规则执行。对于不受该开关控制、仍会自动移除的外来 thinking，插件会在开关关闭时记录 warn，并更新 `latestForeignThinking`。
 
 处理顺序在 alignAssistantIdentities 之后，避免把国际版自身降级为 dsh-foreign 的历史误认作外来消息，见 #102。[issue147-foreign-thinking.spec.ts](tests/issue147-foreign-thinking.spec.ts) 使用 pi-ai 的 transformMessages 检查顺序。
 
-判断同路由换模型还需 model.id，由 stream、streamSimple 入口传入。5.12.0 曾只比较 provider 与 api，遗漏同区换模型；缺少 model id 的兼容路径按原规则处理，卡片读取 lastForeignThinking。
+插件还需要通过模型 id 判断同一路由是否更换了模型，因此 `stream` 和 `streamSimple` 入口会传入 `model.id`。5.12.0 曾只比较 provider 与 api，遗漏同区换模型；缺少 model id 的兼容路径按原规则处理，卡片读取 lastForeignThinking。
 
 已作为正文保存的旧消息保持历史记录；请求前处理作用于后续请求，需要独立上下文时可切换 provider 后创建新会话。
 
@@ -994,7 +996,7 @@ total token 从 696,966 增至 758,005，压缩阈值为 800,000。
 
 src/context-rescue.ts 自 4.8.0 起在上游确认超限后按块折叠历史并重新发送，防止压缩请求继续携带超限历史。上游身份等价规则的调整另行跟进。
 
-WORKBUDDY_BODY_REPORT 生成请求组成计数报告，正文内容保持未记录。每区域追加到 <region>.jsonl，超过 32 MB 后改存 .1，只保留一份旧文件。排查结束后关闭环境变量并删除报告，避免持续积累。
+用户设置 `WORKBUDDY_BODY_REPORT` 后，插件会生成请求组成计数报告，但不记录正文。插件按区域将报告追加到 `<region>.jsonl`，文件超过 32 MB 后，将旧文件保存为 `.1`，只保留一份旧报告。用户排查结束后应关闭该环境变量，并删除不再需要的报告，避免文件持续增长。
 
 <a id="工作原理"></a>
 
@@ -1014,7 +1016,7 @@ DSH PiAiAdapter（每个 provider 一套）
 
 目录读取使用桌面 App 的 `/v3/config` 及客户端身份 `WorkBuddy/<app> WorkBuddy/<app> CLI/<cli>`，对应桌面端 `buildVlmGatewayHeaders`。该接口按客户端通道返回配置：CLI 通道缺少 `modelPromotions` 和 `modelTiers`，活动信息需以 App 身份读取。聊天和模型测试继续使用 CLI 身份。
 
-国内版 v3 读取失败时，记录日志并尝试旧接口 `/v2/enterprises/personal/models`。
+国内版 v3 目录读取失败时，插件会记录日志，再尝试旧接口 `/v2/enterprises/personal/models`。
 
 国内版积分概览通过只读接口 `https://www.codebuddy.cn/v2/billing/meter/get-user-resource` 读取。国际版按凭据域名使用 `workbuddy.ai` 或 `codebuddy.ai`，两个域名的凭据分别使用。
 
@@ -1035,7 +1037,7 @@ pnpm install
 pnpm run check   # typecheck + test + build
 ```
 
-check 包含类型检查、测试和构建。完整包入口检查使用 pnpm run verify:entries。
+`pnpm run check` 会执行类型检查、测试和构建。开发者还可以运行 `pnpm run verify:entries`，检查包清单声明的全部入口是否存在。
 
 <a id="安装本仓库源码"></a>
 
@@ -1132,7 +1134,7 @@ README 顶部徽章使用 Shields 和 dshfind 链接。市场截图由仓库中�
 
 DSH 插件卡片标题与简介来自 `locale/<lang>.json` 的 meta.title、meta.description。locale/en.json 用于发现语言文件，exports 需包含 `"./locale/*.json"`；缺少时跳过对应读取。语言资源缺失时回退到包描述；本仓库 package.json.description 使用中文，英文简介由 locale/en.json 提供。
 
-修改这类说明时，同时核对 locale/en.json、locale/zh.json、package.json.description，以及条目 YAML 的 description.en 和 description.zh。测试见 [locale-meta.spec.ts](tests/locale-meta.spec.ts)。
+维护者修改这类说明时，应同时核对 locale/en.json、locale/zh.json、package.json.description，以及条目 YAML 的 description.en 和 description.zh。测试见 [locale-meta.spec.ts](tests/locale-meta.spec.ts)。
 
 <a id="免责声明"></a>
 

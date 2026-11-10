@@ -328,7 +328,7 @@ bash /tmp/r2ver/mutate.sh                                                       
 
 **配套**：`onSaved` 必须**返回** promise——卡片原写 `onSaved={() => { void refreshUsage(activeRegion) }}`，`void` 让 `await` 立即结算、窗口照旧存在。
 
-新增 `committed` 标志，**只有验证过的写入才 discard**（否则失败写入会毁掉唯一副本）。
+修复在保存流程中新增了 `committed` 标志。客户端只有在写入通过回读校验后才丢弃草稿，避免写入失败时丢失唯一的编辑副本。
 
 `onSaved` 返回类型放宽到 `Promise<unknown>`（`refreshUsage` 返回 `WorkBuddyWebUsage | undefined`）。
 

@@ -1,6 +1,6 @@
 # 第三方开源声明
 
-本文件记录项目参考或移植的开源实现、相应来源及许可证。平台和构建依赖的许可文件随各依赖包提供。新增外部代码时，需要同步登记来源及适用的许可要求。
+本文件记录项目参考或移植的开源实现、相应来源及许可证。平台和构建依赖（`@deepseek-ai/*`、`react`、`typescript`、`tsdown`、`vitest`）的许可文件随各依赖包提供。新增外部代码时，需要同步登记来源及适用的许可要求。
 
 ## 1. 项目来源
 
@@ -23,19 +23,21 @@
 
 `src/dsml-recovery.ts` 将 Mayer 的 `src/codebuddy_proxy/dsml_parser.py` 移植为 TypeScript。移植内容包括标签状态变化规则、忽略区域判断、缺少包裹标签的处理、参数递归解析和流式缓冲。
 
-项目在该实现上增加请求工具名校验，并依据本次请求声明的工具决定是否进行恢复。其他调整涉及参考实现中的重复函数定义及流式输出与解析结构的一致性。具体差异保存在源文件头部，保留 MIT 版权和许可声明。
+项目在该实现上增加请求工具名校验，并依据本次请求声明的工具决定是否进行恢复。其他调整包括合并参考实现中的两次 `find_invoke_blocks` 定义，并统一流式调用形状：解析器返回 `function.name` / `function.arguments`，不能再按不存在的顶层 `name` / `input` 读取。具体差异保存在源文件头部，保留 MIT 版权和许可声明。
 
 ## 4. DSH 工具函数的后备实现
 
 `src/host-peers.ts` 提供独立 CLI 需要的后备工具函数。`writeFileAtomic`、`withFileLock` 对照 `@deepseek-ai/dsh-atomic-write` 的行为，`resolveDshHome` 对照 `@deepseek-ai/dsh-home-paths`。
 
-这些函数采用相同的锁命名、Windows 瞬时错误分类和重试规则，使 CLI 与 DSH 能够操作同一文件。DSH 提供相应依赖时使用依赖实现；独立执行时按解析结果选择后备实现。说明及测试见 `tests/host-peers.spec.ts`。
+这些函数采用相同的 `<file>.lock` 锁命名、Windows 瞬时错误分类和重试规则，使 CLI 与 DSH 能够操作同一文件。DSH 提供相应依赖时使用依赖实现；独立执行时按解析结果选择后备实现。说明及测试见 `tests/host-peers.spec.ts`。
 
 ## 5. 自动发送规则的参考
 
 `src/channel-continue.ts` 参考自动继续项目的连续次数计数、成功后重置和子会话排除规则；参考 dsh-purge 的失败分类、收件箱忙碌判断及消息来源识别。
 
-该模块仅针对所配置的渠道校验失败发送后续消息。事件订阅由调用方提供，具体实现及差异见该模块注释。
+具体参考包含 `dsh-client-auto-continue` 的 `consecutive` / `maxConsecutive` 计数、`session.header.origin === 'subagent'` 排除及 `agent.followup(createUserMessage(...))` 投递；`dsh-purge` 的 `lib/continue-retry.js` 提供 `NO_CONTINUE_CODES`、`inboxBusy` 和 `user/message` 的 `source.kind` 判断思路。这两项为独立实现的思路参考，并非源码移植。
+
+该模块仅针对所配置的 `channel_reject` 失败发送后续消息。事件订阅由调用方提供，具体实现及差异见该模块注释。
 
 ## 6. Apache-2.0 来源说明
 

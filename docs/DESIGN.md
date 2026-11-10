@@ -12,6 +12,8 @@
 
 界面扩展位置优先级用于确定渲染组件。组件返回 `null` 时，注册仍然存在。需要释放界面扩展位置时，调用注册句柄的注销函数。
 
+插件禁止通过 `slots.entries(...)` 或 `entriesOfSlot(...)` 枚举其他插件的注册，也不读取 `StoredEntry.locale`、调用 `locale.bind()` 或合成其他插件的参数。转交方案曾因双向代渲染触发 `RangeError: Maximum call stack size exceeded`，完整历史见 [rc.3 记录](DSH-0.2.1-RC3-FOLLOWUP.md)。
+
 插件维护以下注册规则：
 
 1. 组件通过自身的注册参数获取依赖。
@@ -74,7 +76,7 @@
 
 凭据来源包括 WorkBuddy 桌面端登录文件、历史登录文件和插件保存的凭据。插件支持嵌套的 `auth` / `account` 文档，也处理已支持的扁平文档格式。`expiryToMs()` 将秒或毫秒时间统一为毫秒。
 
-插件扫描凭据目录后按账号标识合并记录。桌面端文件用于读取登录信息，刷新后的凭据保存到插件自己的文件。选择凭据时，插件比较有效期；有效期接近到期时发起刷新，并合并同时发生的刷新调用。
+插件扫描凭据目录后按账号标识合并记录。桌面端文件用于读取登录信息，刷新后的凭据保存到插件自己的文件。桌面登录文件与插件刷新副本分别保留；桌面登录记录之间使用 `isFresher()` 比较登录时间和有效期。合并 vault 时，账号不存在则直接采用；`entry.refreshedFrom === authFileName(existing.filePath)` 时采用该来源的刷新副本；否则仅在 `fileRank(existing.filePath) !== 0` 且副本的 `expiresAtMs` 更大时替换。旧式插件凭据文件也不能仅凭有效期更长覆盖当前桌面登录记录。默认刷新余量为 `refreshMarginMs = 5 * 60 * 1000`。同一凭据的并发刷新合并为一个 Promise。缺少 refresh token 或刷新失败时，只有 `credential.expiresAtMs > Date.now() + 30_000` 才返回旧 access token；剩余有效期不足该条件时报告错误。区域过滤与账号标识校验先于请求发送，避免因选择其他区域的凭据而发生错误扣费。
 
 手动选择账号时，配置保存 `accountId`。请求执行阶段再由凭据库取得该账号的 token。账号池开启后，运行时选号结果由账号池提供；关闭后，使用用户保存的选择。
 
@@ -100,7 +102,11 @@ macOS 程序路径通过 `Info.plist` 的 `CFBundleExecutable` 确定。目录�
 
 ### 3.3 聊天接口与回环服务
 
-聊天接口为 `POST {base}/v2/chat/completions`，`base` 根据账号区域确定。请求使用流式模式，`tool_choice` 按 WorkBuddy 接口要求转换。刷新 token 使用独立的 `X-Refresh-Token` 请求头。
+聊天接口为 `POST {base}/v2/chat/completions`，`base` 根据账号区域确定。请求使用流式模式，`tool_choice` 按 WorkBuddy 接口要求转换。刷新 token 使用独立的 `X-Refresh-Token` 请求头，刷新接口不添加聊天请求的 `Authorization`。
+
+`normalizeToolChoice()` 将 `{type: "auto"}` / `{type: "required"}` 转为同名字符串；`{type: "function", function: {name: "toolName"}}` 转为工具名，也兼容顶层 `name`。空工具名回退为 `auto`，未知对象类型或非字符串值删除 `tool_choice`。字符串或对象形式的 `none` 会同时删除 `tool_choice`、`tools` 和旧式 `functions`，因此 DSML 恢复不能再从原始请求中恢复被禁用的工具。
+
+`prepareChatBody()` 强制 `stream: true` 并转换适用的 `developer` 角色，但不删除 `stream_options.include_usage`。聊天鉴权、刷新鉴权、图片及积分请求使用各自的请求头构造函数；`X-IDE-Name`、`X-IDE-Type`、`X-IDE-Version`、`X-Product` 的具体值由 `wireProfile` 决定，不能把某个历史配置的请求头套用于所有接口。
 
 shim 使用随机回环端口和进程内生成的 bearer secret，并校验 Host、Origin、JSON content-type 及 bearer。secret 使用 `timingSafeEqual` 比较。适配器持有 shim 的凭据，WorkBuddy token 由 shim 在发送请求时读取。
 
@@ -236,7 +242,7 @@ DSH 会根据错误码和消息文本确定最终显示及重试方式。`model_
 
 测试请求由 Host 构造和发送。浏览器提交模型及测试设置，取得可用状态和错误原因。默认输入为 25000 token，输出上限为 1 token；账号池可选择其他输入长度。测试费用取决于模型及输入长度。
 
-恢复时间按以下来源依次读取：失败响应的 `Retry-After`、响应正文中的重置时间，以及仅适用于积分耗尽的套餐刷新时间。模型繁忙还使用专门的等待策略。成功响应按成功处理，卡片显示已有来源支持的恢复信息。账号池内部的重试等待由其状态规则管理。
+探测结果按顺序记录失败响应的 `Retry-After`、响应正文中的重置时间，以及适用于积分耗尽的套餐刷新时间。模型繁忙还使用专门的等待策略。积分耗尽时，界面按签到状态提示补充积分，不将套餐刷新时间显示为必须等待的期限；账号池须通过后续余额查询确认正余额，才能解除旧的积分耗尽记录。成功响应按成功处理，限流及其他临时故障仍按各自的重试规则处理。
 
 国内版个人账号支持每日签到。手动按钮处理已保存的账号池成员。自动签到默认关闭，开启后，插件记录当天的完成情况，并对尚未完成签到的适用账号执行领取。
 

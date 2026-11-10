@@ -57,20 +57,22 @@
 | 完成 | 读取视频 URL 和最终积分 |
 | 下载 | GET 视频 URL，保存到系统临时目录的 `workbuddy-video-gen/` |
 
-公共请求字段包括 `prompt`、`model`、`seconds`、`negative_prompt` 和 `watermark: true`。图生视频增加图片字段，分辨率与声音选项放在 `extra_parameters` 中。请求头使用 `imageHeaders()`。
+`buildVideoBody()` 写入公共字段 `prompt`、`model`、`seconds`、`negative_prompt`（未提供时为空字符串）和 `watermark: true`。输入首帧、尾帧分别写入 `image_url`、`last_image_url`；`extra_parameters` 包含 `resolution` 和 `enable_audio`，仅文生视频再写入 `aspect_ratio`。请求头使用 `imageHeaders()`。
 
-查询间隔为 5000 毫秒。任务返回 `failed` 时报告失败；其他未完成状态继续查询。完成结果包含有效视频 URL 后，插件下载视频并返回 `.mp4` 文件的 `file://` 地址。
+`parseVideoSubmission()` 先检查响应中的数字型 `code`，非零时报告业务错误，再读取 `data.id`；HTTP 200 本身不能证明任务提交成功。`parseVideoTask()` 在 `data.status === "completed"` 时从 `data.data[].url` 提取视频地址，并从 `data.usage.credit` 读取有限数值的积分。查询循环仅在完成且地址列表非空时结束；完成状态缺少地址时仍继续查询。`failed` 由查询层转为 `TASK_FAILED`，其他未完成或未知状态继续查询。非完成结果还保留未知字段的摘要，用于说明任务失败原因。
+
+查询间隔为 `VIDEO_POLL_INTERVAL_MS = 5_000`。输入图下载使用 `VIDEO_INPUT_TIMEOUT_MS = 30_000`，媒体目录缓存使用 `VIDEO_MODEL_TTL_MS = 5 * 60_000`。默认时长和声音分别由 `DEFAULT_VIDEO_SECONDS = 5` 与 `DEFAULT_VIDEO_ENABLE_AUDIO = true` 定义。任务返回 `failed` 时报告失败；其他未完成状态继续查询。完成结果包含有效视频 URL 后，插件下载视频并返回 `.mp4` 文件的 `file://` 地址。
 
 ### 3.1 超时
 
-| 计时层 | 上限 |
+| 计时层 / 源码常量 | 上限 |
 | --- | --- |
-| 视频查询循环 | 540000 毫秒 |
-| 插件工具调用 | 570000 毫秒 |
-| DSH 工具调用 | 600000 毫秒 |
-| 单次视频下载 | 120000 毫秒 |
+| 视频查询循环 `VIDEO_POLL_TIMEOUT_MS` | 540000 毫秒 |
+| 插件工具调用 `VIDEO_TOOL_TIMEOUT_MS` | 570000 毫秒 |
+| 上游传输默认上限 `VIDEO_TIMEOUT_MS` | 600000 毫秒 |
+| 单次视频下载 `VIDEO_DOWNLOAD_TIMEOUT_MS` | 120000 毫秒 |
 
-工具和查询超时早于 DSH 上限，便于错误信息保留任务标识。下载和提交仍受上层剩余时间限制。
+查询循环在 540000 毫秒检查超时，以便在 570000 毫秒的工具总时限前返回含任务标识的错误。传输层仅在调用方未提供 signal 时使用自己的默认上限；调用方传入 `AbortSignal` 时，提交、查询与下载仍受该 signal 的剩余时间限制。600000 毫秒是本插件传输默认值，不能据此推定 DSH 的全局工具超时。
 
 ## 4. 输出、费用与错误
 

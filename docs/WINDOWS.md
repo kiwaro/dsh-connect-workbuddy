@@ -27,7 +27,9 @@
 
 文件占用与控制台行为需要在相应 Windows 条件下验证。macOS、Linux 的文件替换结果只能证明对应平台上的行为。
 
-2026-09-26 记录中的加密字段 `keyId=9127dea1b44020a7` 来自现场文件。其密钥原始值未留存，测试只检查相应格式，原值需要通过当时记录核对。
+2026-09-26 的记录包含凭据信封的 `keyId`；本文以 `<key-id>` 代替现场值。2026-10-16 的后续验证确认，多个不同摘要可以来自同一份 secret，不能仅凭摘要不同推断存在不同密钥。
+
+`atRestSecretKey` 是 base64 文本；当时验证通过的推导为 `key = sha256(secret as utf8)`，再以 `hex(sha256(key))[0..16]` 生成信封 `keyId`。`sha256(secret)` 的截断与 `sha256(base64_decode(secret))` 的截断是另外两种摘要。它们不同不表示输入来自不同账号或密钥；解密正确性应由 GCM 标签和解出的字段格式确认。`keyblob` 的 data key 与 `protectorKeyId` 属于不同层级，不能混作凭据 key 的候选。
 
 ## 3. 文件写入与进程清理
 
@@ -55,11 +57,13 @@ Windows 凭据库通过 DACL 控制访问，写文件时的 POSIX mode 只能用
 
 1. 确认目标为所用凭据库根目录。
 2. 明确排除 DSH_HOME 及其祖先目录。
-3. 目录使用适用的继承标记，文件采用对应文件权限。
+3. 目录授权使用 `(OI)(CI)(F)`，单文件授权使用 `(F)`；不得对整树套用带目录继承标记的 `icacls /T`。
 4. 对同一路径合并正在进行的操作，避免重复启动子进程。
 5. 保存权限命令的执行结果，必要时另行检查目录与文件的有效权限。
 
-历史测试中，对目录递归应用错误的 ACL 参数产生过空 DACL。仅加固区域子目录也可能保留可被替换的父目录，因此目标选择和继承方式都需要测试。`icacls` 测量耗时为静止状态 19 至 52 毫秒，并行负载下最高 1242 毫秒。
+历史测试中，`icacls <dir> /T /inheritance:r /grant:r "*S-1-3-4:(OI)(CI)(F)"` 对文件产生过空 DACL（`ACEcount=0`）。这是禁止照用的历史失败命令，不是修复步骤。当前目录加固在原子写入前执行，避免临时文件继承宽松权限后经 rename 留在凭据库。
+
+主体标识分别使用当前用户 SID、`*S-1-5-18`（SYSTEM）和 `*S-1-5-32-544`（Administrators）。检查时应同时核对根目录、区域子目录及文件的实际 ACE；命令退出码 0 不足以证明不存在其他显式授权。仅加固区域子目录也可能保留可被替换的父目录，因此目标选择和继承方式都需要测试。`icacls` 测量耗时为静止状态 19 至 52 毫秒，并行负载下最高 1242 毫秒。
 
 issue #208 记录过 DSH_HOME 被误处理后 attachments 读取失败。保护函数由 `vaultRootToHarden()` 和 `harnessHomeRefusal()` 分别检查目标与拒绝范围。测试见 `tests/issue208-acl-harness-home-guard.spec.ts`。
 
@@ -93,11 +97,13 @@ $PSVersionTable.PSVersion
 
 ### 7.2 核对文件和程序位置
 
-检查 LOCALAPPDATA 与 APPDATA 对应目录，以及实际 WorkBuddy 安装位置。自定义路径可通过 `WORKBUDDY_AUTH_FILE` 或 `WORKBUDDY_APP_EXECUTABLE` 指定，设置后重新启动需要读取环境变量的进程。
+检查 `%LOCALAPPDATA%` 与 `%APPDATA%` 中的凭据目录；环境变量为空时，候选由用户目录的 `AppData/Local` 与 `AppData/Roaming` 推导。程序候选包括 `%LOCALAPPDATA%\Programs\WorkBuddy`、`%LOCALAPPDATA%\WorkBuddy`、`%ProgramFiles%\WorkBuddy` 和 `%ProgramFiles(x86)%\WorkBuddy`，并查询卸载注册表。候选路径只表示查找范围，不能将未命中的候选记为已验证。
+
+`doctor --json` 中的 `appExecutable` 与 `appExecutableSource` 用于核对实际命中的程序及来源；`atRestDecryption.available` 表示取得解密材料的结果，不等同于所有信封已成功解密。自定义路径可通过 `WORKBUDDY_AUTH_FILE` 或 `WORKBUDDY_APP_EXECUTABLE` 指定，设置后重新启动需要读取环境变量的进程。
 
 ### 7.3 验证配置占用
 
-使用测试 profile 保存一份配置副本，再通过文件句柄控制占用。DSH 0.1.7 的配置文件为 `profiles/<profile>/cordis.patch.yml`。
+维护者应在测试 profile 中保存一份配置副本，再通过文件句柄模拟目标文件被占用的情况。DSH 0.1.7 使用的配置文件为 `profiles/<profile>/cordis.patch.yml`。
 
 占用期间尝试保存账号选择，应显示写入错误并保留原值；释放句柄后保存应成功。将重新读取结果与卡片显示、配置内容比较。测试环境和现场配置分别记录。
 

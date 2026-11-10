@@ -28,7 +28,7 @@ SDK 目录应保留以下结构：
 <dir>/build/Release/TuringShieldSDK.dll   # Windows
 ```
 
-原生模块通过相对路径加载动态库，移动时应保留整个目录。
+原生模块通过相对路径加载动态库，移动时应保留整个目录。当时副本采用 `NAPI_VERSION 10`，应结合 `probe` 返回的 `napi`、`supported` 和当前 Node/Electron 运行时核对兼容性，不能只以文件存在作为加载成功依据。
 
 ## 2. 子进程与返回值
 
@@ -63,7 +63,7 @@ SDK 在独立子进程中加载。父进程负责超时终止和结果解析，S
 | `TURING_PRODUCT_VERSION` | `5.8.3` | 产品版本；调用方可覆盖 |
 | `TURING_KEYCHAIN_STORAGE` | `0` | 值为 `1` 或 `true` 时启用设备缓存存储 |
 
-`configure(channelId, productName, productVersion, keychainStorageEnabled)` 的第四个参数始终传入布尔值，默认 `false`。
+`configure(channelId, productName, productVersion, keychainStorageEnabled)` 的第四个参数始终传入布尔值，默认 `false`。新版副本对错误类型返回原文 `keychainStorageEnabled must be a boolean`；旧版只接收三个参数时，额外布尔参数不改变既有调用。
 
 在 PowerShell 中手动检查：
 
@@ -76,6 +76,8 @@ node native/turing-sdk/worker.cjs probe
 
 Windows 的加载和 token 获取依赖桌面端 SDK、动态库以及运行进程的兼容性。可使用 `doctor` 查看发现的路径，再检查 token 获取结果。
 
-2026-11-01 的 macOS 测试中，模块加载成功，获取 token 超时。采样记录显示 SDK 等待 dispatch 主队列，而 Node.js 子进程未处理该队列。因此，该记录中的 `ready` 仅表示模块可加载；设备 token 获取失败时，“真实值”模式省略设备请求头。
+2026-11-01 的 macOS 测试中，`probe` 成功，但 `fetchDeviceToken` 在约 13 秒后返回 `Turing SDK device token request timed out`。`sample` 记录的等待栈为 `_dispatch_thread_main_event_wait_slow → __ulock_wait`；当时调查将其定位到 SDK 对主 dispatch 队列的 `dispatch_sync` 等待。纯 Node.js（包括 `ELECTRON_RUN_AS_NODE`）的 libuv 循环未处理该队列，Electron App 主进程的 run loop 则提供不同环境。
+
+这份采样解释了当时 `ready` 与 token 不可用可以同时出现的现象，不能直接证明所有后续 SDK 版本都有同一限制。当前 token 获取失败后由 `sdkFallbackToVirtual` 决定处理：默认开启时退回虚拟设备头，关闭时省略设备头。
 
 平台诊断方法见 [Windows 说明](../../docs/WINDOWS.md)。
