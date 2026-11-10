@@ -17,6 +17,8 @@ import { Context } from '@deepseek-ai/cordis'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as WorkBuddy from '../src/index.ts'
 import { WORKBUDDY_POOL_PATH, WORKBUDDY_USAGE_PATH } from '../src/status-paths.ts'
+import { WorkBuddyUpstreamClient } from '../src/upstream.ts'
+import { readPoolProbes, writePoolProbes } from '../src/account-pool-store.ts'
 
 /** Mounted context; disposed after each test. */
 let context: Context | undefined
@@ -211,6 +213,34 @@ afterEach(async () => {
 })
 
 describe('the mounted plugin: promises the UI makes', () => {
+  it('releases a depleted account only after a later pool balance query confirms credits', async () => {
+    const authFile = await writeAuthFixture(root)
+    const accountId = await discoverAccountId(authFile)
+    const credits = vi.spyOn(WorkBuddyUpstreamClient.prototype, 'fetchCredits')
+      .mockResolvedValue({ total: 0, expiringSoon: 0, packages: [] })
+    const realFetch = globalThis.fetch
+    globalThis.fetch = (async () => new Response(JSON.stringify({ code: 0, data: {} }), { status: 200 })) as typeof fetch
+    try {
+      await mount({ authFile, regions: { cn: { enabled: true, pool: { enabled: true, memberAccountIds: [accountId] } } } })
+      await writePoolProbes('cn', {
+        [accountId]: { outcome: 'out-of-credit', atMs: Date.now() - 1000, retryAtMs: Date.now() + 21 * 86_400_000 },
+      })
+      const depleted = await call(WORKBUDDY_USAGE_PATH, { url: `${WORKBUDDY_USAGE_PATH}?region=cn` })
+      const poolOf = (body: Record<string, unknown>) => body['pool'] as { accounts: { accountId: string, excludedBy?: string, probe?: unknown }[] }
+      expect(poolOf(depleted.body).accounts.find(row => row.accountId === accountId)?.excludedBy).toBe('out-of-credit')
+      credits.mockResolvedValue({ total: 20, expiringSoon: 0, packages: [] })
+      const replenished = await call(WORKBUDDY_USAGE_PATH, { url: `${WORKBUDDY_USAGE_PATH}?region=cn` })
+      const recovered = poolOf(replenished.body).accounts.find(row => row.accountId === accountId)
+      expect(recovered).toBeDefined()
+      expect(recovered?.excludedBy).toBeUndefined()
+      expect(recovered?.probe).toBeUndefined()
+      expect((await readPoolProbes('cn'))[accountId]).toBeUndefined()
+    } finally {
+      globalThis.fetch = realFetch
+      credits.mockRestore()
+    }
+  })
+
   it('exposes a pool block whose enabled flag follows the SAVED config', async () => {
     const authFile = await writeAuthFixture(root)
     await mount({
@@ -884,6 +914,49 @@ describe('the refresh interval is a real, validated setting', () => {
 })
 
 describe('the automatic check-in: the poll finds an unchecked account and claims it (#191/#232)', () => {
+  it('clears depleted state as soon as automatic check-in replenishes credits without a status poll or model test', async () => {
+    const previousDshHome = process.env['DSH_HOME']
+    process.env['DSH_HOME'] = await mkdtemp(join(tmpdir(), 'wb-checkin-recovery-'))
+    const authFile = await writeAuthFixture(root)
+    const accountId = await discoverAccountId(authFile)
+    let claimed = false
+    let modelRequests = 0
+    const credits = vi.spyOn(WorkBuddyUpstreamClient.prototype, 'fetchCredits')
+      .mockImplementation(async () => ({ total: claimed ? 100 : 0, expiringSoon: 0, packages: [] }))
+    const realFetch = globalThis.fetch
+    globalThis.fetch = (async (url: unknown) => {
+      const path = String(url)
+      if (path.includes('chat/completions')) modelRequests += 1
+      if (path.includes('checkin-activity-status')) return new Response(JSON.stringify({
+        code: 0, data: { active: true, today_checked_in: claimed },
+      }))
+      if (path.includes('daily-checkin')) {
+        claimed = true
+        return new Response(JSON.stringify({ code: 0, data: { credit: 100 } }))
+      }
+      return new Response(JSON.stringify({ code: 0, data: {} }))
+    }) as typeof fetch
+    try {
+      await writePoolProbes('cn', { [accountId]: {
+        outcome: 'out-of-credit', atMs: Date.now() - 1000, retryAtMs: Date.now() + 21 * 86_400_000,
+      } })
+      await mount({ authFile, regions: { cn: {
+        enabled: true, pool: { enabled: true, autoCheckin: true, memberAccountIds: [accountId] },
+      } } })
+      await waitFor(async () => claimed && (await readPoolProbes('cn'))[accountId] === undefined,
+        'automatic check-in to reconcile the depleted state')
+      expect(credits).toHaveBeenCalled()
+      expect(modelRequests).toBe(0)
+    } finally {
+      await context?.fiber.dispose()
+      context = undefined
+      if (previousDshHome === undefined) delete process.env['DSH_HOME']
+      else process.env['DSH_HOME'] = previousDshHome
+      globalThis.fetch = realFetch
+      credits.mockRestore()
+    }
+  })
+
   /**
    * The requirement, stated as a test: with the switch on, a run that DISCOVERS
    * an account not checked in today claims it — no button, and no dependence on

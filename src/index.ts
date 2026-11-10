@@ -101,7 +101,7 @@ import {
   effectiveMembersOf,
   rankPool,
 } from './account-pool.ts'
-import { readPoolProbes, writePoolProbes } from './account-pool-store.ts'
+import { readPoolProbes, writePoolProbes, reconcilePoolCredits } from './account-pool-store.ts'
 import { autoCheckinRegions, emptyAutoCheckinState, foldAttempt, isDue, localDayKey, nextDelayMs, pendingTargets, AUTO_CHECKIN_IDLE_MS } from './auto-checkin.ts'
 import type { AutoCheckinState } from './auto-checkin.ts'
 import { readAutoCheckinState, writeAutoCheckinState } from './auto-checkin-store.ts'
@@ -1776,20 +1776,9 @@ export function apply(ctx: Context, config: Config): void {
    * 「将在 … 重置」 — which `cooldownOf` parses. When it states no time, the store's
    * own short window applies rather than a guess at a long one.
    *
-   * THE QUOTA REFRESH POINT IS PASSED IN, and it is not decoration. This path
-   * used to omit `quotaRefreshAtMs` while the PROBE path supplied it, so one
-   * `out-of-credit` failure got two different answers depending on which door it
-   * arrived through: the probe said "the quota refreshes on the 1st" (a time the
-   * billing side states outright) while a live chat failure said "30 minutes
-   * from now" — a window the account cannot possibly clear, so the pool put it
-   * back and paid another refused round trip. Worse, the write below combines
-   * with the stored record, and the stored refresh point was being LOST in the
-   * process (see {@link mergePoolProbe}).
-   *
-   * Reading it costs one `fetchCredits`, affordable here but not on every
-   * failure: it runs only for `out-of-credit`, where the refresh point is the one
-   * honest answer and there is no cheaper source. Failing to read it is not an
-   * error — the fallback still applies.
+   * 月度刷新时间仅作为上游积分包的记录保留，不能代表最早恢复时间：签到或充值
+   * 也可能补充积分。积分耗尽状态不再按此时间自动解除；poolMembersOf 会在后续
+   * 余额查询确认正余额时清除旧失败，且不会覆盖查询期间新发生的失败。
    *
    * The upstream's text is persisted alongside the outcome so the card can name
    * the reason. It is REDACTED first because this message is a raw upstream body:
@@ -1923,12 +1912,15 @@ export function apply(ctx: Context, config: Config): void {
   async function poolMembersOf(region: WorkBuddyRegion): Promise<WorkBuddyPoolMember[]> {
     const store = stacks[region].store
     const accounts = await poolMemberAccounts(region)
-    const probes = await readPoolProbes(region)
+    const recordedProbes = await readPoolProbes(region)
+    const creditReadings: { accountId: string, startedAtMs: number, total: number }[] = []
     const rows = await Promise.all(accounts.map(async account => {
       const credential = await store.credentialFor(account.id).catch(() => undefined)
+      const startedAtMs = Date.now()
       const credits = credential === undefined
         ? undefined
         : await client.fetchCredits(credential).catch(() => undefined)
+      if (credits !== undefined) creditReadings.push({ accountId: account.id, startedAtMs, total: credits.total })
       return {
         account: {
           id: account.id,
@@ -1947,10 +1939,13 @@ export function apply(ctx: Context, config: Config): void {
               : { nearestExpiryMs: credits.nearestExpiryMs },
           },
         },
-        ...probes[account.id] === undefined ? {} : { probe: probes[account.id] as WorkBuddyPoolProbe },
         tokenExpiresAtMs: account.tokenExpiresAtMs,
       }
     }))
+    // 签到或充值后的正余额可以提前解除旧的月度等待记录；查询失败或仍为零时保留。
+    const probes = creditReadings.some(reading => recordedProbes[reading.accountId]?.outcome === 'out-of-credit')
+      ? await reconcilePoolCredits(region, creditReadings)
+      : recordedProbes
     // Remember the balances for the REQUEST path, which cannot afford to fetch
     // them (`localPoolMembers`). Written here because this is the one place the
     // pool pays for a credits reading — the card's poll and every batch test run
@@ -1962,7 +1957,10 @@ export function apply(ctx: Context, config: Config): void {
         .map(row => [row.account.id, row.credits as WorkBuddyPoolCredits]),
     )
     creditsSnapshotAt[region] = Date.now()
-    return rows
+    return rows.map(row => ({
+      ...row,
+      ...probes[row.account.id] === undefined ? {} : { probe: probes[row.account.id] as WorkBuddyPoolProbe },
+    }))
   }
 
   /**
@@ -2180,6 +2178,11 @@ export function apply(ctx: Context, config: Config): void {
         if (row.status === 'failed') continue
         const cached = checkinStateCache[region]
         if (cached !== undefined) delete cached[row.accountId]
+      }
+      // 签到成功后立即读取实际余额并更新运行时选号，避免等到手动模型测试才恢复。
+      if (rows.some(row => row.status !== 'failed')) {
+        await poolMembersOf(region)
+        await applyPoolSelection(region)
       }
       // `scopeSize` is the count this attempt was measured against: pending
       // targets PLUS whatever the day already settled, which is the honest

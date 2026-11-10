@@ -518,11 +518,12 @@ export function installPluginStatusRoutes(webCtx: Parameters<typeof registerWork
         // Skip the read entirely when the pool is off: the card renders no pool
         // section in that state, so N upstream requests per poll would be pure
         // waste (and cost, on the upstream's side).
-        if (!dependencies.poolPreferencesOf(dependencies.current(), region).enabled) return {}
+        if (region !== 'cn' || !dependencies.poolPreferencesOf(dependencies.current(), region).enabled) return {}
         const store = dependencies.stacks[region].store
         const accounts = await store.accounts()
         const now = Date.now()
         const entries = await Promise.all(accounts.map(async account => {
+          if (account.enterprise === true) return undefined
           // Serve from the cache while it is fresh. The card uses its configured interval. Cached readings are also day-bounded.
           // Previously it polled every 60
           // seconds, but "did this account check in today" only changes when a
@@ -536,7 +537,7 @@ export function installPluginStatusRoutes(webCtx: Parameters<typeof registerWork
           const credential = await store.credentialFor(account.id).catch(() => undefined)
           if (credential === undefined) return undefined
           const status = await dependencies.client.fetchCheckinStatus(credential).catch(() => undefined)
-          if (status === undefined) return undefined
+          if (status === undefined || !status.active) return undefined
           dependencies.checkinStateCache[region] = {
             ...dependencies.checkinStateCache[region],
             [account.id]: { checkedIn: status.todayCheckedIn, atMs: now },
@@ -697,6 +698,10 @@ export function installPluginStatusRoutes(webCtx: Parameters<typeof registerWork
           if (row.status === 'failed') continue
           const cached = dependencies.checkinStateCache[region]
           if (cached !== undefined) delete cached[row.accountId]
+        }
+        if (rows.some(row => row.status !== 'failed')) {
+          await dependencies.poolMembersOf(region)
+          await dependencies.applyPoolSelection(region)
         }
         return rows
       },

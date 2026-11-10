@@ -138,6 +138,32 @@ function rowOf(name: string): Element | undefined {
 }
 
 describe('the panel keeps its account rows current while it is open', () => {
+  it('updates pool state alongside credits after automatic check-in without a model test', async () => {
+    fakeIntervals()
+    let replenished = false
+    stubFetch(url => ({ body: url.includes('account-credits')
+      ? { accounts: [{ id: 'a-1', accountName: 'A One', selected: true, credits: replenished ? 100 : 0 }] }
+      : { ...usageOf(replenished ? 100 : 0), pollIntervalMs: 60_000, pool: {
+          enabled: true, checkinSupported: true, targetModelSource: 'none', accounts: [{
+            accountId: 'a-1', accountName: 'A One', member: true, current: replenished,
+            credits: replenished ? 100 : 0, checkedInToday: replenished,
+            ...replenished ? {} : { excludedBy: 'out-of-credit', probe: {
+              outcome: 'out-of-credit', atMs: Date.now() - 1000, retryAtMs: Date.now() + 21 * 86_400_000,
+            } },
+          }],
+        } },
+    }))
+    const m = await openPanel()
+    expect(rowMarkOf('A One')).toContain('row.creditCheckinRetry')
+    expect(rowMarkOf('A One')).not.toContain('row.recoversDays')
+    replenished = true
+    vi.advanceTimersByTime(60_000)
+    await m.settle()
+    expect(rowOf('A One')?.textContent).toContain('100')
+    expect(rowMarkOf('A One')).not.toContain('row.poolExcludedOutOfCredit')
+    expect(rowDotOf('A One')).not.toContain('error')
+  })
+
   it('re-reads the account table on the CARD cadence, not the readout one', () => {
     // The property that matters is AGREEMENT, not a particular number. The panel
     // used to hold its own 60 s constant that merely happened to equal the
@@ -154,7 +180,7 @@ describe('the panel keeps its account rows current while it is open', () => {
     )
     expect(source, 'the panel must read the cadence off the document').toContain('refreshIntervalMs')
     expect(source, 'the panel must arm its timer from that value').toContain(
-      '() => { void fetchAccountCredits(controller.signal) },\n        refreshIntervalMs,',
+      '() => { void refreshPanel() },\n        refreshIntervalMs,',
     )
     // The fallback is the shared constant, not a fresh literal.
     expect(COMPOSER_ACCOUNT_REFRESH_INTERVAL_MS).toBe(WORKBUDDY_DEFAULT_POLL_INTERVAL_MS)

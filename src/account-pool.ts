@@ -339,7 +339,9 @@ export function exclusionOf(
       // "walk every member into the same wall" behaviour issue #56 reports.
       return retryDue(probe, nowMs, MODEL_BUSY_COOLDOWN_MS) ? undefined : 'model-busy'
     case 'out-of-credit':
-      return retryDue(probe, nowMs) ? undefined : 'out-of-credit'
+      // 签到、充值或套餐刷新必须实际到账；时间经过不构成余额恢复的证据。
+      // poolMembersOf 查询到正余额后会清除此失败记录，再允许账号重新参与选号。
+      return 'out-of-credit'
     case 'policy-rejected':
       // NOT the `default` branch. A content-policy refusal is a fact about ONE
       // REQUEST, not about the account: the server refused that message's
@@ -372,11 +374,9 @@ export function exclusionOf(
 /**
  * Whether an account's cooldown has elapsed (or was never stated).
  *
- * The fallback is the ONLY thing a transient outcome relies on: `cooldownOf`
- * attaches `retryAtMs` for a rate limit or a drained quota, never for a
- * transport failure, so `atMs + POOL_UNKNOWN_COOLDOWN_MS` is what brings those
- * back. That is deliberate — the alternative is a permanent exclusion decided by
- * an event that said nothing about the account.
+ * Transient failures without a stated retry time use the local short waiting
+ * period. Credit exhaustion does not call this helper: only a later balance
+ * reading or a successful model request can establish that credits are usable.
  *
  * `fallbackMs` lets one outcome carry a SHORTER clock than the generic one: the
  * model-scoped throttle is upstream's own "about a minute", and applying the
@@ -419,7 +419,7 @@ function retryDue(
   const reserveAllowed = ordered.slice(0, -1).every(member =>
     member.credits?.total === 0 || ['rate-limited', 'out-of-credit'].includes(exclusionOf(member.probe, nowMs) ?? ''))
   const rows = members.map(member => {
-    const excludedBy = reserveLast && member.credits?.total === 0 ? 'out-of-credit'
+    const excludedBy = member.credits?.total === 0 ? 'out-of-credit'
       : member.account.id === reserveId && !reserveAllowed ? 'reserved'
       : exclusionOf(member.probe, nowMs)
     return {

@@ -519,10 +519,15 @@ export function ComposerCredits(props: ComposerCreditsProps) {
     let cancelled = false
     let timer: number | undefined
     const controller = new AbortController()
-    void fetchAccountCredits(controller.signal).finally(() => {
+    // 余额和状态来自两个接口，必须在同一轮轮询中更新，避免正余额仍配旧失败提示。
+    const refreshPanel = async (): Promise<void> => {
+      await fetchAccountCredits(controller.signal)
+      await fetchUsage(controller.signal)
+    }
+    void refreshPanel().finally(() => {
       if (cancelled) return
       timer = window.setInterval(
-        () => { void fetchAccountCredits(controller.signal) },
+        () => { void refreshPanel() },
         refreshIntervalMs,
       )
     })
@@ -531,7 +536,7 @@ export function ComposerCredits(props: ComposerCreditsProps) {
       if (timer !== undefined) window.clearInterval(timer)
       controller.abort()
     }
-  }, [open, activeRegion, fetchAccountCredits, refreshIntervalMs])
+  }, [open, activeRegion, fetchAccountCredits, fetchUsage, refreshIntervalMs])
 
   // Escape closes the panel, matching the neighbouring popovers.
   useEffect(() => {
@@ -968,9 +973,9 @@ export function ComposerCredits(props: ComposerCreditsProps) {
                       // question (which account this endpoint reports it can
                       // switch FROM), i.e. the button's disabled state.
                       const live = poolRow === undefined ? current : poolRow.current
-                      const availability = poolRow ?? {
-                        excludedBy: row.excludedBy,
-                        probe: undefined,
+                      const availability = {
+                        ...(poolRow ?? { excludedBy: row.excludedBy, probe: undefined }),
+                        checkinSupported: usage?.status === 'signed-in' && usage.pool?.checkinSupported === true,
                       }
                       // Why this account cannot serve right now, in the same
                       // WHAT the row prints, and what it only whispers.

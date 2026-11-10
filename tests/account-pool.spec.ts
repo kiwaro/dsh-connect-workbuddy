@@ -186,9 +186,10 @@ describe('exclusionOf', () => {
     expect(exclusionOf(probe, NOW)).toBe('out-of-credit')
   })
 
-  it('returns an out-of-credit account once the quota refreshes', () => {
+  it('keeps an out-of-credit account excluded until a balance read confirms replenishment', () => {
     const probe = { outcome: 'out-of-credit' as const, atMs: NOW, retryAtMs: NOW + 3_600_000 }
-    expect(exclusionOf(probe, NOW + 3_600_001)).toBeUndefined()
+    expect(exclusionOf(probe, NOW + 3_600_001)).toBe('out-of-credit')
+    expect(exclusionOf({ outcome: 'out-of-credit', atMs: NOW }, NOW + 86_400_000)).toBe('out-of-credit')
   })
 
   it('excludes a rejected credential regardless of any cooldown', () => {
