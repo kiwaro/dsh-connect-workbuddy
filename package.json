@@ -2,7 +2,7 @@
   "name": "dsh-connect-workbuddy",
   "displayName": "DSH Connect WorkBuddy",
   "description": "在 DSH 中使用 WorkBuddy 国内版和国际版模型，支持账号切换、自动轮换、积分查询、每日签到和模型设置。",
-  "version": "5.20.3",
+  "version": "5.24.9",
   "author": "dingminhua",
   "copyright": "Copyright (c) 2026 LaoDing",
   "license": "MIT",

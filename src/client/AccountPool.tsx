@@ -2131,10 +2131,13 @@ function renderAccountRow(input: {
       // IS actionable — and the absolute date stays reachable where the question
       // is actually asked (the usage panel's own expiry column).
       account.expiringSoon !== undefined && account.expiringSoon > 0
-        ? h('span', { className: 'dsm-workbuddy-pool-soon' },
-            t('row.poolCreditSoon', { count: formatNumber(account.expiringSoon) }))
-        : null,
-      // Claimable benefits (issue #79). Rendered ONLY when there is at least one:
+        ? h('span', {
+            className: 'dsm-workbuddy-pool-soon',
+            title: account.nearestExpiryMs === undefined
+              ? undefined
+              : t('composer.creditSoonHint', { time: formatShortClock(account.nearestExpiryMs) }),
+          }, t('row.poolCreditSoon', { count: formatNumber(account.expiringSoon) }))
+        : null,      // Claimable benefits (issue #79). Rendered ONLY when there is at least one:
       // a claimed campaign and a lapsed one both arrive here ABSENT, so the line
       // disappears by itself once nothing is left to take — that absence is the
       // requested behaviour, not an omission.
