@@ -343,15 +343,19 @@ export function apply(ctx: Context, config: Config): void {
    * 落到"关"，与 `default(false)` 同一个答案。写成 `!== false` 会让"未设置"和
    * "显式开启"分叉，升级后老用户静默拿到与 schema 默认相反的行为。
    */
-  const deviceSdkEnabled = unwrapVolatile(config.deviceSdkEnabled) === true
+  const deviceSdkEnabled = () => unwrapVolatile(config.deviceSdkEnabled) === true
   const turing = createTuringSdk({
     productVersion: APP_VERSION,
     dirSource: () => deviceProfiles.sdkDir(),
     // 关掉之后连发现链都不该跑：目录仍然解析得出来，但 probe 直接答 disabled，
     // 因此不会有任何一次子进程被创建。
-    enabled: deviceSdkEnabled,
+    get enabled() { return deviceSdkEnabled() },
   })
-  if (deviceSdkEnabled) turing.startAutoRefresh()
+  const syncDeviceSdk = () => {
+    if (deviceSdkEnabled()) turing.startAutoRefresh()
+    else turing.stopAutoRefresh()
+  }
+  syncDeviceSdk()
   ctx.effect(() => () => { turing.stopAutoRefresh() })
 
   /**
@@ -2369,6 +2373,7 @@ export function apply(ctx: Context, config: Config): void {
       // The auto check-in switch lives in the same volatile region slot, so this
       // is also where turning it on or off takes effect — without a restart.
       syncAutoCheckin()
+      syncDeviceSdk()
     })
 
   // Initial wiring: selections, per-region catalogs from the saved state.

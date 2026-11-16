@@ -24,9 +24,9 @@ interface CapabilityInputs {
   pinningVideoModel: string | undefined
   pinVideoModel: (item: WorkBuddyWebRegion, tag: string, modelId: string | undefined) => Promise<void>
   mediaBusy: boolean
-  setMediaBusy: import("D:/work/dsh-connect-workbuddy/node_modules/.pnpm/@types+react@18.3.31/node_modules/@types/react/index").Dispatch<import("D:/work/dsh-connect-workbuddy/node_modules/.pnpm/@types+react@18.3.31/node_modules/@types/react/index").SetStateAction<boolean>>
+  setMediaBusy: import("react").Dispatch<import("react").SetStateAction<boolean>>
   loadMediaModels: (region: WorkBuddyWebRegion, refresh: boolean, signal?: AbortSignal) => Promise<void>
-  mounted: import("D:/work/dsh-connect-workbuddy/node_modules/.pnpm/@types+react@18.3.31/node_modules/@types/react/index").MutableRefObject<boolean>
+  mounted: import("react").MutableRefObject<boolean>
   mediaError: string | undefined
   cliBridgeSwitchedOn: () => boolean
   cliBridgeBusy: boolean
@@ -46,13 +46,13 @@ interface CapabilityInputs {
   pickCliBridgeRegionOrder: (regionOrder: string) => Promise<void>
   usageIdentityValue: () => boolean
   usageIdentityBusy: boolean
-  setUsageIdentityOn: import("D:/work/dsh-connect-workbuddy/node_modules/.pnpm/@types+react@18.3.31/node_modules/@types/react/index").Dispatch<import("D:/work/dsh-connect-workbuddy/node_modules/.pnpm/@types+react@18.3.31/node_modules/@types/react/index").SetStateAction<boolean | undefined>>
+  setUsageIdentityOn: import("react").Dispatch<import("react").SetStateAction<boolean | undefined>>
   keepPromptLastValue: () => boolean
   keepPromptLastBusy: boolean
-  setKeepPromptLastOn: import("D:/work/dsh-connect-workbuddy/node_modules/.pnpm/@types+react@18.3.31/node_modules/@types/react/index").Dispatch<import("D:/work/dsh-connect-workbuddy/node_modules/.pnpm/@types+react@18.3.31/node_modules/@types/react/index").SetStateAction<boolean | undefined>>
+  setKeepPromptLastOn: import("react").Dispatch<import("react").SetStateAction<boolean | undefined>>
   sessionTitleValue: () => { enabled: boolean; model: string; }
   sessionTitleBusy: boolean
-  setSessionTitleOn: import("D:/work/dsh-connect-workbuddy/node_modules/.pnpm/@types+react@18.3.31/node_modules/@types/react/index").Dispatch<import("D:/work/dsh-connect-workbuddy/node_modules/.pnpm/@types+react@18.3.31/node_modules/@types/react/index").SetStateAction<boolean | undefined>>
+  setSessionTitleOn: import("react").Dispatch<import("react").SetStateAction<boolean | undefined>>
   toggleUpstreamSwitch: (field: "usageIdentity" | "keepPromptLast" | "sessionTitle" | "channelRejectContinue" | "dropAllThinking", enabled: boolean) => Promise<void>
   extraInjectedPrefixes: () => string[]
   channelRejectContinueValue: () => { enabled: boolean; maxConsecutive: number; text: string; }
