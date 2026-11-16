@@ -1240,6 +1240,10 @@ export interface WorkBuddyWebAccountCredit {
   accountName: string
   selected: boolean
   credits?: number
+  /** Credits expiring within three days for this account. */
+  expiringSoon?: number
+  /** Expiry time of the nearest package, in milliseconds. */
+  nearestExpiryMs?: number
   /**
    * Why this account cannot serve right now, or absent when nothing is wrong
    * (or nothing has been measured yet).

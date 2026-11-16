@@ -389,6 +389,8 @@ export const WORKBUDDY_CARD_CSS = `
 .dsm-workbuddy-searched-more{margin-top:6px;padding:0;border:0;background:none;color:var(--dsw-alias-brand-primary,#5686fe);font:inherit;font-size:12px;line-height:18px;cursor:pointer;text-align:left}
 .dsm-workbuddy-searched-more:hover{text-decoration:underline}
 .dsm-workbuddy-usage-error{margin:0;font-size:14px;line-height:22px;color:var(--dsw-alias-state-error-primary,#ef4444)}
+.dsm-workbuddy-expiry{display:flex;flex-wrap:wrap;gap:4px 10px;margin:8px 0 0;font-size:12px;line-height:18px;color:var(--dsw-alias-state-warn-primary,#b45309)}
+.dsm-workbuddy-expiry-detail{color:var(--dsw-alias-typo-secondary,#64748b)}
 /* A failed status read is recoverable, so the banner carries an action: the
    message alone told the user nothing they could do but close the card. */
 .dsm-workbuddy-usage-error-block{display:flex;flex-direction:column;align-items:flex-start;gap:10px;margin-top:12px}
@@ -1820,6 +1822,7 @@ export const WORKBUDDY_COMPOSER_CSS = `
    instead of the name. */
 .dsm-workbuddy-composer-panel-who{display:flex;flex-direction:column;min-width:0;gap:1px}
 .dsm-workbuddy-composer-panel-name{overflow:hidden;text-overflow:ellipsis}
+.dsm-workbuddy-composer-panel-soon{display:block;font-size:11px;line-height:16px;color:var(--dsw-alias-state-warn-primary,#b45309)}
 /* The second line under the name: TWO facts, two tones.
    .dsm-workbuddy-composer-panel-mark-current -- "当前选用", green: it says which
      account is serving this tab, which is not a problem and must not be painted

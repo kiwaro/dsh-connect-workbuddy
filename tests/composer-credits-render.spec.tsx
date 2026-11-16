@@ -887,10 +887,22 @@ describe('ComposerCredits panel takes its order from the pool document', () => {
 
   const creditsRows = {
     accounts: [
-      { id: 'a-1', accountName: 'A One', selected: true, credits: 10 },
+      { id: 'a-1', accountName: 'A One', selected: true, credits: 10, expiringSoon: 4, nearestExpiryMs: Date.UTC(2026, 10, 19, 0, 5) },
       { id: 'a-2', accountName: 'A Two', selected: false, credits: 20 },
     ],
   }
+
+  it('shows the per-account expiring amount and nearest-expiry tooltip', async () => {
+    stubFetch(url => ({ body: url.includes('account-credits') ? creditsRows : usageOf('cn', 30) }))
+    const m = await render({ provider: 'workbuddy', settingsScope: orderScope(['a-1', 'a-2']) })
+    await m.click(m.buttons()[0] as Element)
+    await m.settle()
+    const row = Array.from(document.body.querySelectorAll('.dsm-workbuddy-composer-panel tr'))
+      .find(node => node.querySelector('.dsm-workbuddy-composer-panel-name')?.textContent === 'A One')
+    expect(row?.querySelector('.dsm-workbuddy-composer-panel-soon')?.textContent).toBe('row.poolCreditSoon|count=4')
+    expect(row?.querySelector('.dsm-workbuddy-composer-panel-soon')?.getAttribute('title')).toContain('row.poolCreditSoonHint|time=')
+    await m.unmount()
+  })
 
   it('follows the pool document order even with no saved settings order', async () => {
     // A Host that reports the order in the pool document only. The panel must

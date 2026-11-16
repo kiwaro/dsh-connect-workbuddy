@@ -2135,7 +2135,7 @@ function renderAccountRow(input: {
             className: 'dsm-workbuddy-pool-soon',
             title: account.nearestExpiryMs === undefined
               ? undefined
-              : t('composer.creditSoonHint', { time: formatShortClock(account.nearestExpiryMs) }),
+              : t('row.poolCreditSoonHint', { time: formatShortClock(account.nearestExpiryMs) }),
           }, t('row.poolCreditSoon', { count: formatNumber(account.expiringSoon) }))
         : null,      // Claimable benefits (issue #79). Rendered ONLY when there is at least one:
       // a claimed campaign and a lapsed one both arrive here ABSENT, so the line

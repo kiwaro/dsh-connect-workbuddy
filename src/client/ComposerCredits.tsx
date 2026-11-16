@@ -1050,7 +1050,14 @@ export function ComposerCredits(props: ComposerCreditsProps) {
                             </button>
                           </th>
                           <td className="dsm-workbuddy-composer-panel-num">
-                            {row.credits === undefined ? '—' : formatCredits(row.credits)}
+                            <span>{row.credits === undefined ? '—' : formatCredits(row.credits)}</span>
+                            {row.expiringSoon === undefined || row.expiringSoon <= 0
+                              ? null
+                              : <span className="dsm-workbuddy-composer-panel-soon"
+                                  title={row.nearestExpiryMs === undefined
+                                    ? undefined
+                                    : t('row.poolCreditSoonHint', { time: formatClock(row.nearestExpiryMs) })}
+                                >{t('row.poolCreditSoon', { count: formatCredits(row.expiringSoon) })}</span>}
                           </td>
                           <td className="dsm-workbuddy-composer-panel-action">
                             <button type="button" data-current={live ? 'true' : undefined} disabled={!canSwitch || switchingId !== undefined || live}

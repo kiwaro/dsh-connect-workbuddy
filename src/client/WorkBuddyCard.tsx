@@ -768,6 +768,14 @@ function WorkBuddyCardBody(props: WorkBuddyCardProps) {
                       : null}
                     {status.creditsError === undefined ? null
                       : <p className="dsm-workbuddy-usage-error">{t('row.creditsError', { message: status.creditsError })}</p>}
+                    {status.credits === undefined || status.credits.expiringSoon <= 0
+                      ? null
+                      : <p className="dsm-workbuddy-expiry" role="status">
+                          {t('row.creditExpirySoon', { accountName: nameOf(status.accountName), count: formatNumber(status.credits.expiringSoon) })}
+                          {status.credits.nearestExpiryMs === undefined
+                            ? null
+                            : <span className="dsm-workbuddy-expiry-detail">{t('row.creditExpiryEarliest', { at: formatDate(status.credits.nearestExpiryMs) })}</span>}
+                        </p>}
                     {status.refreshError === undefined ? null
                       : <p className="dsm-workbuddy-usage-error" role="alert">{t('row.requestFailedHint', { message: status.refreshError })}</p>}
                     {/* The account pool. Rendered only when the Host reports

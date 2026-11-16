@@ -105,6 +105,17 @@ const tab = (m: Awaited<ReturnType<typeof mountCard>>, id: string): HTMLButtonEl
 }
 
 describe('the card splits into three sections', () => {
+  it('shows expiring credits and their nearest expiry for the signed-in account', async () => {
+    const m = await mountCard(usageOf({
+      credits: { total: 200, expiringSoon: 143, nearestExpiryMs: Date.UTC(2026, 10, 19, 0, 5), packages: [] },
+    }))
+    const notice = m.container.querySelector('.dsm-workbuddy-expiry')
+    expect(notice?.getAttribute('role')).toBe('status')
+    expect(notice?.textContent).toContain('row.creditExpirySoon|accountName=Real One|count=143')
+    expect(notice?.textContent).toContain('row.creditExpiryEarliest|at=')
+    await m.unmount()
+  })
+
   it('opens on accounts, with the other two panels hidden', async () => {
     const m = await mountCard()
     expect(panel(m, 'accounts').hidden).toBe(false)
