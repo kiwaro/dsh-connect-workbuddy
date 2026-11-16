@@ -8,12 +8,13 @@
  *     因此由 DSH 写心跳文件。文件缺失表示当前没有可读取的心跳证据，
  *     也可能是文件被清理或写入失败，不能断定 DSH 从未启动。崩溃后的陈旧心跳
  *     通过 PID 存活检查识别。
- * 改动：无。机制本身已完备，原样沿用。
+ * 改动：清理由成功写入该记录的插件实例负责，避免失败启动删除另一宿主的回执。
  *
  * @module dsh-connect-workbuddy/host-heartbeat
  */
 
 import { execFileSync } from 'node:child_process'
+import { randomUUID } from 'node:crypto'
 import { readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { resolveDshHome } from './host-peers.ts'
@@ -59,6 +60,12 @@ export interface WorkBuddyHostHeartbeat {
    * what those builds wrote, and is only a last-resort approximation.
    */
   hostStartedAt?: number
+}
+
+/** A successful write's exact location and bytes, retained by its plugin instance. */
+export interface WorkBuddyHostHeartbeatOwner {
+  readonly path: string
+  readonly contents: string
 }
 
 /** Absolute path of the host heartbeat file. */
@@ -232,7 +239,8 @@ export async function readHostHeartbeat(): Promise<WorkBuddyHostHeartbeat | unde
  * than cached: the value is cheap, and a module-level cache would be wrong the
  * moment this function is exercised from a child process.
  */
-export async function writeHostHeartbeat(): Promise<void> {
+export async function writeHostHeartbeat(): Promise<WorkBuddyHostHeartbeatOwner> {
+  const path = workbuddyHostHeartbeatPath()
   const hostStartedAt = processStartTimeMs(process.pid)
   const heartbeat: WorkBuddyHostHeartbeat = {
     version: HEARTBEAT_FORMAT_VERSION,
@@ -242,10 +250,28 @@ export async function writeHostHeartbeat(): Promise<void> {
     pid: process.pid,
     ...hostStartedAt === undefined ? {} : { hostStartedAt },
   }
-  await writeFile(workbuddyHostHeartbeatPath(), `${JSON.stringify(heartbeat, null, 2)}\n`, { mode: 0o600 })
+  // Same-process registrations may share a millisecond. Readers keep the
+  // existing v2 fields; this optional nonce identifies this writer's lifetime.
+  const contents = `${JSON.stringify({ ...heartbeat, registrationId: randomUUID() }, null, 2)}\n`
+  await writeFile(path, contents, { mode: 0o600 })
+  return { path, contents }
 }
 
-/** Remove the heartbeat; called when the plugin is disposed. */
-export async function clearHostHeartbeat(): Promise<void> {
-  await rm(workbuddyHostHeartbeatPath(), { force: true })
+/**
+ * Remove only this instance's successful write, if it is still current.
+ *
+ * A failed startup has no owner. The captured path also keeps a later DSH_HOME
+ * change from redirecting cleanup. Missing/replaced records are left alone;
+ * unexpected read/removal errors reject so the disposer can report them.
+ */
+export async function clearHostHeartbeat(owner?: WorkBuddyHostHeartbeatOwner): Promise<void> {
+  if (owner === undefined) return
+  let current: string
+  try {
+    current = await readFile(owner.path, 'utf8')
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return
+    throw error
+  }
+  if (current === owner.contents) await rm(owner.path, { force: true })
 }
